@@ -40,6 +40,6 @@ go test ./internal/server -run OpenAPIDocument -update           # refresh the O
 ## Process rules
 
 - Branch: `<type>/<N>-<slug>`, for example `fix/123-hide-claim`, where `N` is the issue number. **Never push to `main`.** Work on a branch and open a PR.
-- **Never merge your own PR, and never turn on auto-merge for it** (auto-merge is on in the repo for Renovate). Your own PR is one your session wrote. Agents and the maintainer push as one GitHub account, so GitHub can't tell them apart. Merge with `gh pr merge --squash` only when a different reviewer session has posted `Verdict: approve` for the head SHA, and `PR Title` and `CI OK` are green. There are two exceptions, in [Merge](docs/workflow.md#merge): a spec PR that only records an answer the maintainer already gave, and Renovate's minor and patch updates (green CI, no verdict).
+- **A PR merges** with `gh pr merge --squash` only when someone who wrote none of it approved its head commit in review, and `PR Title` and `CI OK` are green. Never turn on auto-merge for a PR: it is on in the repo only for Renovate. See [Merge](docs/workflow.md#merge).
 - **Issues are for humans.** Don't put agent working notes, logs, or decisions in issue bodies or comments (see [Notes and memory](docs/workflow.md#notes-and-memory)). Issues use the labels in [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
 - [`docs/agents/`](docs/agents/domain.md) configures the maintainer's own agent skills (the mattpocock/skills pack). Ignore it if your agent doesn't use that pack.

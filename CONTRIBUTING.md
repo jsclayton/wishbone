@@ -40,12 +40,11 @@ Wishbone is under the [AGPL-3.0](LICENSE). When you contribute, you agree that y
 
 ## The full process
 
-[`docs/workflow.md`](docs/workflow.md) describes the whole process: issues, branches, review, merge, and CI. It is written for the maintainer and the agents they run, so some of it doesn't apply to a person. What you do differently:
+[`docs/workflow.md`](docs/workflow.md) describes the whole process: issues, branches, review, merge, and CI. As a contributor:
 
-- **You don't post a verdict comment.** The `Verdict: approve` comment is how an agent reviewer reports, because agents can't approve their own work on GitHub. The maintainer reviews your pull request and merges it.
-- **You don't merge your own pull request.** The maintainer squash-merges it when `PR Title` and `CI OK` pass.
-- **You don't need the triage labels.** The maintainer triages issues and sets `ready-for-agent` and the other labels.
-- **You write the pull request body in your own words.** Use the template: say what changed and why, the choices you made, and any issue you opened. Leave the review summary blank. The maintainer fills it in.
+- **You don't merge your own pull request.** The maintainer reviews it and squash-merges it when `PR Title` and `CI OK` pass.
+- **You don't need the triage labels.** The maintainer triages issues and sets the labels.
+- **Use the pull request template.** Say what changed and why, and the choices you made.
 - **You don't have to file issues for what you find.** If you notice a problem outside your change, mention it in the pull request or open an issue.
 
 Questions are welcome in [Discussions](https://github.com/jsclayton/wishbone/discussions).

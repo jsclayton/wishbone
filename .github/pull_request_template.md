@@ -6,15 +6,7 @@ Closes #
 
 ## Decisions and notes
 
-<!-- Choices you made and why, and anything you would like a second opinion on. -->
-
-## Review summary
-
-<!-- Leave blank; the maintainer fills it in. -->
-
-## New issues
-
-<!-- Issues you opened while working on this, as links with one line of why. Write "None" if there are none. -->
+<!-- Choices you made and why, and anything you would like a second opinion on. Link any issue you opened. -->
 
 ## Testing
 
