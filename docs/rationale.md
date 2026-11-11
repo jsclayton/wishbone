@@ -125,7 +125,7 @@ The maintainer decided this on 2026-11-10.
 ### pnpm instead of npm
 
 - **Dependency install scripts are blocked by default.** Exceptions are listed in `pnpm-workspace.yaml` under `allowBuilds`. This is the main reason, after the npm supply-chain worms of 2025.
-- **`minimumReleaseAge`** (3 days) means a freshly published version isn't installed right away. Renovate uses the same delay.
+- **`minimumReleaseAge`** (3 days) means a freshly published version isn't installed right away. Renovate uses the same delay. A security fix waits 1 day in Renovate (`vulnerabilityAlerts`), not the default of no wait, because it auto-merges and Go modules and GitHub Actions have no other age check.
 - **Strict `node_modules`**: code can only import packages it declares.
 - **Workspace:** one install and one lockfile for root tooling (commitlint, lefthook) and `web/`. This is not a monorepo, and the domain docs are single-context.
 - Node 25+ no longer bundles corepack, so the Dockerfile runs `npm install -g pnpm@<version>` and CI installs Node and pnpm with mise.
