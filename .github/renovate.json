@@ -13,6 +13,9 @@
   "prHourlyLimit": 2,
   "postUpdateOptions": ["gomodTidy", "gomodVendor"],
   "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "minimumReleaseAge": "1 day"
+  },
   "customManagers": [
     {
       "customType": "regex",
