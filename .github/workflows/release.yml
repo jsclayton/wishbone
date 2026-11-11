@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag
+        id: validate
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag '$TAG' is not vX.Y.Z" >&2
+            exit 1
+          fi
+          SHORT_SHA="${GITHUB_SHA::7}"
+          {
+            echo "tag=${TAG}"
+            echo "version=${TAG#v}"
+            echo "full_version=${TAG#v}+${SHORT_SHA}"
+            echo "commit=${SHORT_SHA}"
+            echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+
+      # A release for an older line (1.0.1 after 2.0.0) must not move the tags
+      # of a newer one. Each moving tag goes to this release only if it is the
+      # highest vX.Y.Z tag that the moving tag stands for. The new tag is in the list.
+      - name: Find the image tags this release moves
+        id: moves
+        env:
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          highest() { git tag --list "$1" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed -n '1p'; }
+          is_highest() { if [ "$(highest "$1")" = "$TAG" ]; then echo true; else echo false; fi; }
+          VERSION="${TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION%.*}"
+          {
+            echo "latest=$(is_highest 'v*')"
+            echo "major=$(is_highest "v${MAJOR}.*")"
+            echo "minor=$(is_highest "v${MINOR}.*")"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # The action adds `latest` by itself, from the first tag entry (flavor latest=auto).
+          # This flavor makes the gate the only source of `latest`, so there is no raw entry.
+          flavor: |
+            latest=${{ steps.moves.outputs.latest }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.moves.outputs.minor }}
+            type=semver,pattern={{major}},enable=${{ steps.moves.outputs.major }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.validate.outputs.full_version }}
+            COMMIT=${{ steps.validate.outputs.commit }}
+            BUILD_TIME=${{ steps.validate.outputs.build_time }}
+
+      - name: Generate changelog
+        env:
+          TAG: ${{ steps.validate.outputs.tag }}
+          VERSION: ${{ steps.validate.outputs.version }}
+          FULL_VERSION: ${{ steps.validate.outputs.full_version }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The release before this one in version order. It is not the second-highest tag
+          # when this release is a patch for an older line.
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -F -x -A1 "$TAG" | sed -n '2p')
+          [ -z "$PREV_TAG" ] && PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+
+          section() {
+            local title="$1" pattern="$2" lines
+            lines=$(git log "${PREV_TAG}..${GITHUB_SHA}" --pretty=format:"- %s (%h)" --extended-regexp --grep="$pattern" || true)
+            if [ -n "$lines" ]; then printf '### %s\n%s\n\n' "$title" "$lines"; fi
+          }
+
+          {
+            echo "## What's Changed"
+            echo
+            section "Features" '^feat(\(|:|!)'
+            section "Bug Fixes" '^fix(\(|:|!)'
+            section "Documentation" '^docs(\(|:)'
+            section "Other Changes" '^(chore|refactor|perf|test|build|ci)(\(|:)'
+            echo "## Docker Image"
+            echo
+            echo '```'
+            echo "docker pull ghcr.io/${REPO}:${VERSION}"
+            echo '```'
+            echo
+            echo "**Full version:** \`${FULL_VERSION}\`"
+            echo "**Full Changelog:** https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}"
+          } > changelog.md
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          body_path: changelog.md
+          append_body: true

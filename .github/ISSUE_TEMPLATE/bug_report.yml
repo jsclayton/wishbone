@@ -1,0 +1,90 @@
+name: Bug report
+description: Something in Wishbone does not work as you expect
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        If the problem lets someone see a gift they should not see, or sign in as someone else, don't post it here. Report it in private: see [SECURITY.md](https://github.com/jsclayton/wishbone/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What went wrong?
+      description: A short description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Menu
+        2. Tap '...'
+        3. See the error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Add a screenshot if it helps.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Image tag or version
+      description: The image tag you run, or the version at the bottom of Menu.
+      placeholder: ghcr.io/jsclayton/wishbone:2.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: The browser or app where it happens, and the phone or computer.
+      placeholder: Safari on an iPhone 15, iOS 19
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installed
+    attributes:
+      label: Is Wishbone installed on the home screen?
+      options:
+        - "No, I use it in the browser"
+        - "Yes, it is installed as an app"
+        - "I'm not sure"
+
+  - type: input
+    id: proxy
+    attributes:
+      label: Reverse proxy
+      description: What sits in front of Wishbone, if anything. A problem with sign-in or links often depends on it.
+      placeholder: Caddy, Traefik, nginx, or none
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log
+      description: Any lines from the log (`docker compose logs wishbone`) that show the problem. Remove anything private.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?

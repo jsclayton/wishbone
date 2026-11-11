@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head>
+<title>Wool Runner</title>
+<meta property="og:title" content="Wool Runner">
+<meta property="og:image" content="https://cdn.example.com/runner.jpg">
+</head><body>
+<form action="/cart/add" method="post">
+  <label for="size-picker">Shoe size</label>
+  <select id="size-picker" name="options[Size]">
+    <option value="">Choose a size</option>
+    <option value="8">8</option>
+    <option value="9" selected>9</option>
+    <option value="10">10</option>
+  </select>
+  <select name="attribute_pa_color" id="pa_color">
+    <option value="">Choose an option</option>
+    <option value="natural-black">Natural Black</option>
+    <option value="tree-green">Tree Green</option>
+  </select>
+  <select name="quantity"><option>1</option><option>2</option></select>
+  <select name="country"><option value="US">United States</option><option value="CA">Canada</option></select>
+</form>
+</body></html>

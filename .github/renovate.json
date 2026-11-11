@@ -1,0 +1,110 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", ":dependencyDashboard"],
+  "platformAutomerge": true,
+  "automergeType": "pr",
+  "prCreation": "not-pending",
+  "rebaseWhen": "behind-base-branch",
+  "schedule": ["* 0-5 * * 6"],
+  "timezone": "America/Los_Angeles",
+  "minimumReleaseAge": "3 days",
+  "separateMajorMinor": true,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "postUpdateOptions": ["gomodTidy", "gomodVendor"],
+  "osvVulnerabilityAlerts": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["RUN npm install -g pnpm@(?<currentValue>\\S+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "groupName": "Node toolchain",
+      "matchManagers": ["mise", "npm", "dockerfile"],
+      "matchPackageNames": ["node"]
+    },
+    {
+      "groupName": "Go toolchain",
+      "matchManagers": ["mise", "gomod", "dockerfile"],
+      "matchPackageNames": ["go", "golang", "golang/go"]
+    },
+    {
+      "description": "Keep Go CI's version in step with mise and Docker",
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "groupName": "pnpm toolchain",
+      "matchPackageNames": ["pnpm"]
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["node", "golang"],
+      "pinDigests": true
+    },
+    {
+      "groupName": "React",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "Vite and Vitest",
+      "matchPackageNames": ["vite", "@vitejs/**", "vitest", "@vitest/**"]
+    },
+    {
+      "groupName": "Testing Library",
+      "matchPackageNames": ["@testing-library/**"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "Tailwind CSS",
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/**"]
+    },
+    {
+      "groupName": "commitlint",
+      "matchPackageNames": ["@commitlint/**"]
+    },
+    {
+      "groupName": "GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "pinDigests": true
+    },
+    {
+      "groupName": "Playwright",
+      "description": "The CI container tag must match @playwright/test",
+      "matchPackageNames": ["@playwright/test", "mcr.microsoft.com/playwright"]
+    },
+    {
+      "groupName": "Go dependencies (non-major)",
+      "matchDatasources": ["go"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "modernc.org sqlite stack",
+      "matchPackageNames": ["modernc.org/libc", "modernc.org/sqlite"],
+      "description": "libc must match the version sqlite requires"
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "major-update"]
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "labels": ["dependencies"],
+      "automerge": true
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "versioning": "node"
+    }
+  ]
+}

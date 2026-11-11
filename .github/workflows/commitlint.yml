@@ -1,0 +1,61 @@
+name: Commitlint
+
+# Lints the subject of every commit pushed to main. It can't block a merge.
+# Only the subject: the squash body is the PR body, and template lines exceed
+# body-max-line-length. Uses .github/commitlint.main.config.js so default ignores
+# (Revert, fixup!, Merge) don't let a bad squash title through.
+# It makes a bad message visible, for example a squash title edited in the
+# merge dialog. No concurrency group, so a later push never cancels a check.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    name: Commit Messages
+    env:
+      MISE_ENABLE_TOOLS: node,pnpm
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          install_args: node pnpm
+          minimum_release_age: 3d
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint commit subjects in this push
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          if [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            shas=$(git rev-list -1 "$AFTER")
+          else
+            shas=$(git rev-list --reverse "${BEFORE}..${AFTER}")
+          fi
+          status=0
+          for sha in $shas; do
+            subject=$(git log -1 --format=%s "$sha")
+            echo "Checking ${sha::7}: ${subject}"
+            if ! printf '%s\n' "$subject" | pnpm exec commitlint --config .github/commitlint.main.config.js; then
+              echo "::error::Commit ${sha::7} does not follow Conventional Commits. See the log above."
+              status=1
+            fi
+          done
+          exit "$status"

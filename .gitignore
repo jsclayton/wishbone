@@ -1,0 +1,42 @@
+# Build output
+bin/
+tmp/
+dist/
+coverage/
+internal/server/web/dist/
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+
+# JS
+node_modules/
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/playwright/.cache/
+
+# Agent scratch and private notes (never committed)
+.agent/
+.claude/
+*.local.md
+
+# Data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

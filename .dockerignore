@@ -1,0 +1,16 @@
+.git
+.github
+**/node_modules
+bin
+tmp
+data
+coverage
+web/dist
+web/coverage
+web/playwright-report
+web/test-results
+internal/server/web/dist
+.env
+.env.*
+*.md
+!README.md

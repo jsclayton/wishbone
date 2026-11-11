@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import "@fontsource/atkinson-hyperlegible-next/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-600.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-800.css";
+@import "@fontsource/atkinson-hyperlegible-mono/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible-mono/latin-600.css";
+
+/*
+ * The design tokens of Timetable, in the Steel palette. The light values are here; the dark values
+ * replace them under prefers-color-scheme below. Utilities such as `bg-tile`
+ * and `text-mute` read these variables, so a screen never names a color.
+ */
+@theme {
+  --font-sans: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+
+  /* Base text is 18px. `main` uses text-base, and rem sizes stay on 16px. */
+  --text-base: 1.125rem;
+  --text-base--line-height: calc(1.75 / 1.125);
+
+  /* The fonts have no 500, which would fall back to 400. */
+  --font-weight-medium: 600;
+
+  --color-bg: #ffffff;
+  --color-ink: #16202a;
+  --color-mute: #4d5a66;
+  --color-hair: #d6dbe0;
+  --color-field: #16202a;
+  --color-tile: #eceff2;
+  --color-band: #2b3a47;
+  --color-on-band: #ffffff;
+  --color-band-mute: #d3dce3;
+  --color-btn: #2b3a47;
+  --color-on-btn: #ffffff;
+  --color-alert: #ddeb5a;
+  --color-on-alert: #16202a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0d1217;
+    --color-ink: #eef1f4;
+    --color-mute: #a5b0ba;
+    --color-hair: #27313a;
+    --color-field: #6b7782;
+    --color-tile: #1a222a;
+    --color-band: #2b3a47;
+    --color-on-band: #ffffff;
+    --color-band-mute: #d3dce3;
+    --color-btn: #ddeb5a;
+    --color-on-btn: #16202a;
+    --color-alert: #ddeb5a;
+    --color-on-alert: #16202a;
+  }
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+/* Dates are mono. A price has no element of its own, so it takes `font-mono`. */
+@layer base {
+  time {
+    font-family: var(--font-mono);
+  }
+}

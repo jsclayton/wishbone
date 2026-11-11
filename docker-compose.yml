@@ -1,0 +1,33 @@
+# Example deployment. Put a TLS-terminating reverse proxy in front of it.
+services:
+  wishbone:
+    image: ghcr.io/jsclayton/wishbone:latest
+    container_name: wishbone
+    restart: unless-stopped
+    # Publish the port on the host's loopback only. Your reverse proxy on this
+    # host reaches it there, and nothing else on the network can: a client that
+    # skipped the proxy could read /metrics (it has no sign-in) and could send a
+    # forged X-Forwarded-For, which WISHBONE_TRUSTED_PROXIES below would trust.
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "/app/wishbone", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    volumes:
+      - wishbone-data:/data
+    environment:
+      WISHBONE_PUBLIC_URL: https://wishbone.example.com
+      # Docker's default network range, which covers a proxy on this host.
+      WISHBONE_TRUSTED_PROXIES: 172.16.0.0/12
+      # Set this to your zone.
+      TZ: America/Los_Angeles
+      # WISHBONE_LLM_PROVIDER: anthropic
+      # WISHBONE_LLM_API_KEY: ${WISHBONE_LLM_API_KEY}
+      # WISHBONE_BRIGHTDATA_API_KEY: ${WISHBONE_BRIGHTDATA_API_KEY}
+      # WISHBONE_BRIGHTDATA_ZONE: ${WISHBONE_BRIGHTDATA_ZONE}
+
+volumes:
+  wishbone-data:

@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a change or a new feature
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Wishbone is small on purpose, and the maintainer decides what it does. [The spec](https://github.com/jsclayton/wishbone/blob/main/docs/spec.md) says what it does today. Describe the problem first: the solution can come second.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem do you have?
+      description: What are you trying to do, and what gets in the way?
+      placeholder: I want to be able to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+      description: Describe the change you have in mind, if you have one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried instead?
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: How does this affect you?
+      description: How often it comes up, and what you do today.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Sketches, or examples from other apps.

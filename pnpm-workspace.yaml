@@ -1,0 +1,11 @@
+packages:
+  - web
+
+# Supply-chain guardrails.
+# Wait 3 days (in minutes) before installing a freshly published version.
+minimumReleaseAge: 4320
+
+# Dependency install scripts are blocked unless listed here as true.
+allowBuilds:
+  # Not needed: the root "prepare" script runs `lefthook install`.
+  lefthook: false

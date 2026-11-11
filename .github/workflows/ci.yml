@@ -1,0 +1,368 @@
+name: CI
+
+# Cost notes (GitHub-hosted runners are free for a public repo, but CI still
+# avoids needless runs and keeps a hung job from running for hours):
+# - Draft PRs don't run CI. Mark the PR ready for review to run it.
+# - Title and body edits don't run CI. See pr-title.yml.
+# - Docs-only changes skip the Go, Web, and E2E jobs. On main, "changes" means
+#   changes since the commit of the `main` image, not since the previous push.
+# - PRs build an amd64 image only when build inputs change, and never push.
+#   The multi-arch image is built and pushed on main only.
+# - On main, a burst of merges runs at most two runs: the one in progress and
+#   the newest waiting one. GitHub cancels the runs in between, so their
+#   commits get no `sha-` image of their own.
+# - Every job has timeout-minutes, so a hung step ends the job.
+# - The ruleset requires only "PR Title" and "CI OK". CI OK fails if any job
+#   it needs failed or was cancelled. A skipped job counts as passed.
+# - Every job runs on a GitHub-hosted runner (ubuntu-26.04). Don't use a
+#   self-hosted runner: it would run code from fork PRs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+# On a PR, a new push cancels the older run. On main, all pushes share one
+# group and a run in progress always finishes. GitHub keeps only the newest
+# waiting run, so a burst of merges runs at most two runs: the one in
+# progress and the newest. A replaced run builds no image, so `Changes` on
+# main compares with the commit of the last pushed image, not the previous
+# push, and the newest run builds every code change since that image.
+# Runs on main never overlap, so `Image` runs one at a time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Changes
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    # packages: read lets `Detect changed areas` read the commit label of the
+    # `main` image on GHCR.
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+      image: ${{ steps.detect.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Fail if private agent files are tracked
+        run: |
+          if git ls-files | grep -E '^(\.agent|\.claude)/|\.local\.md$'; then
+            echo "Private agent files must not be committed." >&2
+            exit 1
+          fi
+      - name: Detect changed areas
+        id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          IMAGE: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          run_everything() {
+            echo "$1 Running everything."
+            { echo "code=true"; echo "image=true"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [ "$EVENT" = pull_request ]; then
+            # On a PR, HEAD is the test merge commit and HEAD^1 is the base.
+            base=HEAD^1
+          else
+            # On main, compare with the commit of the last pushed image, not the
+            # previous push. Only the newest waiting run on main survives (see
+            # `concurrency`), so the previous push may never have been built.
+            base=$(.github/scripts/main-image-revision.sh) ||
+              run_everything "Can't read the commit of the main image."
+            if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+              run_everything "The main image's commit $base isn't in the history."
+            elif ! git merge-base --is-ancestor "$base" HEAD; then
+              run_everything "The main image's commit $base isn't an ancestor of HEAD."
+            fi
+            echo "The main image was built from $base."
+          fi
+          files=$(git diff --name-only "$base" HEAD)
+          printf 'Changed files:\n%s\n' "$files"
+          if [ -z "$files" ] && [ "$EVENT" != pull_request ]; then
+            # On main, an empty diff means the image is already at HEAD. A PR
+            # with an empty diff keeps its old result (code=true, image=false).
+            echo "No changes. Skipping everything."
+            { echo "code=false"; echo "image=false"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          docs_only='^(docs/|LICENSE$|\.github/ISSUE_TEMPLATE/|\.github/pull_request_template\.md$)|\.md$'
+          image_inputs='^(Dockerfile|\.dockerignore|go\.(mod|sum)|package\.json|pnpm-(lock|workspace)\.yaml|web/package\.json|\.github/workflows/ci\.yml)$'
+
+          code=false
+          image=false
+          if printf '%s\n' "$files" | grep -Evq "$docs_only"; then code=true; fi
+          if printf '%s\n' "$files" | grep -Eq "$image_inputs"; then image=true; fi
+          echo "code=$code image=$image"
+          { echo "code=$code"; echo "image=$image"; } >> "$GITHUB_OUTPUT"
+
+  go:
+    name: Go
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-26.04
+    # internal/server takes about 11 minutes under -race, over Go's default test
+    # timeout of 10, so Test sets its own (25m) and the job leaves room for it.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Check go.mod and vendor/ are in sync
+        run: |
+          go mod tidy
+          go mod vendor
+          if [ -n "$(git status --porcelain -- go.mod go.sum vendor/)" ]; then
+            git status --short -- go.mod go.sum vendor/
+            echo "::error::go.mod/vendor out of sync. Run 'go mod tidy && go mod vendor' and commit."
+            exit 1
+          fi
+      - name: Placeholder for go:embed
+        run: mkdir -p internal/server/web/dist && echo placeholder > internal/server/web/dist/index.html
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+      # The e2e switch for private addresses is compiled only with -tags e2e, so
+      # the default lint and test never see it.
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+          args: --build-tags e2e ./cmd/...
+      - name: Test
+        run: |
+          go test -race -timeout 25m ./...
+          go test -tags e2e ./cmd/wishbone
+
+  web:
+    name: Web
+    env:
+      MISE_ENABLE_TOOLS: node,pnpm,actionlint,shellcheck
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    # Lint, typecheck, and unit tests run once here. The E2E tests are in the
+    # `e2e` job. This job keeps the Playwright container for the same Node
+    # environment as `e2e`.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-resolute@sha256:d89d0e4a7058330a8334306a5aef1e00807863d31af27cf11348eed696d6e0ba
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          install_args: node pnpm actionlint shellcheck
+          minimum_release_age: 3d
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint
+        run: pnpm --filter web lint
+      # Same as `just lint-ci`.
+      - name: Lint workflows and scripts
+        run: |
+          actionlint
+          shellcheck .github/scripts/*.sh
+      - name: Typecheck
+        run: pnpm --filter web typecheck
+      - name: Unit tests
+        run: pnpm --filter web test:coverage
+
+  # The E2E tests run as one job per Playwright project, at the same time on
+  # separate runners. Each job builds the frontend and the e2e binary and starts
+  # its own server with a fresh data dir. Building in each job costs ~40 s in
+  # parallel. An artifact would need one more serial job (setup, build, upload)
+  # in front of both, which takes longer.
+  #
+  # A project is a stable split: a new spec lands in both projects, so nobody
+  # keeps a list of specs.
+  e2e:
+    name: E2E (${{ matrix.project }})
+    env:
+      MISE_ENABLE_TOOLS: node,pnpm
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, mobile-safari]
+    # Browsers and their system packages come preinstalled in this image, so
+    # the job doesn't run `playwright install --with-deps`. Keep the tag in
+    # step with @playwright/test (Renovate groups them).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-resolute@sha256:d89d0e4a7058330a8334306a5aef1e00807863d31af27cf11348eed696d6e0ba
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          install_args: node pnpm
+          minimum_release_age: 3d
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-${{ runner.arch }}-
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build frontend
+        run: pnpm --filter web build
+      - name: Build binary
+        run: |
+          rm -rf internal/server/web/dist
+          mkdir -p internal/server/web/dist
+          cp -R web/dist/. internal/server/web/dist/
+          # The e2e tag lets a test point a link read at a fixture page on this
+          # host. This binary is never shipped: the Image job builds the Dockerfile.
+          CGO_ENABLED=0 go build -buildvcs=false -tags e2e -o bin/wishbone ./cmd/wishbone
+      - name: E2E tests
+        timeout-minutes: 20
+        run: pnpm --filter web test:e2e --project=${{ matrix.project }}
+      # Traces from retried tests land in test-results/. Open one with
+      # `pnpm --filter web exec playwright show-trace <trace.zip>`.
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-results-${{ matrix.project }}
+          path: |
+            web/playwright-report/
+            web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  image-check:
+    name: Image Check
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+
+  ci-ok:
+    name: CI OK
+    needs: [changes, go, web, e2e, image-check]
+    if: always() && (github.event_name == 'push' || !github.event.pull_request.draft)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A required job ended with '$r'."; exit 1 ;;
+            esac
+          done
+
+  image:
+    name: Image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    needs: [changes, go, web, e2e]
+    if: github.event_name == 'push' && needs.changes.outputs.code == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # `main` and `unstable` must never move back to older code, for example
+      # when someone re-runs an old run on main. Move them only if the current
+      # `main` image is from this commit or an ancestor of it. The image's commit
+      # must be on main: `fetch-depth: 0` gives `origin/main`. Otherwise push only
+      # the `sha-` tag. Runs on main never overlap, so no other image can land
+      # between this check and the push.
+      - name: Check main and unstable move forward
+        id: tags
+        env:
+          IMAGE: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          move=false
+          if current=$(.github/scripts/main-image-revision.sh) &&
+            git merge-base --is-ancestor "$current" origin/main 2>/dev/null; then
+            if git merge-base --is-ancestor "$current" "$GITHUB_SHA"; then move=true; fi
+            why="the main image is from ${current}, which isn't an ancestor of it"
+          else
+            # No usable `main` image: it can't be read (a hiccup, or the tag is
+            # gone), or its commit isn't on main. Move the tags only from the
+            # tip of main, so they can come back.
+            tip=$(git ls-remote origin refs/heads/main | cut -f1)
+            if [ "$tip" = "$GITHUB_SHA" ]; then move=true; fi
+            why="the main image can't be read or its commit isn't on main, and main is at ${tip}"
+          fi
+          if [ "$move" = false ]; then
+            echo "::notice::Pushing only sha-${GITHUB_SHA::7}: ${why}."
+          fi
+          echo "move=$move" >> "$GITHUB_OUTPUT"
+      - name: Version
+        id: version
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          {
+            echo "commit=${SHORT_SHA}"
+            echo "version=dev+${SHORT_SHA}"
+            echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=unstable,enable=${{ steps.tags.outputs.move == 'true' }}
+            type=sha,prefix=sha-
+            type=raw,value=main,enable=${{ steps.tags.outputs.move == 'true' }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ steps.version.outputs.commit }}
+            BUILD_TIME=${{ steps.version.outputs.build_time }}

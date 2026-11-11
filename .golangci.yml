@@ -1,0 +1,64 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - errorlint
+    - bodyclose
+    - gosec
+    - gocritic
+    - unconvert
+    - unparam
+    - misspell
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (net/http.ResponseWriter).Write
+    misspell:
+      locale: US
+
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - unparam
+          - noctx
+          - bodyclose # helpers close bodies via t.Cleanup
+      # Kong requires Run() error even when it cannot fail.
+      - path: cmd/wishbone/
+        linters:
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - jsclayton.dev/wishbone
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

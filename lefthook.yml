@@ -1,0 +1,12 @@
+# Git hooks. Installed automatically by `pnpm install` (root "prepare" script).
+# Bypass in an emergency with `git commit --no-verify`.
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}
+
+pre-commit:
+  jobs:
+    - name: no-agent-scratch
+      run: "! git diff --cached --name-only | grep -E '^(\\.agent|\\.claude)/|\\.local\\.md$'"
