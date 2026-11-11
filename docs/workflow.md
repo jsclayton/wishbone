@@ -78,7 +78,7 @@ These GitHub settings enforce the merge rules:
 - **Auto-merge:** allowed.
 - **Branches:** GitHub deletes the head branch after the merge.
 - **Ruleset `main`:** applies to the default branch, with no bypass actors. It has two rules:
-  - **Pull request:** every change to `main` goes through a PR. Squash is the only merge method. No approving review is required, because GitHub doesn't let an author approve their own PR, and the maintainer's PRs are reviewed outside GitHub. The review is a rule, not a setting.
+  - **Pull request:** every change to `main` goes through a PR. Squash is the only merge method. No approving review is required, because GitHub doesn't let an author approve their own PR. The review is a rule, not a setting.
   - **Required status checks:** `PR Title` and `CI OK` must pass before a merge. `CI OK` fails if any CI job it depends on fails or is cancelled. A skipped job counts as passed. Only GitHub Actions can satisfy these checks. The branch does not have to be up to date with `main` before a merge, so parallel PRs don't need a rebase for each merge.
 - **`review` status:** a commit status named `review` records that a review approved that commit. It is not a required check, so Renovate can still merge.
 
