@@ -13376,7 +13376,7 @@
             }
           },
           {
-            "description": "Optional, at most 255 bytes. This route keeps no answer for a repeat, because its answer holds a secret that the server doesn't keep: a repeat with the same key does the work again. A repeat while the first request is still running is a 409 idempotency_key_in_use.",
+            "description": "Optional, at most 255 bytes. This route keeps no answer for a repeat, because its answer holds the link, which the server keeps nowhere: a repeat with the same key does the work again. A repeat while the first request is still running is a 409 idempotency_key_in_use.",
             "in": "header",
             "name": "Idempotency-Key",
             "schema": {
@@ -13748,7 +13748,7 @@
             }
           },
           {
-            "description": "Optional, at most 255 bytes. A repeat of this write with the same key, from the same session, within 24 hours of the first request, gets the first 2xx answer again, and the server does no work again. The same key with another method, path or body is a 422 idempotency_key_reused. A repeat while the first request is still running is a 409 idempotency_key_in_use.",
+            "description": "Optional, at most 255 bytes. This route keeps no answer for a repeat, because its answer is a challenge that lasts 5 minutes: a repeat with the same key does the work again. A repeat while the first request is still running is a 409 idempotency_key_in_use.",
             "in": "header",
             "name": "Idempotency-Key",
             "schema": {

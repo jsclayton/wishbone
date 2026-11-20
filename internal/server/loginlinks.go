@@ -80,7 +80,7 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		DefaultStatus: http.StatusCreated,
 		// The link is in this answer and nowhere else, so no copy of the answer
 		// is kept for a repeat.
-		Metadata: map[string]any{answerNeverKept: true},
+		Metadata: map[string]any{answerNeverKept: "its answer holds the link, which the server keeps nowhere"},
 		Errors:   []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
 	}, func(ctx context.Context, in *userInput) (*createLoginLinkOutput, error) {
 		target, err := s.userToWriteFor(ctx, in.ID)

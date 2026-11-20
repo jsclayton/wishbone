@@ -160,7 +160,7 @@ The rule is in [Writes](spec.md#writes), under **Retries**. Its limits are in th
 - The answer is kept after the route has answered, in a commit of its own, and with a context that the client can't cancel. If the server stops between the route's commit and that one, the work is done and no answer is kept: a repeat then does the work again.
 - A session's rows go with the session, in the schema and not in Go. The foreign key deletes them with the session's row, and the trigger `idempotency_keys_session_revoked` deletes them when `revoked_at` is set. So the code that revokes or deletes a session knows nothing of keys. `Run.Keep` inserts only for a live session, so a request that ends its own session keeps nothing.
 - `deleteOld` in `internal/idempotency` is the one statement that deletes the rows whose window is over. `Service.Schedule` runs it when the server starts and then every hour, as the image sweep runs, and `Run.Keep` runs it too. So a key that no client sends again doesn't stay in the database, or in a later snapshot.
-- A write whose answer holds a secret that the database must not hold sets `answerNeverKept` in its operation's `Metadata`. Today that is `POST /users/{id}/login-links`.
+- A write whose answer must not be kept sets `answerNeverKept` in its operation's `Metadata`, with the reason as the value. Today there are two: `POST /users/{id}/login-links`, whose answer holds a secret that the database must not hold, and `POST /users/{id}/passkeys/registration`, whose answer is over after 5 minutes.
 
 ## Images
 

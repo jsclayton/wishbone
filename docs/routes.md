@@ -66,7 +66,9 @@ The rule is in [Writes](spec.md#writes), under **Retries**.
 - The body is compared by a hash of what it says. The same JSON with its keys in another order, and the same `multipart/form-data` with another boundary, are the same body. Any other body is the same only when its bytes are. A route that takes no body, such as a `DELETE`, doesn't read one: a body sent to it, and its `Content-Type`, are no part of the request.
 - A repeat gets the first answer's status and body, and its `Content-Type`, `Location`, `ETag` and `Link` headers. The server keeps no other header. The answer is what the caller got then: it doesn't show a later change.
 - Only a 2xx is kept. After any other answer, the same key runs the request again.
-- `POST /users/{id}/login-links` keeps no answer, because the link is in its first answer and nowhere else (see [Login links](#login-links)). A repeat with the same key makes a new link. While the first request is still running, a repeat is a 409 `idempotency_key_in_use` as on any route.
+- Two routes keep no answer, so a repeat with the same key does the work again. While the first request is still running, a repeat is a 409 `idempotency_key_in_use`, as on any route.
+  - `POST /users/{id}/login-links`, because the link is in its first answer and nowhere else (see [Login links](#login-links)). A repeat makes a new link.
+  - `POST /users/{id}/passkeys/registration`, because its options last 5 minutes (see [Passkeys](#passkeys)). A kept answer would be over for most of the 24 hours. A repeat starts a new registration.
 
 ### Codes on every route
 

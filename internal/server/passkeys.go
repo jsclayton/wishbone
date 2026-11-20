@@ -196,6 +196,9 @@ func (s *Server) registerPasskeys(api huma.API) {
 		Description: "Only the user. Returns the options for navigator.credentials.create. Finish with the browser's answer within 5 minutes.",
 		Tags:        []string{"Passkeys"},
 		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+		// The options are over after 5 minutes, so no copy of them is kept for a
+		// repeat: a repeat starts a new registration.
+		Metadata: map[string]any{answerNeverKept: "its answer is a challenge that lasts 5 minutes"},
 	}, func(ctx context.Context, in *userInput) (*struct{ Body json.RawMessage }, error) {
 		target, err := s.passkeyOwner(ctx, in.ID)
 		if err != nil {

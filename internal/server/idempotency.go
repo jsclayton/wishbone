@@ -31,8 +31,11 @@ import (
 const idempotencyKeyHeader = "Idempotency-Key"
 
 // answerNeverKept is the key of an operation's Metadata that marks a write
-// whose answer holds a secret that the server keeps nowhere, such as a login
-// link. Its answer is never kept for a repeat, so a repeat does the work again.
+// whose answer is never kept for a repeat, so a repeat does the work again.
+// Two kinds of write have it: one whose answer holds a secret that the server
+// keeps nowhere (a login link), and one whose answer is over long before the
+// 24 hours are (the options of a passkey registration). The value is the
+// reason, as the words after "because" in the document of the header.
 const answerNeverKept = "answerNeverKept"
 
 // keptHeaders are the headers of an answer that a repeat gets again. Any other
@@ -60,9 +63,9 @@ func documentIdempotencyKey(api huma.API) func(*huma.Operation) {
 				"within 24 hours of the first request, gets the first 2xx answer again, and the server does no work again. " +
 				"The same key with another method, path or body is a 422 idempotency_key_reused. " +
 				"A repeat while the first request is still running is a 409 idempotency_key_in_use."
-			if op.Metadata[answerNeverKept] == true {
-				desc = "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. This route keeps no answer for a repeat, because its answer holds a secret " +
-					"that the server doesn't keep: a repeat with the same key does the work again. " +
+			if why, never := op.Metadata[answerNeverKept]; never {
+				desc = "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. This route keeps no answer for a repeat, because " +
+					fmt.Sprint(why) + ": a repeat with the same key does the work again. " +
 					"A repeat while the first request is still running is a 409 idempotency_key_in_use."
 			}
 			op.Parameters = append(op.Parameters, &huma.Param{
@@ -148,7 +151,7 @@ func (s *Server) idempotent() func(huma.Context, func(huma.Context)) {
 		rec := &recordedAnswer{humaContext: ctx}
 		next(rec)
 
-		if rec.status < 200 || rec.status > 299 || ctx.Operation().Metadata[answerNeverKept] == true {
+		if _, never := ctx.Operation().Metadata[answerNeverKept]; never || rec.status < 200 || rec.status > 299 {
 			return
 		}
 		// The work is done, so the answer is kept even if the client has gone:

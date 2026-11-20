@@ -541,6 +541,32 @@ func TestALoginLinkIsNeverKeptSoARepeatMakesANewLink(t *testing.T) {
 	require.Zero(t, e.storedKeys())
 }
 
+// The options of a passkey registration hold a challenge that lasts 5 minutes.
+// A kept copy would be over for most of the 24 hours, so a repeat starts a new
+// registration.
+func TestPasskeyRegistrationOptionsAreNeverKeptSoARepeatStartsANewRegistration(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+	begin := func() string {
+		res := e.do(request{method: http.MethodPost, path: "/users/me/passkeys/registration", header: keyed(admin, "key-1")})
+		require.Equal(t, http.StatusOK, res.StatusCode)
+		var options struct {
+			PublicKey struct {
+				Challenge string `json:"challenge"`
+			} `json:"publicKey"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(readBody(t, res)), &options))
+		require.NotEmpty(t, options.PublicKey.Challenge)
+		return options.PublicKey.Challenge
+	}
+
+	first := begin()
+	again := begin()
+
+	require.NotEqual(t, first, again, "the repeat got a challenge of its own")
+	require.Zero(t, e.storedKeys())
+}
+
 // A key belongs to a session, so a route that needs no sign-in takes none, and
 // a read takes none.
 func TestARouteWithNoSignInAndAReadIgnoreTheKey(t *testing.T) {
