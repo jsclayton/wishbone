@@ -291,3 +291,30 @@ func TestTheScheduleSweepsWhenItStarts(t *testing.T) {
 	stop()
 	<-done
 }
+
+// A caller can still hold the ID of a session that is gone, when a later
+// session has it. Such a caller finds nothing of the later session: no answer
+// for the same request, and no reuse for another one.
+func TestACallerWithTheIDOfALaterSessionFindsNoneOfItsAnswers(t *testing.T) {
+	db, svc, c, old := setup(t)
+	_, err := db.ExecContext(t.Context(), `DELETE FROM sessions WHERE id = ?`, old.ID)
+	require.NoError(t, err)
+	next := newSession(t, db, c)
+	require.Equal(t, old.ID, next.ID, "the new session has the ID of the deleted one")
+	keep(t, svc, next, "k", "request", created)
+
+	for _, request := range []string{"request", "another request"} {
+		run, answer, err := svc.Begin(t.Context(), old, "k", request)
+		require.NoError(t, err, request)
+		require.Nil(t, answer, request)
+		require.NotNil(t, run, request)
+		require.NoError(t, run.Keep(t.Context(), created))
+		run.End()
+	}
+
+	// The later session's answer is as it was, and is still its own.
+	require.Equal(t, 1, rows(t, db))
+	_, answer, err := svc.Begin(t.Context(), next, "k", "request")
+	require.NoError(t, err)
+	require.Equal(t, &created, answer)
+}

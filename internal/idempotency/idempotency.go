@@ -113,6 +113,10 @@ type Run struct {
 // returns the first answer, and the caller does no work. It returns [ErrInUse]
 // when the first request is still running, and [ErrReused] when the key came
 // before, in the window, with another request.
+//
+// Only the session's own requests and answers count, by its ID and its token.
+// A session that is gone, and whose ID a later session has, gets a [Run] as
+// for a first request, and [Run.Keep] keeps nothing for it.
 func (s *Service) Begin(ctx context.Context, session Session, key, request string) (*Run, *Answer, error) {
 	k := runKey{session: session, key: key}
 	s.mu.Lock()
@@ -142,9 +146,15 @@ func (s *Service) Begin(ctx context.Context, session Session, key, request strin
 		Headers string `db:"headers"`
 		Body    []byte `db:"body"`
 	}
+	// The row is the caller's only when the session that has the ID now has the
+	// caller's token. A caller that was let in before its session was deleted
+	// can hold the ID of a later session. It finds no answer and no reuse here:
+	// it gets a Run, and Keep keeps nothing for it.
 	err := s.db.GetContext(ctx, &row,
-		`SELECT request_hash, status, headers, body FROM idempotency_keys
-		 WHERE session_id = ? AND key = ? AND created_at > ?`, session.ID, key, now.Add(-Window))
+		`SELECT k.request_hash, k.status, k.headers, k.body
+		 FROM idempotency_keys k JOIN sessions s ON s.id = k.session_id
+		 WHERE k.session_id = ? AND s.token_hash = ? AND k.key = ? AND k.created_at > ?`,
+		session.ID, session.TokenHash, key, now.Add(-Window))
 	if errors.Is(err, sql.ErrNoRows) {
 		return &Run{s: s, key: k, request: request, first: now, epoch: epoch}, nil, nil
 	}

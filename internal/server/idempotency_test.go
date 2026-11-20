@@ -878,3 +878,82 @@ func TestAKeyedWriteThatTakesNoBodyDoesNotReadOne(t *testing.T) {
 	again := e.deleteItem(grace, keyedItem.ID, key)
 	require.Equal(t, http.StatusNoContent, again.StatusCode)
 }
+
+// held is a request that the client has begun and not finished: the server has
+// its head and the start of its body, and waits for the rest.
+type held struct {
+	t    *testing.T
+	conn net.Conn
+	rest []byte
+}
+
+// hold sends the head of a JSON request and the first bytes of its body, on a
+// connection of its own.
+func (e *env) hold(method, path string, header http.Header, body []byte, first int) *held {
+	e.t.Helper()
+	conn, err := net.Dial("tcp", e.ts.Listener.Addr().String())
+	require.NoError(e.t, err)
+	e.t.Cleanup(func() { conn.Close() })
+	require.NoError(e.t, conn.SetDeadline(time.Now().Add(30*time.Second)))
+	head := method + " /api/v2" + path + " HTTP/1.1\r\nHost: wish.example\r\n" +
+		"Content-Type: application/json\r\nContent-Length: " + strconv.Itoa(len(body)) + "\r\n"
+	for name, values := range header {
+		head += name + ": " + values[0] + "\r\n"
+	}
+	_, err = conn.Write(append([]byte(head+"\r\n"), body[:first]...))
+	require.NoError(e.t, err)
+	return &held{t: e.t, conn: conn, rest: body[first:]}
+}
+
+// finish sends the rest of the body and reads the answer.
+func (h *held) finish() answer {
+	h.t.Helper()
+	_, err := h.conn.Write(h.rest)
+	require.NoError(h.t, err)
+	res, err := http.ReadResponse(bufio.NewReader(h.conn), nil)
+	require.NoError(h.t, err)
+	defer res.Body.Close()
+	return answerOf(h.t, res)
+}
+
+// A request is let in, and then waits for its body. If its user is deleted
+// then, and a new session gets the ID of its session and keeps an answer, the
+// request that waited must not get that answer: it is another session's.
+func TestARequestOfADeletedUserNeverGetsTheAnswerOfTheSessionThatHasItsID(t *testing.T) {
+	e := newEnv(t)
+	adminID, _ := e.signUp()
+	graceID, grace := e.otherUser("Grace")
+	var graceSession int64
+	require.NoError(t, e.db.GetContext(t.Context(), &graceSession, `SELECT max(id) FROM sessions`))
+	body := []byte(`{"name":"Camping"}`)
+
+	// Grace's keyed create is let in, and the server waits for its body. The
+	// sign-in check marks the session as used now, so the test can see it.
+	e.clock.advance(time.Minute)
+	waiting := e.hold(http.MethodPost, "/lists", keyed(grace, "key-1"), body, 5)
+	require.Eventually(t, func() bool {
+		return e.rowCount("sessions", "id = ? AND last_used_at = ?", graceSession, e.clock.now()) == 1
+	}, 10*time.Second, 5*time.Millisecond, "the request is let in")
+
+	// Grace is deleted, and the admin's new session gets the ID of hers.
+	e.deleteUser(graceID)
+	token, next, err := session.Create(t.Context(), e.db, e.clock.now(), mustParse(t, adminID), "")
+	require.NoError(t, err)
+	require.Equal(t, graceSession, next.ID, "the new session has the ID of the deleted one")
+
+	// The new session sends the same request with the same key, and its answer is kept.
+	theirs := answerOf(t, e.do(request{method: http.MethodPost, path: "/lists", raw: body, header: keyed(token, "key-1")}))
+	require.Equal(t, http.StatusCreated, theirs.status)
+	require.Equal(t, 1, e.storedKeys())
+
+	// Grace's request goes on. It gets nothing of the admin's answer.
+	got := waiting.finish()
+
+	require.NotEqual(t, http.StatusCreated, got.status, "a deleted user makes no list")
+	require.Empty(t, got.location)
+	require.NotEqual(t, theirs.body, got.body)
+	require.NotContains(t, got.body, "Camping")
+	require.Equal(t, 1, e.storedKeys(), "and it keeps nothing")
+	// The admin's key still gets the admin's answer.
+	require.Equal(t, theirs, answerOf(t, e.do(request{method: http.MethodPost, path: "/lists", raw: body, header: keyed(token, "key-1")})))
+}
