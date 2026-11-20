@@ -122,7 +122,8 @@ func (s *Server) idempotent() func(huma.Context, func(huma.Context)) {
 		u := ctx.URL()
 		request := requestHash(ctx.Method(), u.Path, u.RawQuery, contentType, body)
 
-		run, answer, err := s.opts.Idempotency.Begin(ctx.Context(), caller.SessionID, key, request)
+		run, answer, err := s.opts.Idempotency.Begin(ctx.Context(),
+			idempotency.Session{ID: caller.SessionID, TokenHash: caller.tokenHash}, key, request)
 		switch {
 		case errors.Is(err, idempotency.ErrInUse):
 			writeProblemOn(ctx, Error(http.StatusConflict, "idempotency_key_in_use",

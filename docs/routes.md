@@ -62,6 +62,7 @@ The rule is in [Writes](spec.md#writes), under **Retries**.
 - Every `POST`, `PATCH` and `DELETE` in this table accepts the `Idempotency-Key` header, unless its role is **public**. A **public** route (setup and the sign-in routes) has no session for a key to belong to, so it ignores the header. A `GET` ignores it too.
 - A key is a string that the client chooses, of 1 to 255 bytes. A longer key is a 422 `invalid_input`. A header with no value is no key.
 - The window is 24 hours from the first request with the key. A repeat doesn't move it.
+- Deleting a user clears every kept answer on the instance (see [Deletion](spec.md#deletion)). So in the 24 hours after it, a repeat of a write from before the delete can do the work again.
 - The path is compared after `me` and `current` are resolved, and the query is a part of it.
 - The body is compared by a hash of what it says. The same JSON with its keys in another order, and the same `multipart/form-data` with another boundary, are the same body. Any other body is the same only when its bytes are. A route that takes no body, such as a `DELETE`, doesn't read one: a body sent to it, and its `Content-Type`, are no part of the request.
 - A repeat gets the first answer's status and body, and its `Content-Type`, `Location`, `ETag` and `Link` headers. The server keeps no other header. The answer is what the caller got then: it doesn't show a later change.

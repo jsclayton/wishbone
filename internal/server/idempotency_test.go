@@ -266,9 +266,140 @@ func (s *slowSearch) Extract(_ context.Context, _ int64, rawURL string, _ ...pip
 
 func (s *slowSearch) PhotoLimitReached(int64) bool { return false }
 
-func (s *slowSearch) GuessPhoto(context.Context, int64, []byte) (llm.PhotoGuess, error) {
+// GuessPhoto names the user in its guess, so a test can tell whose answer an
+// answer is.
+func (s *slowSearch) GuessPhoto(_ context.Context, userID int64, _ []byte) (llm.PhotoGuess, error) {
 	s.wait()
-	return llm.PhotoGuess{Title: "Kettle"}, nil
+	return llm.PhotoGuess{Title: guessFor(userID)}, nil
+}
+
+func guessFor(userID int64) string { return fmt.Sprintf("Kettle for user %d", userID) }
+
+// oneConnection is a client that holds one connection to the server. The
+// server reads the next request on a connection only when the handler of the
+// one before has returned. So an answer to a second request on this client
+// shows that the first request is over, with what its handler did after it
+// answered.
+func oneConnection(t *testing.T) *http.Client {
+	t.Helper()
+	tr := &http.Transport{MaxConnsPerHost: 1}
+	t.Cleanup(tr.CloseIdleConnections)
+	return &http.Client{Transport: tr}
+}
+
+// sent is the answer to a request that a test sends from a goroutine.
+type sent struct {
+	status int
+	body   string
+	err    error
+}
+
+// keyedSearchOn sends a keyed search on a client and reads the whole answer,
+// so the client can use its connection again.
+func (e *env) keyedSearchOn(c *http.Client, token, key string, body []byte, contentType string) sent {
+	req, err := http.NewRequestWithContext(e.t.Context(), http.MethodPost, e.ts.URL+"/api/v2/search", bytes.NewReader(body))
+	if err != nil {
+		return sent{err: err}
+	}
+	req.Header = keyed(token, key)
+	req.Header.Set("Content-Type", contentType)
+	res, err := c.Do(req)
+	if err != nil {
+		return sent{err: err}
+	}
+	defer res.Body.Close()
+	raw, err := io.ReadAll(res.Body)
+	return sent{status: res.StatusCode, body: string(raw), err: err}
+}
+
+// over waits until the handler of the last request on a one-connection client
+// has returned.
+func (e *env) over(c *http.Client) {
+	e.t.Helper()
+	res, err := c.Get(e.ts.URL + "/api/v2/health")
+	require.NoError(e.t, err)
+	_, _ = io.Copy(io.Discard, res.Body)
+	require.NoError(e.t, res.Body.Close())
+}
+
+// SQLite gives a new session the highest ID plus one, so the ID of a deleted
+// user's newest session comes back. A request of that user that is still
+// running must not keep its answer for the session that gets the ID: a key
+// never meets another session.
+func TestARunOfADeletedUserKeepsNothingForTheSessionThatGetsItsID(t *testing.T) {
+	slow := newSlowSearch()
+	e := newEnv(t, func(o *Options) { o.Search = slow })
+	release := sync.OnceFunc(func() { close(slow.release) })
+	t.Cleanup(release)
+	adminID, _ := e.signUp()
+	graceID, grace := e.otherUser("Grace")
+	var graceSession int64
+	require.NoError(t, e.db.GetContext(t.Context(), &graceSession, `SELECT max(id) FROM sessions`))
+	body, contentType := form(t, nil, map[string][]byte{"image": pngOf(t, 4, 3)})
+
+	// Grace's keyed search is running when she is deleted.
+	client := oneConnection(t)
+	done := make(chan sent, 1)
+	go func() { done <- e.keyedSearchOn(client, grace, "key-1", body, contentType) }()
+	<-slow.started
+	e.deleteUser(graceID)
+	require.Zero(t, e.storedKeys())
+
+	// The admin signs in, and the new session gets the ID that Grace's had.
+	token, next, err := session.Create(t.Context(), e.db, e.clock.now(), mustParse(t, adminID), "")
+	require.NoError(t, err)
+	require.Equal(t, graceSession, next.ID, "the new session has the ID of the deleted one")
+
+	// Grace's search ends.
+	release()
+	first := <-done
+	require.NoError(t, first.err)
+	require.Equal(t, http.StatusOK, first.status)
+	require.Contains(t, first.body, guessFor(mustParse(t, graceID)))
+	e.over(client)
+	require.Zero(t, e.storedKeys(), "the run of the deleted user kept nothing")
+
+	// The new session sends the same request with the same key. It does its
+	// own work and gets its own answer.
+	again := e.do(request{method: http.MethodPost, path: "/search", raw: body, contentType: contentType, header: keyed(token, "key-1")})
+	title := only(t, again).Title
+	require.NotNil(t, title)
+	require.Equal(t, guessFor(mustParse(t, adminID)), *title)
+	require.Equal(t, int32(2), slow.reads.Load(), "the photo was read again for the new session")
+}
+
+// The delete of a user clears every kept answer. A request of another user
+// that was running across the delete built its answer before it, so that
+// answer is not kept either, whichever process ran the delete.
+func TestARunThatIsRunningAcrossTheDeleteOfAUserKeepsNothing(t *testing.T) {
+	slow := newSlowSearch()
+	e := newEnv(t, func(o *Options) { o.Search = slow })
+	release := sync.OnceFunc(func() { close(slow.release) })
+	t.Cleanup(release)
+	_, admin := e.signUp()
+	graceID, _ := e.otherUser("Grace")
+	body, contentType := form(t, nil, map[string][]byte{"image": pngOf(t, 4, 3)})
+
+	client := oneConnection(t)
+	done := make(chan sent, 1)
+	go func() { done <- e.keyedSearchOn(client, admin, "key-1", body, contentType) }()
+	<-slow.started
+	e.deleteUser(graceID)
+	release()
+	first := <-done
+	require.NoError(t, first.err)
+	require.Equal(t, http.StatusOK, first.status)
+	e.over(client)
+
+	require.Zero(t, e.storedKeys(), "the run began before the delete, so it kept nothing")
+
+	// A repeat does the work again. It began after the delete, so it is kept.
+	again := e.keyedSearchOn(client, admin, "key-1", body, contentType)
+	require.NoError(t, again.err)
+	require.Equal(t, http.StatusOK, again.status)
+	require.Equal(t, int32(2), slow.reads.Load())
+	e.over(client)
+	require.Equal(t, 1, e.storedKeys())
 }
 
 // The repeat is for the client that never got the answer. So the answer is
@@ -309,7 +440,7 @@ func TestAnAnswerThatTheClientNeverGotIsStillKeptForTheRepeat(t *testing.T) {
 
 	title := only(t, again).Title
 	require.NotNil(t, title)
-	require.Equal(t, "Kettle", *title)
+	require.Contains(t, *title, "Kettle")
 	require.Equal(t, int32(1), slow.reads.Load(), "the photo was read once")
 }
 
