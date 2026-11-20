@@ -15,7 +15,7 @@ func setGooseVersions(t *testing.T, path string, versions ...int64) {
 	t.Helper()
 	st, err := Open(t.Context(), path)
 	require.NoError(t, err)
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), BaselineVersion))
 	_, err = st.db.ExecContext(t.Context(), `DELETE FROM goose_db_version WHERE version_id > 0`)
 	require.NoError(t, err)
 	for _, v := range versions {

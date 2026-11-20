@@ -53,7 +53,7 @@ func openBaseline(t *testing.T) *store.Store {
 	st, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "test.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), store.BaselineVersion))
 	return st
 }
 
