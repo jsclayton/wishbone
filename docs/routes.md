@@ -63,7 +63,7 @@ The rule is in [Writes](spec.md#writes), under **Retries**.
 - A key is a string that the client chooses, of 1 to 255 bytes. A longer key is a 422 `invalid_input`. A header with no value is no key.
 - The window is 24 hours from the first request with the key. A repeat doesn't move it.
 - The path is compared after `me` and `current` are resolved, and the query is a part of it.
-- The body is compared by a hash of what it says. The same JSON with its keys in another order, and the same `multipart/form-data` with another boundary, are the same body. Any other body is the same only when its bytes are.
+- The body is compared by a hash of what it says. The same JSON with its keys in another order, and the same `multipart/form-data` with another boundary, are the same body. Any other body is the same only when its bytes are. A route that takes no body, such as a `DELETE`, doesn't read one: a body sent to it, and its `Content-Type`, are no part of the request.
 - A repeat gets the first answer's status and body, and its `Content-Type`, `Location`, `ETag` and `Link` headers. The server keeps no other header. The answer is what the caller got then: it doesn't show a later change.
 - Only a 2xx is kept. After any other answer, the same key runs the request again.
 - `POST /users/{id}/login-links` keeps no answer, because the link is in its first answer and nowhere else (see [Login links](#login-links)). A repeat with the same key makes a new link. While the first request is still running, a repeat is a 409 `idempotency_key_in_use` as on any route.

@@ -1,12 +1,15 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -624,4 +627,71 @@ func TestMeAndTheCallersOwnIDAreTheSamePath(t *testing.T) {
 	require.Equal(t, first, again)
 	require.Equal(t, http.StatusUnprocessableEntity, other.StatusCode)
 	require.Equal(t, "idempotency_key_reused", readProblem(t, other).Code)
+}
+
+// bigDelete sends a DELETE of an item with a body of total bytes, and returns
+// the status and how many bytes of the body the server took before it answered.
+// It writes to the connection itself: a client that follows the rules stops
+// when the answer comes, and so the count is what the server read, give or
+// take what the connection holds on the way.
+func (e *env) bigDelete(token, itemID string, total int, header http.Header) (status int, sent int64) {
+	e.t.Helper()
+	conn, err := net.Dial("tcp", e.ts.Listener.Addr().String())
+	require.NoError(e.t, err)
+	defer conn.Close()
+	require.NoError(e.t, conn.SetDeadline(time.Now().Add(30*time.Second)))
+	head := "DELETE /api/v2/items/" + itemID + " HTTP/1.1\r\nHost: wish.example\r\n" +
+		"Cookie: " + sessionCookieName + "=" + token + "\r\n" +
+		"Content-Type: application/octet-stream\r\n" +
+		"Content-Length: " + strconv.Itoa(total) + "\r\n"
+	for name, values := range header {
+		head += name + ": " + values[0] + "\r\n"
+	}
+	_, err = conn.Write([]byte(head + "\r\n"))
+	require.NoError(e.t, err)
+
+	var written atomic.Int64
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		chunk := make([]byte, 64<<10)
+		for written.Load() < int64(total) {
+			n, err := conn.Write(chunk)
+			written.Add(int64(n))
+			if err != nil {
+				return
+			}
+		}
+	}()
+	res, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	require.NoError(e.t, err)
+	defer res.Body.Close()
+	sent = written.Load()
+	conn.Close() // stops the writer
+	<-done
+	return res.StatusCode, sent
+}
+
+// A DELETE takes no body, so the server never read one. A key must not make it
+// read one: the body of a route that declares none is no part of the request.
+func TestAKeyedWriteThatTakesNoBodyDoesNotReadOne(t *testing.T) {
+	e := newEnv(t)
+	grace, listID := e.grace()
+	plain, keyedItem := e.addItem(grace, listID, "Kettle"), e.addItem(grace, listID, "Teapot")
+	const total = 64 << 20
+	key := http.Header{"Idempotency-Key": {"key-1"}}
+
+	plainStatus, plainSent := e.bigDelete(grace, plain.ID, total, nil)
+	keyedStatus, keyedSent := e.bigDelete(grace, keyedItem.ID, total, key)
+
+	require.Equal(t, http.StatusNoContent, plainStatus)
+	require.Equal(t, plainStatus, keyedStatus, "with the key, the answer is the one with no key")
+	require.Less(t, plainSent, int64(total/4), "with no key, the server leaves the body unread")
+	require.Less(t, keyedSent, int64(total/4), "with the key, the server leaves the body unread too")
+	require.Empty(t, e.order(grace, listID))
+
+	// The body and its type are no part of the request, so a repeat without
+	// them is the same request, and gets the first answer.
+	again := e.deleteItem(grace, keyedItem.ID, key)
+	require.Equal(t, http.StatusNoContent, again.StatusCode)
 }

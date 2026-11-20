@@ -101,15 +101,23 @@ func (s *Server) idempotent() func(huma.Context, func(huma.Context)) {
 				&huma.ErrorDetail{Location: "header." + idempotencyKeyHeader, Message: "is too long"}))
 			return
 		}
-		body, ok := bufferBody(ctx)
-		if !ok {
-			// The route refuses a body that is too large, or that can't be read,
-			// as it does with no key. Such a request keeps nothing.
-			next(ctx)
-			return
+		// A route that declares no body never reads one, and huma gives it no
+		// limit and no deadline for one. So its body is not read here either:
+		// it is no part of the request, and neither is its Content-Type.
+		var body []byte
+		var contentType string
+		if ctx.Operation().RequestBody != nil {
+			var ok bool
+			if body, ok = bufferBody(ctx); !ok {
+				// The route refuses a body that is too large, or that can't be
+				// read, as it does with no key. Such a request keeps nothing.
+				next(ctx)
+				return
+			}
+			contentType = ctx.Header("Content-Type")
 		}
 		u := ctx.URL()
-		request := requestHash(ctx.Method(), u.Path, u.RawQuery, ctx.Header("Content-Type"), body)
+		request := requestHash(ctx.Method(), u.Path, u.RawQuery, contentType, body)
 
 		run, answer, err := s.opts.Idempotency.Begin(ctx.Context(), caller.SessionID, key, request)
 		switch {
@@ -195,9 +203,12 @@ func (r *recordedAnswer) answer() idempotency.Answer {
 
 // bufferBody reads the body of a request before its route does, so that the
 // body can be hashed, and puts it back for the route. It reads no more than
-// the route does (the operation's MaxBodyBytes). ok is false for a body at
-// that limit, and for one that can't be read: the route then meets the same
-// bytes or the same error, and answers as it does with no key.
+// the route does (the operation's MaxBodyBytes), for no longer (its
+// BodyReadTimeout). huma sets both only on an operation that declares a body,
+// so call this for no other: with neither, the read would have no end. ok is
+// false for a body at the limit, and for one that can't be read: the route
+// then meets the same bytes or the same error, and answers as it does with no
+// key.
 func bufferBody(ctx huma.Context) (body []byte, ok bool) {
 	r, _ := humachi.Unwrap(ctx)
 	if r.Body == nil || r.Body == http.NoBody {
@@ -232,7 +243,8 @@ func (f failedReader) Read([]byte) (int, error) { return 0, f.err }
 
 // requestHash is what makes two requests the same request: the method, the
 // path with its query, and the body. Only the hash is kept, so an upload is
-// never stored. The path is the one after `me` and `current` are resolved.
+// never stored. The path is the one after `me` and `current` are resolved. A
+// route that declares no body has none here, and no type of one.
 func requestHash(method, path, query, contentType string, body []byte) string {
 	h := sha256.New()
 	for _, part := range []string{method, path, query} {
