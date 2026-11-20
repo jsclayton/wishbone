@@ -150,6 +150,18 @@ Two rules keep `Match` from letting a link through:
 - The hourly limit (30 links and photos per user in any rolling 60 minutes) is the pipeline's own limiter, so a cache hit, free text, and a photo when the LLM is off cost nothing. The routes that read a page again (adding a store link to an item, refreshing prices) call the pipeline too, through `Server.readLink` (`internal/server/search.go`), so they count against the same limit. `readLink` asks `unblockedAddress` about the address the page ended at. A refresh passes `pipeline.BypassCache()`, so each read counts. It asks `unblockedAddress` about each stored address first, so it doesn't read a link in a store blocked since the link was added. A database error there stops the refresh, and the prices already read are still saved.
 - `POST /images` with `{"url"}` downloads through `imagestore.Store.DownloadPut`, which uses the same `netguard` rule. It never touches the limiter.
 
+## Idempotency keys
+
+The rule is in [Writes](spec.md#writes), under **Retries**. Its limits are in the [route table](routes.md#idempotency-keys).
+
+- `Server.idempotent` (`internal/server/idempotency.go`) is the one place that handles the `Idempotency-Key` header. It is a middleware of the signed-in group, after `requireSignedIn`. So every write on that group takes a key, no route handles one, and a new write needs no code for it. `documentIdempotencyKey` puts the header and its two codes in the OpenAPI document of each write.
+- `requestHash` says what makes two requests the same. The middleware reads the body before the route does (`bufferBody`), up to the operation's `MaxBodyBytes`, and puts it back. A body at that limit, or one that can't be read, goes to the route with no key, so the route refuses it as before.
+- `internal/idempotency` owns the `idempotency_keys` table. The table holds only the answers of requests that are done. The requests that are still running are in the memory of `idempotency.Service`, so a restart never leaves a key in use.
+- The answer is kept after the route has answered, in a commit of its own, and with a context that the client can't cancel. If the server stops between the route's commit and that one, the work is done and no answer is kept: a repeat then does the work again.
+- A session's rows go with the session, in the schema and not in Go. The foreign key deletes them with the session's row, and the trigger `idempotency_keys_session_revoked` deletes them when `revoked_at` is set. So the code that revokes or deletes a session knows nothing of keys. `Run.Keep` inserts only for a live session, so a request that ends its own session keeps nothing.
+- `Run.Keep` also deletes the rows whose window is over. Nothing else does.
+- A write whose answer holds a secret that the database must not hold sets `answerNeverKept` in its operation's `Metadata`. Today that is `POST /users/{id}/login-links`.
+
 ## Images
 
 An image is a row in `images` that names a file in the image store (`internal/image`, `internal/imagestore`). A client uploads it with `POST /images`, then attaches it by ID. The rules are in [Images](spec.md#images). To let a new resource hold an image:

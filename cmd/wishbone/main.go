@@ -26,6 +26,7 @@ import (
 	"jsclayton.dev/wishbone/internal/config"
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/group"
+	"jsclayton.dev/wishbone/internal/idempotency"
 	"jsclayton.dev/wishbone/internal/image"
 	"jsclayton.dev/wishbone/internal/imagestore"
 	"jsclayton.dev/wishbone/internal/item"
@@ -239,6 +240,7 @@ func (s *ServeCmd) Run() error {
 		Occasions:       occasions,
 		Gifts:           gifts,
 		Sessions:        session.NewService(st.DB(), time.Now),
+		Idempotency:     idempotency.NewService(st.DB(), time.Now),
 		Setup:           setupSvc,
 		LoginLinks:      loginlink.NewService(st.DB(), time.Now),
 		Passkeys:        passkeys,

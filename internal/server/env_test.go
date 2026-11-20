@@ -19,6 +19,7 @@ import (
 	"jsclayton.dev/wishbone/internal/blocklist"
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/group"
+	"jsclayton.dev/wishbone/internal/idempotency"
 	"jsclayton.dev/wishbone/internal/image"
 	"jsclayton.dev/wishbone/internal/imagestore"
 	"jsclayton.dev/wishbone/internal/item"
@@ -101,6 +102,8 @@ func testOptionsIn(t *testing.T, fallback *time.Location) (Options, *sqlx.DB, *c
 		Images:     image.NewService(st.DB(), files, c.now),
 		PublicURL:  "https://wish.example",
 		Now:        c.now,
+		// On the test clock, so a test moves the 24 hours of a key.
+		Idempotency: idempotency.NewService(st.DB(), c.now),
 	}, st.DB(), c
 }
 

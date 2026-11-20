@@ -78,7 +78,10 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		Description:   "`me` stands for the caller. A login link has no address, so the response has no `Location` header. The link works once and expires after 7 days. The user, their parents, and the admin make one.",
 		Tags:          []string{"Login links"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+		// The link is in this answer and nowhere else, so no copy of the answer
+		// is kept for a repeat.
+		Metadata: map[string]any{answerNeverKept: true},
+		Errors:   []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
 	}, func(ctx context.Context, in *userInput) (*createLoginLinkOutput, error) {
 		target, err := s.userToWriteFor(ctx, in.ID)
 		if err != nil {
