@@ -32,6 +32,16 @@ type Private[T any] struct {
 // Shown is the field for a caller who sees it. A nil value is sent as `null`.
 func Shown[T any](value *T) Private[T] { return Private[T]{shown: true, value: value} }
 
+// Value is the value of a field that the caller sees and that has one. It is
+// false for a hidden field, and for one that is shown as `null`.
+func (p Private[T]) Value() (T, bool) {
+	if !p.shown || p.value == nil {
+		var none T
+		return none, false
+	}
+	return *p.value, true
+}
+
 // IsZero is true for a hidden field. encoding/json leaves out a field with the
 // omitzero option when it is true.
 func (p Private[T]) IsZero() bool { return !p.shown }

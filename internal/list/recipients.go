@@ -131,6 +131,34 @@ func (s *Service) Recipients(ctx context.Context, viewer user.User, listID int64
 	return rows, total, next, nil
 }
 
+// RecipientsOfEvery returns the recipients of each of the lists, by the list's
+// ID, as [Service.Recipients] gives them for one list: in the order they became
+// recipients, and with no paging. lists are lists that the viewer can see, as
+// [Service.Visible] returned them. It reads them in one query, for a caller that
+// wants them all (`GET /versions`), where a read for each list costs too much.
+func (s *Service) RecipientsOfEvery(ctx context.Context, viewer user.User, lists []List) (map[int64][]Recipient, error) {
+	seen, seenArgs := VisibleTo(viewer)
+	query, args := recipientsSQL(viewer)
+	query += ` WHERE r.list_id IN (SELECT lists.id FROM lists WHERE ` + seen + `) ORDER BY r.list_id, r.created_at, u.id`
+	var entries []recipientEntry
+	if err := s.db.SelectContext(ctx, &entries, query, append(args, seenArgs...)...); err != nil {
+		return nil, fmt.Errorf("list the recipients of every list: %w", err)
+	}
+	byList := map[int64][]recipientEntry{}
+	for _, e := range entries {
+		byList[e.ListID] = append(byList[e.ListID], e)
+	}
+	out := make(map[int64][]Recipient, len(lists))
+	for _, l := range lists {
+		rows, err := recipients(ctx, s.db, l, byList[l.ID])
+		if err != nil {
+			return nil, err
+		}
+		out[l.ID] = rows
+	}
+	return out, nil
+}
+
 // RecipientGuard runs inside the transaction of [Service.Leave], before the
 // write, with the recipient as the viewer sees them. An error from it stops the
 // leave: an If-Match check goes there.

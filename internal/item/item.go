@@ -425,13 +425,22 @@ func NewService(db *sqlx.DB, now func() time.Time) *Service {
 	return &Service{db: db, now: func() time.Time { return now().UTC() }}
 }
 
-// get loads an item that the viewer can see. q is a database or a transaction.
-func get(ctx context.Context, q sqlx.QueryerContext, viewer user.User, id int64) (Item, error) {
+// visibleTo returns a SQL condition on a row of [selectSQL], true for the items
+// that the viewer can see, and its arguments: the item is on a list they can see
+// ([list.VisibleTo]) and is shown to them there ([list.ItemShownTo]). An item's
+// own address, the items of a list, and the items of every list all use it.
+func visibleTo(viewer user.User) (string, []any) {
 	seen, seenArgs := list.VisibleTo(viewer)
 	shown, shownArgs := list.ItemShownTo(viewer)
+	return seen + ` AND ` + shown, slices.Concat(seenArgs, shownArgs)
+}
+
+// get loads an item that the viewer can see. q is a database or a transaction.
+func get(ctx context.Context, q sqlx.QueryerContext, viewer user.User, id int64) (Item, error) {
+	visible, visibleArgs := visibleTo(viewer)
 	query, args := selectSQL(viewer)
 	var r row
-	err := sqlx.GetContext(ctx, q, &r, query+` WHERE items.id = ? AND `+seen+` AND `+shown, slices.Concat(args, []any{id}, seenArgs, shownArgs)...)
+	err := sqlx.GetContext(ctx, q, &r, query+` WHERE items.id = ? AND `+visible, slices.Concat(args, []any{id}, visibleArgs)...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Item{}, ErrNotFound
 	}
@@ -528,10 +537,9 @@ func (s *Service) Visible(ctx context.Context, viewer user.User, listID int64, r
 	if _, err := list.GetVisible(ctx, s.db, viewer, listID); err != nil {
 		return nil, 0, nil, err
 	}
-	seen, seenArgs := list.VisibleTo(viewer)
-	shown, shownArgs := list.ItemShownTo(viewer)
-	where := `items.list_id = ? AND ` + seen + ` AND ` + shown
-	whereArgs := slices.Concat([]any{listID}, seenArgs, shownArgs)
+	visible, visibleArgs := visibleTo(viewer)
+	where := `items.list_id = ? AND ` + visible
+	whereArgs := slices.Concat([]any{listID}, visibleArgs)
 	if err := s.db.GetContext(ctx, &total, `SELECT count(*) FROM items JOIN lists ON lists.id = items.list_id WHERE `+where, whereArgs...); err != nil {
 		return nil, 0, nil, fmt.Errorf("count items: %w", err)
 	}
@@ -572,6 +580,37 @@ func (s *Service) Visible(ctx context.Context, viewer user.User, listID int64, r
 		return page.Position{Value: strconv.Itoa(it.Position), ID: it.ID}
 	})
 	return items, total, next, nil
+}
+
+// extrasChunk is how many items [Service.VisibleOnEveryList] loads the store
+// links and images of at a time. [loadExtras] names each item in its query, and
+// SQLite takes 32766 values in one.
+const extrasChunk = 10000
+
+// VisibleOnEveryList returns every item that the viewer can see, on every list
+// they can see: what [Service.Visible] gives for each of those lists, in one
+// read and with no paging. The items of a list come together, in the list's
+// order. It is for a caller that wants them all (`GET /versions`), where a read
+// for each list costs too much.
+func (s *Service) VisibleOnEveryList(ctx context.Context, viewer user.User) ([]Item, error) {
+	visible, visibleArgs := visibleTo(viewer)
+	query, args := selectSQL(viewer)
+	var rows []row
+	err := s.db.SelectContext(ctx, &rows, query+` WHERE `+visible+` ORDER BY items.list_id, items.position, items.id`, append(args, visibleArgs...)...)
+	if err != nil {
+		return nil, fmt.Errorf("list the items of every list: %w", err)
+	}
+	items := make([]Item, len(rows))
+	for i, r := range rows {
+		items[i] = r.item()
+	}
+	// A chunk is a part of items, so loadExtras fills the items in place.
+	for chunk := range slices.Chunk(items, extrasChunk) {
+		if err := loadExtras(ctx, s.db, chunk); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
 }
 
 // Guard runs inside the transaction of [Service.Update] and [Service.Delete],

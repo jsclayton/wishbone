@@ -13,6 +13,23 @@ Every collection and every `PATCH` is built from the same pieces. Copy `GET /use
 - **An edit.** Make the body `MergePatch[Changes]`, where `Changes` is a struct of `Field[T]`s. Call `Refuse(writable, visible)` first: a field the caller sees but can't change is a 403 `field_not_writable`. Pass the domain package a `patch.Optional` for each field, and a guard that calls `checkIfMatch`. The guard runs inside the write's transaction, so a 412 `resource_changed` never races with another write. Call `acceptMergePatch` after you register the route, so the document lists `application/merge-patch+json`.
 - **A delete.** Takes `If-Match` the same way: the guard compares the version of the row as the caller sees it.
 
+## The versions of everything a caller sees
+
+`GET /versions` (`internal/server/versions.go`) answers with the kind, the ID and the version of every resource the caller can see. The rules are in [Versions of everything a caller sees](spec.md#versions-of-everything-a-caller-sees). It must agree with every `GET`, so it has no rule of its own:
+
+- **Each kind is its collection.** A function in `versionKinds` makes the domain call that the kind's collection route makes, asks it for every row (`collectionRules.all`, which is `page.All`), and builds the rows with the function that the collection route uses (`userRows`, `newListRows`, `newItemRows`, `newStoreLinkRows`, and so on). An entry's version is the row's `version`. Never build a body or a version in `versions.go`.
+- **Two kinds are read for every list at once.** `item.Service.VisibleOnEveryList` and `list.Service.RecipientsOfEvery` give what `Visible` and `Recipients` give for each list the caller sees, in one query each. A query for each list was most of the route's cost: a query costs about the same however little it reads. They use the conditions that the read for one list uses (`visibleTo` in `internal/item`, `list.VisibleTo`, `recipientsSQL`), and add none.
+- **A user summary comes from the rows.** Each function passes the user summaries of its rows to `seenVersions.holds`. A user who is in a row as a summary and is not a `user` in the answer becomes a `user_summary`. A new body field that holds a user summary needs a line in that kind's function. A flag on a gift shows its users by its code, so `GiftFlag.users` follows `GiftFlag.MarshalJSON`.
+- **Nothing is kept between requests.** What a caller sees changes with no write (a reveal, `needs_attention`, `next_date`, a claim that hides an item from another giver). The route builds every row again for each request, also to answer 304. Don't cache the answer or a version. The reason and the measurement are in [rationale.md](rationale.md#get-versions-builds-the-whole-answer-for-each-request).
+- **The 304.** `ifNoneMatch` (`internal/server/resource.go`) compares the header with `versionOf` of the answer. The entries are sorted, so the `ETag` moves only when an entry does.
+- **A new kind of resource** adds a function to `versionKinds`, a value to the `kind` enum of `ResourceVersion`, and a row to the table in [the route table](routes.md#versions).
+
+`TestVersionsListsExactlyWhatTheCallersCollectionsAndGetsGive` (`internal/server/versions_test.go`) reads every collection and every `GET` as each member of a family, and requires the same kinds, IDs and versions. `BenchmarkVersions` times one request on an instance with 41 users, 307 lists and 5,202 items:
+
+```bash
+go test ./internal/server -run '^$' -bench Versions -benchtime 20x
+```
+
 ## Who can see a user, and fields that only some callers see
 
 The rule of who can see a user is in one place: `visibleTo` in `internal/user/visible.go`. It is a SQL condition on a `users` row, and the Go code never repeats it. `GET /users`, its `total_count`, `GET /users/{id}`, a group's users, and the check that an avatar may load all use it, through `Service.Visible`, `Service.InGroup`, `Service.GetVisible`, `user.CanSee`, and `user.CanSeeSummary` (a user's summary also reaches the viewers who see their parent or child, so the avatar loads for them). A change that makes more users visible or fewer (a deactivated user) changes `visibleTo` and nothing else. A parent and a child see each other there, and only through direct links. The rule of who can see a group is in the same file (`GroupSeenBy`, built on `GroupsContaining`), and `internal/group` uses it, so the `up` set of groups that contain a user has one copy. A route that has a transaction open calls `user.CanSee` with the transaction, and never with the database handle.

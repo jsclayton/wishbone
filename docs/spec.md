@@ -745,6 +745,7 @@ Every route follows these rules. The route table applies them to each resource.
   - `next_cursor` is an opaque string, or `null` on the last page. The client sends it back as `?cursor=`. The client can send `?limit=`. The route table gives each route's default and maximum page size.
   - Clients must always follow `next_cursor`. A small collection can return all of its resources on one page. The server can start to page a collection later, and that is not a contract change.
   - `total_count` is the number of resources that the caller can see in the whole collection, not only on this page. The server counts with the same visibility rules that it uses for `data`.
+- One route is an exception: `GET /versions` returns its whole answer in one response, with no paging (see [Versions of everything a caller sees](#versions-of-everything-a-caller-sees)).
 - Filters are query parameters with the name of the field they match: `?list_id=9`. A boolean is `true` or `false`. A repeated parameter means "any of": `?list_id=9&list_id=11`. A filter can match a `can_*` field, for example `?can_edit=true` for the lists that the caller can edit, which includes their children's lists. A filter that is not a field, such as a list's `?recipient_id=`, is defined once in the [route table](routes.md). `?recipient_id=12` returns the lists that have user 12 among their `recipients`. A filter that the route doesn't know is a 422.
 - `?sort=<key>` sets the order, and `?sort=-<key>` sets the reverse order. A request has one sort key. The server always adds `id` as the last tiebreaker. The route table gives each route's sort keys and its default. A sort key that the route doesn't allow is a 422. A collection without sort keys has one order, which the route table gives.
 - A sort key must be a field that every caller of the route can see. For example, no route sorts by claimed quantity.
@@ -810,6 +811,26 @@ Every route follows these rules. The route table applies them to each resource.
   - The server keeps the answer and a hash of the request. It never keeps the request body, so it keeps no copy of an upload.
   - Without the header, nothing changes. Where a duplicate would cause a problem, a unique rule refuses it with a 409 and a specific `code`. For example, when a giver claims the same item for the same occasion a second time, the response is `code: "already_claimed"`. A client can treat that as success, and get the gift. Where a duplicate only causes extra work, such as an item that is added two times, the duplicate stays.
   - Two routes differ, and keep no answer. A login link's create keeps none, because the link is in its first answer and nowhere else, so a repeat makes a new link. The start of a passkey registration keeps none, because its options last 5 minutes, so a repeat starts a new registration. The [route table](routes.md#idempotency-keys) says this again, and has the limits of a key.
+
+### Versions of everything a caller sees
+
+- `GET /versions` returns the kind, the ID, and the version of every resource that the caller can see. It is for a client that keeps a copy of those resources, such as a native app that works offline. With one request, the client learns what changed and what went away.
+- The client compares the answer with its copy. It gets each resource that is new or that has a different version, and it drops each resource that is absent.
+- The answer is `{ "data": [] }`. Each entry of `data` is `{ kind, id, version, list_id, item_id }`:
+  - `kind` is one of `user`, `user_summary`, `list`, `list_recipient`, `item`, `store_link`, `gift`, `occasion`, `group`, and `invitation`. Sessions and passkeys are not in the answer. The [route table](routes.md#versions) describes each kind.
+  - `version` is the value that the resource's own `GET` sends to this caller as its `ETag`, and that a collection gives as the resource's `version` (see [Writes](#writes)).
+  - `list_id` is the list of an item or of a list recipient. `item_id` is the item of a store link. For every other kind, each is `null`.
+  - A list recipient has no ID of its own. Its `id` is the ID of its user, as in its address, so `list_id` and `id` together name it.
+  - A `user_summary` is a user whom the caller gets only as a summary inside another resource (see [Shapes](#shapes)). That user's own address is a 404 for the caller. Its `version` is a hash of the summary. A user whom the caller sees in full is a `user`, and is never also a `user_summary`.
+- **One response:** the answer is not paged. This is an exception to [Collections](#collections). It has no `next_cursor` and no `total_count`, and it takes no `?limit=`, no filter, and no sort. The server never starts to page it, because its `ETag` is for the whole answer. The order of `data` has no meaning.
+- **304:** the response has an `ETag`, which is a hash of the whole answer. The client sends it back in `If-None-Match`. When nothing that the caller can see has changed, the answer is 304 with no body. No other route takes `If-None-Match`.
+- **Absent means gone for this caller:** the resource was deleted, or it moved out of what the caller sees, or it is now hidden. The answer doesn't say which, as a 404 doesn't (see [Errors](#errors)).
+- **Secrecy:** the answer shows no more than a `GET` does.
+  - A resource is in the answer only while the caller's own `GET` returns it.
+  - A version changes only when the body of the caller's own `GET` of that resource changes. So the `ETag` of the answer changes only when something that the caller can see changes.
+  - For example, when a giver claims an item, the answer of a recipient of the list stays the same, and the giver's answer changes.
+- What a caller sees can change with no write. For example, a gift is given at its reveal, and an occasion's `next_date` moves with the date. The server works out the answer again for each request, so the answer always shows what a `GET` returns at that moment.
+- There is no feed of changes, and no cursor of changes. A client asks again when it wants to refresh.
 
 ### Errors
 

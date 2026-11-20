@@ -120,6 +120,13 @@ type collectionRules struct {
 	Filters []string
 }
 
+// all is the request for every row of the collection, in its default sort. It
+// is for the server's own read of a whole collection (GET /versions): a
+// client's request is always a page (see [PageParams.parse]).
+func (c collectionRules) all() (page.Request, error) {
+	return page.All(c.Name, c.Sorts)
+}
+
 // apply makes the operation check its query with the rules, and describe them.
 // Call it on the operation before huma.Register.
 func (c collectionRules) apply(op *huma.Operation) {

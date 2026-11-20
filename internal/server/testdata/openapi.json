@@ -4160,6 +4160,66 @@
         ],
         "type": "object"
       },
+      "ResourceVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The resource's ID: the last part of its address. A list recipient has the ID of its user, so it is one resource only together with list_id.",
+            "examples": [
+              "42"
+            ],
+            "type": "string"
+          },
+          "item_id": {
+            "description": "For a store link, its item. null for every other kind.",
+            "examples": [
+              "12"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "What the resource is. user_summary is a user whom the caller gets only as a summary inside another resource: GET /users/{id} is a 404 for them.",
+            "enum": [
+              "user",
+              "user_summary",
+              "list",
+              "list_recipient",
+              "item",
+              "store_link",
+              "gift",
+              "occasion",
+              "group",
+              "invitation"
+            ],
+            "type": "string"
+          },
+          "list_id": {
+            "description": "For an item and a list recipient, the list they are on. null for every other kind.",
+            "examples": [
+              "7"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "The same value as the ETag of the resource's own GET for this caller, and as its version in a collection. A user summary has no address: its version is a hash of the summary.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "version",
+          "list_id",
+          "item_id"
+        ],
+        "type": "object"
+      },
       "RuleBody": {
         "additionalProperties": false,
         "properties": {
@@ -5298,6 +5358,31 @@
           "id",
           "name",
           "avatar"
+        ],
+        "type": "object"
+      },
+      "VersionsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v2/schemas/VersionsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "data": {
+            "description": "Every resource the caller can see, each one once. The order means nothing. A resource that is not here is gone for this caller: deleted, moved out of view, or hidden.",
+            "items": {
+              "$ref": "#/components/schemas/ResourceVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       }
@@ -14505,6 +14590,96 @@
         "summary": "Revoke a session",
         "tags": [
           "Sessions"
+        ]
+      }
+    },
+    "/api/v2/versions": {
+      "get": {
+        "description": "The kind, the ID and the version of every resource the caller can see: users, lists, list recipients, items, store links, gifts, occasions, groups and invitations. Not sessions, and not passkeys. A client that keeps a copy compares the answer with it, gets what differs, and drops what is absent. The answer is one response: it has no cursor and no limit, and takes no filter and no sort. Its `ETag` is the version of the whole answer. Sent back in `If-None-Match`, it gets a 304 with no body while nothing the caller can see changed. A version here moves only when the body of the caller's own `GET` of that resource moves, so the answer shows nothing that a `GET` doesn't.",
+        "operationId": "list-versions",
+        "parameters": [
+          {
+            "description": "The ETag of an earlier answer. When nothing the caller can see changed since, the answer is 304 with no body.",
+            "in": "header",
+            "name": "If-None-Match",
+            "schema": {
+              "description": "The ETag of an earlier answer. When nothing the caller can see changed since, the answer is 304 with no body.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionsBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The version of the whole answer: a hash of the body. Send it back in If-None-Match.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Nothing the caller can see changed since the answer whose `ETag` is in `If-None-Match`. No body.",
+            "headers": {
+              "ETag": {
+                "description": "The version of the whole answer, the same as in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "The version of everything the caller can see",
+        "tags": [
+          "Versions"
         ]
       }
     }

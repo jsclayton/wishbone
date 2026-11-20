@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 	"time"
 )
@@ -28,6 +29,9 @@ const (
 	DefaultLimit = 100
 	// MaxLimit is the largest page a request can ask for.
 	MaxLimit = 200
+	// noLimit is the limit of a request for every row (see [All]). No collection
+	// comes near it, and a domain package can still add 1 to it.
+	noLimit = math.MaxInt32
 )
 
 var (
@@ -146,6 +150,20 @@ func Parse(collection string, keys []Key, sort, cur string, limit int) (Request,
 		}
 	}
 	r.After = &Position{Value: c.Value, ID: c.ID}
+	return r, nil
+}
+
+// All is the request for every row of a collection, in its default sort: the
+// first page, with no limit that a collection can reach, so [Slice] returns
+// every row and no cursor. It is for the server's own read of a whole
+// collection (`GET /versions`). A client's request always goes through
+// [Parse], which caps the limit at [MaxLimit].
+func All(collection string, keys []Key) (Request, error) {
+	r, err := Parse(collection, keys, "", "", 0)
+	if err != nil {
+		return Request{}, err
+	}
+	r.Limit = noLimit
 	return r, nil
 }
 

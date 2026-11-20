@@ -89,3 +89,22 @@ func checkIfMatch(header, current string) error {
 	}
 	return resourceChanged()
 }
+
+// ifNoneMatch says whether an If-None-Match header names the current version of
+// what a GET returns, so the answer is a 304 with no body. A request with no
+// header never matches. `*` matches anything that exists. The comparison is the
+// weak one, as RFC 9110 says for If-None-Match: a tag with W/ in front matches
+// the same tag without it, so a proxy that weakened the tag on the way out
+// doesn't stop the 304. The quotes of a tag are optional, as in [checkIfMatch].
+func ifNoneMatch(header, current string) bool {
+	for _, tag := range strings.Split(header, ",") {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if tag == "*" || strings.Trim(strings.TrimPrefix(tag, "W/"), `"`) == strings.Trim(current, `"`) {
+			return true
+		}
+	}
+	return false
+}
