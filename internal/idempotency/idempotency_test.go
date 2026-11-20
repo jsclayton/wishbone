@@ -1,6 +1,7 @@
 package idempotency_test
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -176,4 +177,46 @@ func TestARequestThatEndedItsOwnSessionKeepsNothing(t *testing.T) {
 	run.End()
 
 	require.Zero(t, rows(t, db))
+}
+
+// A key that no request asks for again is still forgotten: the sweep deletes
+// the answers whose window is over, whether or not another answer is kept.
+func TestTheSweepDeletesTheAnswersOver24HoursOldAndNoOthers(t *testing.T) {
+	db, svc, c, sid := setup(t)
+	keep(t, svc, sid, "old", "request", created)
+	c.t = c.t.Add(time.Hour)
+	keep(t, svc, sid, "new", "request", created)
+
+	c.t = c.t.Add(idempotency.Window - time.Hour - time.Second)
+	n, err := svc.Sweep(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, n, "a second before the first window is over")
+	require.Equal(t, 2, rows(t, db))
+
+	c.t = c.t.Add(time.Second)
+	n, err = svc.Sweep(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	var left []string
+	require.NoError(t, db.SelectContext(t.Context(), &left, `SELECT key FROM idempotency_keys`))
+	require.Equal(t, []string{"new"}, left)
+}
+
+// The first run is at start, so a server that was down for a day keeps no old
+// answer once it is up.
+func TestTheScheduleSweepsWhenItStarts(t *testing.T) {
+	db, svc, c, sid := setup(t)
+	keep(t, svc, sid, "old", "request", created)
+	c.t = c.t.Add(idempotency.Window)
+
+	ctx, stop := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.Schedule(ctx, nil)
+	}()
+	require.Eventually(t, func() bool { return rows(t, db) == 0 }, 5*time.Second, 10*time.Millisecond,
+		"the first run is before the first tick")
+	stop()
+	<-done
 }

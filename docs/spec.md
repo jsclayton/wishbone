@@ -808,7 +808,7 @@ Every route follows these rules. The route table applies them to each resource.
   - The server keeps only the answer of a write that did its work (a 2xx). A write that failed keeps nothing, so the client can send it again with the same key.
   - The server keeps the answer and a hash of the request. It never keeps the request body, so it keeps no copy of an upload.
   - Without the header, nothing changes. Where a duplicate would cause a problem, a unique rule refuses it with a 409 and a specific `code`. For example, when a giver claims the same item for the same occasion a second time, the response is `code: "already_claimed"`. A client can treat that as success, and get the gift. Where a duplicate only causes extra work, such as an item that is added two times, the duplicate stays.
-  - The [route table](routes.md#idempotency-keys) has the limits of a key, and the routes that differ.
+  - One route differs: a login link's create keeps no answer, because the link is in its first answer and nowhere else, so a repeat makes a new link. The [route table](routes.md#idempotency-keys) says this again, and has the limits of a key.
 
 ### Errors
 

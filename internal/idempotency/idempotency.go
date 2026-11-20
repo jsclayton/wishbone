@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -27,6 +28,9 @@ const (
 
 	// MaxKeyLength is the longest key, in bytes.
 	MaxKeyLength = 255
+
+	// SweepEvery is how often the server runs the sweep.
+	SweepEvery = time.Hour
 )
 
 var (
@@ -133,7 +137,8 @@ func (s *Service) release(k runKey) {
 
 // Keep remembers the answer of the run, until the [Window] after the first
 // request is over. A session that is no longer live keeps nothing: its keys
-// went with it. Keep also deletes the answers whose window is over.
+// went with it. Keep also deletes the answers whose window is over, as the
+// sweep does (see [Service.Sweep]).
 func (r *Run) Keep(ctx context.Context, a Answer) error {
 	headers, err := json.Marshal(a.Header)
 	if err != nil {
@@ -146,8 +151,8 @@ func (r *Run) Keep(ctx context.Context, a Answer) error {
 	defer func() { _ = tx.Rollback() }()
 
 	now := r.s.now()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM idempotency_keys WHERE created_at <= ?`, now.Add(-Window)); err != nil {
-		return fmt.Errorf("delete old idempotency keys: %w", err)
+	if _, err := deleteOld(ctx, tx, now); err != nil {
+		return err
 	}
 	// The body is a BLOB, also when it is empty: a nil slice would be a NULL.
 	body := a.Body
@@ -170,4 +175,52 @@ func (r *Run) Keep(ctx context.Context, a Answer) error {
 // is a first request again.
 func (r *Run) End() {
 	r.s.release(r.key)
+}
+
+// deleteOld deletes the answers whose window is over at now, and returns how
+// many they were. It is the one statement that says which answers are old.
+// [Service.Begin] never returns one of them, deleted or not.
+func deleteOld(ctx context.Context, q sqlx.ExecerContext, now time.Time) (int, error) {
+	res, err := q.ExecContext(ctx, `DELETE FROM idempotency_keys WHERE created_at <= ?`, now.Add(-Window))
+	if err != nil {
+		return 0, fmt.Errorf("delete old idempotency keys: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("delete old idempotency keys: %w", err)
+	}
+	return int(n), nil
+}
+
+// Sweep deletes every answer whose [Window] is over, and returns how many it
+// deleted. A forgotten key is then gone from the database too, and from the
+// snapshots after it, also when no client sends a key again.
+func (s *Service) Sweep(ctx context.Context) (int, error) {
+	return deleteOld(ctx, s.db, s.now())
+}
+
+// Schedule runs [Service.Sweep] now and then every [SweepEvery] until ctx ends.
+// The first run, at start, deletes what got old while the server was down. A
+// failed run is logged and tried again on the next tick. logger may be nil.
+func (s *Service) Schedule(ctx context.Context, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	tick := time.NewTicker(SweepEvery)
+	defer tick.Stop()
+	for {
+		switch n, err := s.Sweep(ctx); {
+		case ctx.Err() != nil:
+			return
+		case err != nil:
+			logger.Error("idempotency key sweep failed", slog.Any("error", err))
+		case n > 0:
+			logger.Debug("deleted old idempotency keys", slog.Int("count", n))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }

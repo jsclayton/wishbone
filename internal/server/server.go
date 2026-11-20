@@ -79,7 +79,8 @@ type Options struct {
 	Passkeys   *passkey.Service
 	Images     *image.Service
 	// Idempotency keeps the answers of the writes that came with an
-	// Idempotency-Key, so a repeat gets the first answer.
+	// Idempotency-Key, so a repeat gets the first answer. It is required, as
+	// the services above are: there is no server without it.
 	Idempotency *idempotency.Service
 	// Search reads a link or a photo for POST /search. Nil leaves everything
 	// unread: a search then finds nothing, and counts nothing.
