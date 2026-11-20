@@ -101,7 +101,8 @@ A change to a list's recipients, to an occasion, to a birthday, or to the list a
 5. `SettleOccasionsOf` settles any gift that is still for one of the user's occasions, with the user no longer a recipient anywhere.
 6. `giftflag.ForgetUser` drops the user from `recipients_changed` flags (old and new) and from `restored` flags. It runs after step 3, which raises flags that name the user as an old recipient.
 7. The user's avatar is detached, and so is every image they uploaded that nothing holds (`image.DetachUnheldBy`). An image that another resource holds stays, and `images.uploaded_by` becomes `NULL`.
-8. The `users` row goes. `sessions`, `login_links`, `passkeys`, `user_parents`, `group_users`, `occasions` and `list_invitations.user_id` cascade, and `items.added_by` and `list_invitations.invited_by` become `NULL`.
+8. Every kept answer of an idempotency key goes, on the whole instance (`idempotency.ForgetAll`). An answer kept for another user's session can be a copy of something of the user's, and no row says which ones are. This is in `Service.forget`, so any later way to delete a user clears them too.
+9. The `users` row goes. `sessions`, `login_links`, `passkeys`, `user_parents`, `group_users`, `occasions` and `list_invitations.user_id` cascade, and `items.added_by` and `list_invitations.invited_by` become `NULL`.
 
 A step that reads a flag or a quantity a remaining recipient could see would be a leak, so none of the steps above changes an item on a list that stays. `internal/server/user_delete_privacy_test.go` reads the lists, items, images and gifts of the remaining recipients before and after, and requires the same bodies and ETags.
 
@@ -160,6 +161,7 @@ The rule is in [Writes](spec.md#writes), under **Retries**. Its limits are in th
 - The answer is kept after the route has answered, in a commit of its own, and with a context that the client can't cancel. If the server stops between the route's commit and that one, the work is done and no answer is kept: a repeat then does the work again.
 - A session's rows go with the session, in the schema and not in Go. The foreign key deletes them with the session's row, and the trigger `idempotency_keys_session_revoked` deletes them when `revoked_at` is set. So the code that revokes or deletes a session knows nothing of keys. `Run.Keep` inserts only for a live session, so a request that ends its own session keeps nothing.
 - `deleteOld` in `internal/idempotency` is the one statement that deletes the rows whose window is over. `Service.Schedule` runs it when the server starts and then every hour, as the image sweep runs, and `Run.Keep` runs it too. So a key that no client sends again doesn't stay in the database, or in a later snapshot.
+- An ordinary delete (a list, an item, a gift) leaves the kept answers as they are: an answer goes only to the session that got it, and is gone within 24 hours. The delete of a user clears the whole table in its own transaction (see [Deleting a user](#deleting-a-user)). The requests that are running in the server's memory are not cleared.
 - A write whose answer must not be kept sets `answerNeverKept` in its operation's `Metadata`, with the reason as the value. Today there are two: `POST /users/{id}/login-links`, whose answer holds a secret that the database must not hold, and `POST /users/{id}/passkeys/registration`, whose answer is over after 5 minutes.
 
 ## Images

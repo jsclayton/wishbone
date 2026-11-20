@@ -192,6 +192,17 @@ func deleteOld(ctx context.Context, q sqlx.ExecerContext, now time.Time) (int, e
 	return int(n), nil
 }
 
+// ForgetAll deletes every kept answer, of every session, in a transaction or on
+// a database. The delete of a user calls it in its transaction: a kept answer
+// is a copy of what its session saw, and that can be something of the user. A
+// repeat of a write from before then does the work again.
+func ForgetAll(ctx context.Context, q sqlx.ExecerContext) error {
+	if _, err := q.ExecContext(ctx, `DELETE FROM idempotency_keys`); err != nil {
+		return fmt.Errorf("delete every idempotency key: %w", err)
+	}
+	return nil
+}
+
 // Sweep deletes every answer whose [Window] is over, and returns how many it
 // deleted. A forgotten key is then gone from the database too, and from the
 // snapshots after it, also when no client sends a key again.

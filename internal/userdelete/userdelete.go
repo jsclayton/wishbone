@@ -18,6 +18,7 @@ import (
 
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/giftflag"
+	"jsclayton.dev/wishbone/internal/idempotency"
 	"jsclayton.dev/wishbone/internal/image"
 	"jsclayton.dev/wishbone/internal/item"
 	"jsclayton.dev/wishbone/internal/list"
@@ -112,6 +113,9 @@ func (s *Service) Delete(ctx context.Context, id int64) (Result, error) {
 //  6. The flags that name them drop them. This comes after the leaves above, which
 //     raise flags that name them as an old recipient.
 //  7. Their avatar and the images that only they could see are detached.
+//  8. Every kept answer of an idempotency key goes, on the whole instance. An
+//     answer kept for another user's session can be a copy of something of
+//     theirs, and no row says which ones are.
 func (s *Service) forget(ctx context.Context, tx *sqlx.Tx, u user.User) error {
 	if err := s.gifts.KeepGiverName(ctx, tx, u.ID, u.Name); err != nil {
 		return err
@@ -167,7 +171,10 @@ func (s *Service) forget(ctx context.Context, tx *sqlx.Tx, u user.User) error {
 			return err
 		}
 	}
-	return image.DetachUnheldBy(ctx, tx, now, u.ID)
+	if err := image.DetachUnheldBy(ctx, tx, now, u.ID); err != nil {
+		return err
+	}
+	return idempotency.ForgetAll(ctx, tx)
 }
 
 // orphansOf returns the children whose only parent is the user, in ID order.

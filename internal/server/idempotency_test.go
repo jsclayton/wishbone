@@ -453,6 +453,32 @@ func TestDeactivatingAUserRemovesTheKeysOfTheirSessions(t *testing.T) {
 	require.Zero(t, e.storedKeys())
 }
 
+// A kept answer is a copy of what its session saw, and that can be something of
+// a user who is deleted later. So the delete of a user clears every kept answer
+// on the instance, the ones of other people's sessions too.
+func TestDeletingAUserClearsEveryKeptAnswerSoARepeatDoesTheWorkAgain(t *testing.T) {
+	e := newEnv(t)
+	adminID, admin := e.signUp()
+	graceID, grace := e.otherUser("Grace")
+	listID := e.primaryListOf(admin).ID
+	first := decode[itemView](t, e.postItemWithKey(admin, listID, "key-1", map[string]any{"title": "Kettle"}))
+	require.Equal(t, http.StatusCreated, e.postItemWithKey(grace, e.primaryListOf(grace).ID, "key-1", map[string]any{"title": "Skates"}).StatusCode)
+	require.Equal(t, 2, e.storedKeys())
+
+	// A delete that is refused clears nothing.
+	_, err := e.deleter().Delete(t.Context(), mustParse(t, adminID))
+	require.Error(t, err)
+	require.Equal(t, 2, e.storedKeys())
+
+	e.deleteUser(graceID)
+
+	require.Zero(t, e.storedKeys(), "the answers of the sessions that stay are gone too")
+	again := e.postItemWithKey(admin, listID, "key-1", map[string]any{"title": "Kettle"})
+	require.Equal(t, http.StatusCreated, again.StatusCode)
+	require.NotEqual(t, first.ID, decode[itemView](t, again).ID, "the repeat did the work again")
+	require.Equal(t, []string{"Kettle", "Kettle"}, e.order(admin, listID))
+}
+
 func TestAReplayedSearchDoesNotCountAgainstTheHourlyLimit(t *testing.T) {
 	eyes := &fakeEyes{guess: llm.PhotoGuess{Title: "Kettle"}}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))

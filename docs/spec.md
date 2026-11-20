@@ -661,6 +661,7 @@ These events change an open gift:
   - A given gift for them alone is deleted. So it also leaves its giver's Given. Its quantity doesn't go back on the item, so a recipient who joins the list later can't tell that it was given.
   - A gift that they gave stays in its recipients' Received, with their name as it was (see [Reveal](#reveal)).
 - These also go: their sessions, login links, and passkeys, their parent links in both directions, their group memberships, their avatar, their birthday and custom occasions, and the pending invitations to them.
+- Every answer that the server keeps for an `Idempotency-Key` goes too, on the whole instance (see **Retries** in [Writes](#writes)). An answer kept for another user's session can be a copy of something of theirs. So for the next 24 hours, a repeat of a write from before the delete can do the work again.
 - An open gift for one of their occasions on a list that stays moves to the next occasion of another recipient, and is flagged (see [Changes while a gift is open](#changes-while-a-gift-is-open)).
 - A reference to them becomes `null`, or leaves a list of users:
   - `added_by` on the items that they added becomes `null` (see [Items](#items)), and `invited_by` on the invitations that they sent.
