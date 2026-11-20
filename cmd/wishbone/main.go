@@ -26,6 +26,7 @@ import (
 	"jsclayton.dev/wishbone/internal/config"
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/group"
+	"jsclayton.dev/wishbone/internal/idempotency"
 	"jsclayton.dev/wishbone/internal/image"
 	"jsclayton.dev/wishbone/internal/imagestore"
 	"jsclayton.dev/wishbone/internal/item"
@@ -224,6 +225,10 @@ func (s *ServeCmd) Run() error {
 	// catch-up after downtime.
 	revealer := gift.NewRevealer(st.DB(), images, occasions, time.Now)
 	go revealer.Schedule(ctx, revealInterval, logger)
+	// The sweep deletes the answers of keyed writes that are over 24 hours old.
+	// The first run, at start, deletes what got old while the server was down.
+	keys := idempotency.NewService(st.DB(), time.Now)
+	go keys.Schedule(ctx, logger)
 	srv := server.New(server.Options{
 		Logger:          logger,
 		Store:           st,
@@ -239,6 +244,7 @@ func (s *ServeCmd) Run() error {
 		Occasions:       occasions,
 		Gifts:           gifts,
 		Sessions:        session.NewService(st.DB(), time.Now),
+		Idempotency:     keys,
 		Setup:           setupSvc,
 		LoginLinks:      loginlink.NewService(st.DB(), time.Now),
 		Passkeys:        passkeys,

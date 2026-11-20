@@ -55,6 +55,22 @@ These routes don't follow the response rules in [Writes](spec.md#writes). Every 
 - `POST /search` takes `multipart/form-data`, not JSON, and returns 200, because it saves nothing. See [Search](#search).
 - The routes that add to a membership (`POST /groups/{id}/users`, `POST /groups/{id}/groups`, `POST /occasions/{id}/groups`) return 201 with the user or group that was added. Its `Location` header is that resource's own address, because a membership has none.
 
+### Idempotency keys
+
+The rule is in [Writes](spec.md#writes), under **Retries**.
+
+- Every `POST`, `PATCH` and `DELETE` in this table accepts the `Idempotency-Key` header, unless its role is **public**. A **public** route (setup and the sign-in routes) has no session for a key to belong to, so it ignores the header. A `GET` ignores it too.
+- A key is a string that the client chooses, of 1 to 255 bytes. A longer key is a 422 `invalid_input`. A header with no value is no key.
+- The window is 24 hours from the first request with the key. A repeat doesn't move it.
+- Deleting a user clears every kept answer on the instance (see [Deletion](spec.md#deletion)). So in the 24 hours after it, a repeat of a write from before the delete can do the work again.
+- The path is compared after `me` and `current` are resolved, and the query is a part of it.
+- The body is compared by a hash of what it says. The same JSON with its keys in another order, and the same `multipart/form-data` with another boundary, are the same body. Any other body is the same only when its bytes are. A route that takes no body, such as a `DELETE`, doesn't read one: a body sent to it, and its `Content-Type`, are no part of the request.
+- A repeat gets the first answer's status and body, and its `Content-Type`, `Location`, `ETag` and `Link` headers. The server keeps no other header. The answer is what the caller got then: it doesn't show a later change.
+- Only a 2xx is kept. After any other answer, the same key runs the request again.
+- Two routes keep no answer, so a repeat with the same key does the work again. While the first request is still running, a repeat is a 409 `idempotency_key_in_use`, as on any route.
+  - `POST /users/{id}/login-links`, because the link is in its first answer and nowhere else (see [Login links](#login-links)). A repeat makes a new link.
+  - `POST /users/{id}/passkeys/registration`, because its options last 5 minutes (see [Passkeys](#passkeys)). A kept answer would be over for most of the 24 hours. A repeat starts a new registration.
+
 ### Codes on every route
 
 | Status | Code | When |
@@ -69,6 +85,8 @@ These routes don't follow the response rules in [Writes](spec.md#writes). Every 
 | 422 | `unknown_filter` | The query has a filter that the route doesn't know |
 | 422 | `unknown_sort` | The query has a sort key that the route doesn't allow |
 | 422 | `cursor_mismatch` | The cursor belongs to a different sort |
+| 409 | `idempotency_key_in_use` | The first request with this `Idempotency-Key` is still running. Send the request again later. See [Idempotency keys](#idempotency-keys). |
+| 422 | `idempotency_key_reused` | This session sent the `Idempotency-Key` in the last 24 hours with another method, path or body |
 | 403 | `user_deactivated` | The caller can see the user, but the user is deactivated, so the caller can't do this to them or through them. See [Roles](#roles). |
 | 429 | `rate_limited` | Over a rate limit |
 | 500 | `internal_error` | The server failed in a way the caller can't fix. The `detail` says to try again. |

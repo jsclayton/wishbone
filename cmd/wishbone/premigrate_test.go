@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func automaticSnapshots(t *testing.T, dir string) []string {
 	return got
 }
 
-// A new install gets a snapshot of its empty database, then the baseline.
+// A new install gets a snapshot of its empty database, then the migrations.
 func TestMigrateWritesASnapshotFirst(t *testing.T) {
 	dir := t.TempDir()
 	st := newDataDirStore(t, dir)
@@ -35,15 +36,15 @@ func TestMigrateWritesASnapshotFirst(t *testing.T) {
 
 	require.NoError(t, migrate(t.Context(), st, dir, now, slog.New(slog.DiscardHandler)))
 
-	snaps := automaticSnapshots(t, dir)
-	require.Len(t, snaps, 1)
-	require.Regexp(t, `pre-migrate-0-to-20261110030443-20261108T120000Z$`, snaps[0])
-	require.FileExists(t, filepath.Join(snaps[0], "wishbone.db"))
-	require.DirExists(t, filepath.Join(snaps[0], "images"))
-
 	v, err := store.Version(t.Context(), st.DB())
 	require.NoError(t, err)
-	require.Equal(t, store.BaselineVersion, v, "the baseline ran after the snapshot")
+	require.GreaterOrEqual(t, v, store.BaselineVersion, "the migrations ran after the snapshot")
+
+	snaps := automaticSnapshots(t, dir)
+	require.Len(t, snaps, 1)
+	require.Regexp(t, fmt.Sprintf(`pre-migrate-0-to-%d-20261108T120000Z$`, v), snaps[0])
+	require.FileExists(t, filepath.Join(snaps[0], "wishbone.db"))
+	require.DirExists(t, filepath.Join(snaps[0], "images"))
 
 	// Nothing is pending now, so a second start writes no snapshot.
 	require.NoError(t, migrate(t.Context(), st, dir, func() time.Time { return now().Add(time.Hour) }, slog.New(slog.DiscardHandler)))
@@ -63,9 +64,9 @@ func TestMigrateAppliesNothingWhenTheSnapshotFails(t *testing.T) {
 	require.Zero(t, v)
 }
 
-// A database at the baseline's version has nothing to migrate. The server
+// A database that has every migration has nothing to migrate. The server
 // writes no snapshot, and keeps a pre-baseline snapshot that is in the data dir.
-func TestMigrateOnADatabaseAtTheBaselineWritesNothingAndKeepsAPreBaselineSnapshot(t *testing.T) {
+func TestMigrateOnAMigratedDatabaseWritesNothingAndKeepsAPreBaselineSnapshot(t *testing.T) {
 	dir, st := newDB(t)
 	preBaseline := filepath.Join(dir, "backups", "pre-migrate-20261105204058-to-20261110030443-20261110T164723Z")
 	require.NoError(t, os.MkdirAll(preBaseline, 0o750))

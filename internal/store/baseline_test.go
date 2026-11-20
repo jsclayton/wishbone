@@ -31,11 +31,12 @@ func schemaTables(t *testing.T, st *Store) []string {
 	return names
 }
 
-// A new install creates the schema from the baseline, in one migration.
+// A new install creates the schema from the baseline, in one migration. The
+// migrations after the baseline change it from there.
 func TestANewInstallCreatesTheSchemaFromTheBaseline(t *testing.T) {
 	st := newDB(t)
 
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), BaselineVersion))
 
 	require.Equal(t, baselineTables, schemaTables(t, st))
 	require.Equal(t, []int64{0, BaselineVersion}, gooseVersions(t, st), "goose's own row, and the baseline")
@@ -59,8 +60,9 @@ var olderRowsVersions = []int64{
 
 // A database that lists the rows of the migrations that the baseline replaced,
 // and the baseline's version, is at the baseline. Goose ignores the versions
-// that have no file, so nothing runs on it.
-func TestADatabaseAtTheBaselineVersionRunsNothing(t *testing.T) {
+// that have no file, so nothing up to the baseline runs on it. Only the
+// migrations after the baseline do.
+func TestADatabaseAtTheBaselineVersionRunsOnlyWhatCameAfterIt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	setGooseVersions(t, path, olderRowsVersions[1:]...)
 	st, err := Open(t.Context(), path)
@@ -70,16 +72,25 @@ func TestADatabaseAtTheBaselineVersionRunsNothing(t *testing.T) {
 	require.NoError(t, err)
 	before := schemaDump(t, st)
 
-	called := false
-	require.NoError(t, st.MigrateAfter(t.Context(), func(context.Context, int64, int64) error {
-		called = true
+	require.NoError(t, st.MigrateTo(t.Context(), BaselineVersion))
+
+	require.Equal(t, olderRowsVersions, gooseVersions(t, st), "no version was added")
+	require.Equal(t, before, schemaDump(t, st))
+
+	var from int64
+	require.NoError(t, st.MigrateAfter(t.Context(), func(_ context.Context, f, _ int64) error {
+		from = f
 		return nil
 	}))
 
-	require.False(t, called, "nothing is pending, so there is no snapshot to take")
+	require.Equal(t, BaselineVersion, from, "the snapshot is of a database at the baseline")
 	require.NoError(t, st.EnsureMigrated(t.Context()))
-	require.Equal(t, olderRowsVersions, gooseVersions(t, st), "no version was added")
-	require.Equal(t, before, schemaDump(t, st))
+	got := gooseVersions(t, st)
+	require.Equal(t, olderRowsVersions, got[:len(olderRowsVersions)], "the rows it had are as they were")
+	for _, v := range got[len(olderRowsVersions):] {
+		require.Greater(t, v, BaselineVersion, "only a migration after the baseline ran")
+	}
+	require.Equal(t, newestMigration(t), got[len(got)-1])
 	var v string
 	require.NoError(t, st.db.GetContext(t.Context(), &v, `SELECT value FROM instance_meta WHERE key = 'id'`))
 	require.Equal(t, "kept", v)

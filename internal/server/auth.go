@@ -30,6 +30,10 @@ type Caller struct {
 	// ViaCookie is true when the session came in the cookie, and false when it
 	// came as a bearer token. Only cookie sessions have a cookie to renew or clear.
 	ViaCookie bool
+	// tokenHash is what the database keeps of the session's token. With the ID,
+	// it says which session an Idempotency-Key belongs to: a later session can
+	// get the ID of a deleted one, and never its token.
+	tokenHash string
 }
 
 type callerKey struct{}
@@ -114,7 +118,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			writeProblem(w, http.StatusInternalServerError, "internal_error", "Something went wrong on our side. Try again.")
 			return
 		}
-		caller := Caller{User: u, SessionID: sess.ID, ViaCookie: viaCookie}
+		caller := Caller{User: u, SessionID: sess.ID, ViaCookie: viaCookie, tokenHash: session.Hash(token)}
 
 		if viaCookie {
 			// The cookie lasts a year from when it was sent. A session lasts a year

@@ -661,6 +661,7 @@ These events change an open gift:
   - A given gift for them alone is deleted. So it also leaves its giver's Given. Its quantity doesn't go back on the item, so a recipient who joins the list later can't tell that it was given.
   - A gift that they gave stays in its recipients' Received, with their name as it was (see [Reveal](#reveal)).
 - These also go: their sessions, login links, and passkeys, their parent links in both directions, their group memberships, their avatar, their birthday and custom occasions, and the pending invitations to them.
+- Every answer that the server keeps for an `Idempotency-Key` goes too, on the whole instance (see **Retries** in [Writes](#writes)). An answer kept for another user's session can be a copy of something of theirs. So for the next 24 hours, a repeat of a write from before the delete can do the work again.
 - An open gift for one of their occasions on a list that stays moves to the next occasion of another recipient, and is flagged (see [Changes while a gift is open](#changes-while-a-gift-is-open)).
 - A reference to them becomes `null`, or leaves a list of users:
   - `added_by` on the items that they added becomes `null` (see [Items](#items)), and `invited_by` on the invitations that they sent.
@@ -800,7 +801,15 @@ Every route follows these rules. The route table applies them to each resource.
 - **Concurrent edits:** every full resource response has an `ETag`. The `ETag` is a hash of the response body that the caller gets, so it changes only when something the caller can see changes. Each resource in a collection's `data` has the same value in a `version` field.
   - `PATCH` and `DELETE` accept `If-Match`. When the resource changed since that version, the server returns 412 with `code: "resource_changed"`, and changes nothing.
   - `If-Match` is optional. Without it, the merge-patch rules apply, and the last writer wins for each field.
-- **Retries:** the API has no idempotency keys. Where a duplicate would cause a problem, a unique rule refuses it with a 409 and a specific `code`. For example, when a giver claims the same item for the same occasion a second time, the response is `code: "already_claimed"`. A client can treat that as success, and get the gift. Where a duplicate only causes extra work, such as an item that is added two times, the duplicate stays. If retries need more safety later, the fix is an optional `Idempotency-Key` header on `POST`. That is an additive change.
+- **Retries:** a `POST`, `PATCH` or `DELETE` that needs a sign-in accepts an optional `Idempotency-Key` header. A client that can't tell whether a write arrived sends it again with the same key.
+  - A repeat is the same key, from the same session, with the same method, path and body. For 24 hours from the first request, a repeat returns the first answer as it was sent: the status, the body, and the `Location` and `ETag` headers. The server does no work again. So a repeated create makes one resource, a repeated `DELETE` returns 204 again, and a repeated search doesn't count against the hourly limit again (see [Search](#search)). After 24 hours, the server forgets the key.
+  - The same key with a different method, path or body is a 422 with `code: "idempotency_key_reused"`, and changes nothing.
+  - A repeat that arrives while the first request is still running is a 409 with `code: "idempotency_key_in_use"`. The client sends it again later.
+  - A key belongs to its session. The same key from another session is another key. When a session is revoked or deleted, its keys go with it.
+  - The server keeps only the answer of a write that did its work (a 2xx). A write that failed keeps nothing, so the client can send it again with the same key.
+  - The server keeps the answer and a hash of the request. It never keeps the request body, so it keeps no copy of an upload.
+  - Without the header, nothing changes. Where a duplicate would cause a problem, a unique rule refuses it with a 409 and a specific `code`. For example, when a giver claims the same item for the same occasion a second time, the response is `code: "already_claimed"`. A client can treat that as success, and get the gift. Where a duplicate only causes extra work, such as an item that is added two times, the duplicate stays.
+  - Two routes differ, and keep no answer. A login link's create keeps none, because the link is in its first answer and nowhere else, so a repeat makes a new link. The start of a passkey registration keeps none, because its options last 5 minutes, so a repeat starts a new registration. The [route table](routes.md#idempotency-keys) says this again, and has the limits of a key.
 
 ### Errors
 

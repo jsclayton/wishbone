@@ -23,6 +23,7 @@ import (
 	"jsclayton.dev/wishbone/internal/clientip"
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/group"
+	"jsclayton.dev/wishbone/internal/idempotency"
 	"jsclayton.dev/wishbone/internal/image"
 	"jsclayton.dev/wishbone/internal/item"
 	"jsclayton.dev/wishbone/internal/list"
@@ -77,6 +78,10 @@ type Options struct {
 	LoginLinks *loginlink.Service
 	Passkeys   *passkey.Service
 	Images     *image.Service
+	// Idempotency keeps the answers of the writes that came with an
+	// Idempotency-Key, so a repeat gets the first answer. It is required, as
+	// the services above are: there is no server without it.
+	Idempotency *idempotency.Service
 	// Search reads a link or a photo for POST /search. Nil leaves everything
 	// unread: a search then finds nothing, and counts nothing.
 	Search Searcher
@@ -152,11 +157,13 @@ func New(opts Options) *Server {
 	// `signedIn`, a request with no valid session gets a 401, the operation is
 	// documented with the two security schemes, and the route gets its caller
 	// from CallerFrom. List 401 in the operation's Errors: huma reads Errors
-	// before the group's modifier runs.
+	// before the group's modifier runs. A write on `signedIn` also takes an
+	// Idempotency-Key, which belongs to the caller's session (see idempotent).
 	public := huma.NewGroup(api, apiPrefix)
 	signedIn := huma.NewGroup(api, apiPrefix)
 	signedIn.UseSimpleModifier(func(op *huma.Operation) { op.Security = signedInSecurity })
-	signedIn.UseMiddleware(requireSignedIn(api))
+	signedIn.UseSimpleModifier(documentIdempotencyKey(api))
+	signedIn.UseMiddleware(requireSignedIn(api), s.idempotent())
 
 	s.registerHealth(public)
 	s.registerSetup(public)
