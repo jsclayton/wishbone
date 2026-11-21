@@ -72,15 +72,14 @@ type allowStoreInput struct {
 func (s *Server) registerBlockedStores(api huma.API) {
 	tags := []string{"Blocked stores"}
 
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-blocked-stores",
 		Method:      http.MethodGet,
 		Path:        "/blocked-stores",
 		Summary:     "The blocked stores",
 		Description: "Only the admin.",
 		Tags:        tags,
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden},
-	}
+	}, "forbidden")
 	blockedStoreRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *struct{ PageParams }) (*collectionOutput[blockedStoreRow], error) {
 		if err := requireAdmin(ctx, "sees the blocked stores"); err != nil {
@@ -109,7 +108,7 @@ func (s *Server) registerBlockedStores(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "block-store",
 		Method:      http.MethodPost,
 		Path:        "/blocked-stores",
@@ -118,8 +117,7 @@ func (s *Server) registerBlockedStores(api huma.API) {
 			"Existing items keep their links. Blocking a store that is blocked changes nothing, and is a 409 `already_blocked`: a client can treat that as success.",
 		Tags:          tags,
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *blockStoreInput) (*createdOutput[BlockedStoreBody], error) {
+	}, "forbidden", "already_blocked"), func(ctx context.Context, in *blockStoreInput) (*createdOutput[BlockedStoreBody], error) {
 		if err := requireAdmin(ctx, "blocks stores"); err != nil {
 			return nil, err
 		}
@@ -130,7 +128,7 @@ func (s *Server) registerBlockedStores(api huma.API) {
 		return createdOf("/blocked-stores/"+formatID(b.ID), newBlockedStoreBody(b))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "allow-store",
 		Method:        http.MethodDelete,
 		Path:          "/blocked-stores/{id}",
@@ -138,8 +136,7 @@ func (s *Server) registerBlockedStores(api huma.API) {
 		Description:   "Only the admin. Takes the store off the blocked list. `If-Match` is optional.",
 		Tags:          tags,
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *allowStoreInput) (*struct{}, error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *allowStoreInput) (*struct{}, error) {
 		if err := requireAdmin(ctx, "allows stores again"); err != nil {
 			return nil, err
 		}

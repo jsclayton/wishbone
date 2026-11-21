@@ -41,15 +41,14 @@ type passkeyLoginOutput struct {
 func (s *Server) registerPasskeyLogin(api huma.API) {
 	svc := s.opts.Passkeys
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "begin-passkey-login",
 		Method:      http.MethodPost,
 		Path:        "/login/passkey/options",
 		Summary:     "Start signing in with a passkey",
 		Description: "Returns the options for navigator.credentials.get. They name no user. Finish within 5 minutes. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
 		Tags:        []string{"Passkeys"},
-		Errors:      []int{http.StatusTooManyRequests},
-	}, func(ctx context.Context, _ *struct{}) (*struct{ Body json.RawMessage }, error) {
+	}, "rate_limited"), func(ctx context.Context, _ *struct{}) (*struct{ Body json.RawMessage }, error) {
 		opts, err := svc.BeginLogin(ctx)
 		if err != nil {
 			return nil, err
@@ -57,7 +56,7 @@ func (s *Server) registerPasskeyLogin(api huma.API) {
 		return &struct{ Body json.RawMessage }{Body: opts}, nil
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "finish-passkey-login",
 		Method:        http.MethodPost,
 		Path:          "/login/passkey",
@@ -65,8 +64,7 @@ func (s *Server) registerPasskeyLogin(api huma.API) {
 		Description:   "Starts a cookie session. A passkey sign-in never gives a bearer token. If the caller's current session is a cookie session, the server revokes it. Every failure gets the same answer. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
 		Tags:          []string{"Passkeys"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *passkeyLoginInput) (*passkeyLoginOutput, error) {
+	}, "passkey_login_failed", "rate_limited"), func(ctx context.Context, in *passkeyLoginInput) (*passkeyLoginOutput, error) {
 		userID, err := svc.FinishLogin(ctx, in.Body.Credential)
 		if errors.Is(err, passkey.ErrLoginFailed) {
 			return nil, passkeyLoginProblem()

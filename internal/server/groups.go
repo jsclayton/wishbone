@@ -237,7 +237,6 @@ func (s *Server) registerGroups(api huma.API) {
 		Summary:     "The groups the caller is in",
 		Description: "The groups that contain the caller, directly or through nesting. The admin gets every group.",
 		Tags:        []string{"Groups"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	groupRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listGroupsInput) (*collectionOutput[groupRow], error) {
@@ -259,7 +258,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-group",
 		Method:        http.MethodPost,
 		Path:          "/groups",
@@ -267,8 +266,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createGroupInput) (*createdOutput[GroupBody], error) {
+	}, "forbidden"), func(ctx context.Context, in *createGroupInput) (*createdOutput[GroupBody], error) {
 		caller, _ := CallerFrom(ctx)
 		if err := requireAdmin(ctx, "creates groups"); err != nil {
 			return nil, err
@@ -280,15 +278,14 @@ func (s *Server) registerGroups(api huma.API) {
 		return createdOf("/groups/"+formatID(e.ID), newGroupBody(e, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-group",
 		Method:      http.MethodGet,
 		Path:        "/groups/{id}",
 		Summary:     "A group",
 		Description: "For a user in the group, directly or through nesting, and the admin. Any other caller gets a 404.",
 		Tags:        []string{"Groups"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *groupInput) (*resourceOutput[GroupBody], error) {
+	}, "not_found"), func(ctx context.Context, in *groupInput) (*resourceOutput[GroupBody], error) {
 		caller, _ := CallerFrom(ctx)
 		e, err := s.visibleGroup(ctx, in.ID)
 		if err != nil {
@@ -297,16 +294,15 @@ func (s *Server) registerGroups(api huma.API) {
 		return resourceOf(newGroupBody(e, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-group",
 		Method:      http.MethodPatch,
 		Path:        "/groups/{id}",
 		Summary:     "Rename a group",
 		Description: "Only the admin. JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. " +
 			"A field the caller sees but can't change is a 403 `field_not_writable`. `If-Match` is optional.",
-		Tags:   []string{"Groups"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchGroupInput) (*resourceOutput[GroupBody], error) {
+		Tags: []string{"Groups"},
+	}, "forbidden", "field_not_writable", "not_found"), func(ctx context.Context, in *patchGroupInput) (*resourceOutput[GroupBody], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.managedGroup(ctx, in.ID, "renames groups")
 		if err != nil {
@@ -336,7 +332,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return resourceOf(newGroupBody(updated, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-group",
 		Method:        http.MethodDelete,
 		Path:          "/groups/{id}",
@@ -344,8 +340,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin. The group and its places in the nesting go. The users in it, and the groups inside it, stay. `If-Match` is optional.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteGroupInput) (*struct{}, error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *deleteGroupInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.managedGroup(ctx, in.ID, "deletes groups")
 		if err != nil {
@@ -357,15 +352,14 @@ func (s *Server) registerGroups(api huma.API) {
 		return nil, nil
 	})
 
-	usersOp := huma.Operation{
+	usersOp := withCodes(huma.Operation{
 		OperationID: "list-group-users",
 		Method:      http.MethodGet,
 		Path:        "/groups/{id}/users",
 		Summary:     "The users directly in a group",
 		Description: "For a user in the group, directly or through nesting, and the admin. Full users: the caller shares the group with each of them.",
 		Tags:        []string{"Groups"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}
+	}, "not_found")
 	groupUsersRules.apply(&usersOp)
 	huma.Register(api, usersOp, listing(func(ctx context.Context, in *groupUsersInput) (*collectionOutput[userRow], error) {
 		caller, _ := CallerFrom(ctx)
@@ -390,7 +384,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "add-group-user",
 		Method:        http.MethodPost,
 		Path:          "/groups/{id}/users",
@@ -398,8 +392,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin. Returns the user, with the user's own address in `Location`. A user who is already directly in the group is a 409 `already_in_group`. A deactivated user is a 403 `user_deactivated`.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *addGroupUserInput) (*createdOutput[UserBody], error) {
+	}, "forbidden", "user_deactivated", "not_found", "already_in_group", "reference_not_found"), func(ctx context.Context, in *addGroupUserInput) (*createdOutput[UserBody], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.managedGroup(ctx, in.ID, "adds users to groups")
 		if err != nil {
@@ -423,7 +416,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return createdOf("/users/"+formatID(u.ID), body)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "remove-group-user",
 		Method:        http.MethodDelete,
 		Path:          "/groups/{id}/users/{user_id}",
@@ -431,8 +424,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin. A user who is not directly in the group is a 404. A deactivated user is a 403 `user_deactivated`: deactivation changes no group membership.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *removeGroupUserInput) (*struct{}, error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *removeGroupUserInput) (*struct{}, error) {
 		target, err := s.managedGroup(ctx, in.ID, "takes users out of groups")
 		if err != nil {
 			return nil, err
@@ -447,15 +439,14 @@ func (s *Server) registerGroups(api huma.API) {
 		return nil, nil
 	})
 
-	groupsOp := huma.Operation{
+	groupsOp := withCodes(huma.Operation{
 		OperationID: "list-group-groups",
 		Method:      http.MethodGet,
 		Path:        "/groups/{id}/groups",
 		Summary:     "The groups directly inside a group",
 		Description: "Only the admin: a user in the outer group is not in the groups inside it.",
 		Tags:        []string{"Groups"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}
+	}, "forbidden", "not_found")
 	groupGroupsRules.apply(&groupsOp)
 	huma.Register(api, groupsOp, listing(func(ctx context.Context, in *groupGroupsInput) (*collectionOutput[groupRow], error) {
 		caller, _ := CallerFrom(ctx)
@@ -480,7 +471,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "add-group-group",
 		Method:        http.MethodPost,
 		Path:          "/groups/{id}/groups",
@@ -488,8 +479,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin. Returns the inner group, with its own address in `Location`. A group that is already directly inside is a 409 `already_in_group`, and a change that would put a group inside itself is a 422 `group_loop`.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *addGroupGroupInput) (*createdOutput[GroupBody], error) {
+	}, "forbidden", "not_found", "already_in_group", "reference_not_found", "group_loop"), func(ctx context.Context, in *addGroupGroupInput) (*createdOutput[GroupBody], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.managedGroup(ctx, in.ID, "puts groups inside groups")
 		if err != nil {
@@ -509,7 +499,7 @@ func (s *Server) registerGroups(api huma.API) {
 		return createdOf("/groups/"+formatID(inner.ID), newGroupBody(inner, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "remove-group-group",
 		Method:        http.MethodDelete,
 		Path:          "/groups/{id}/groups/{group_id}",
@@ -517,8 +507,7 @@ func (s *Server) registerGroups(api huma.API) {
 		Description:   "Only the admin. A group that is not directly inside is a 404.",
 		Tags:          []string{"Groups"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *removeGroupGroupInput) (*struct{}, error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *removeGroupGroupInput) (*struct{}, error) {
 		target, err := s.managedGroup(ctx, in.ID, "takes groups out of groups")
 		if err != nil {
 			return nil, err

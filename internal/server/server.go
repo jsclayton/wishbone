@@ -103,6 +103,8 @@ type Options struct {
 type Server struct {
 	opts   Options
 	router chi.Router
+	// api holds the OpenAPI document, which the tests read.
+	api huma.API
 }
 
 // New builds the router.
@@ -148,6 +150,7 @@ func New(opts Options) *Server {
 	humaCfg.Formats[mergePatchContentType] = huma.DefaultJSONFormat
 	humaCfg.Transformers = append(humaCfg.Transformers, logServerErrors)
 	api := humachi.New(r, humaCfg)
+	s.api = api
 	// huma serves the document as openapi.json and openapi.yaml. The route
 	// table also names the bare path.
 	r.Get(humaCfg.OpenAPIPath, func(w http.ResponseWriter, _ *http.Request) {
@@ -156,15 +159,18 @@ func New(opts Options) *Server {
 	})
 
 	// A route goes on one of two groups. Routes on `public` need no sign-in. On
-	// `signedIn`, a request with no valid session gets a 401, the operation is
-	// documented with the two security schemes, and the route gets its caller
-	// from CallerFrom. List 401 in the operation's Errors: huma reads Errors
-	// before the group's modifier runs. A write on `signedIn` also takes an
-	// Idempotency-Key, which belongs to the caller's session (see idempotent).
+	// `signedIn`, a request with no valid session gets a 401 `unauthorized`,
+	// the operation is documented with the two security schemes and that code,
+	// and the route gets its caller from CallerFrom. A write on `signedIn` also
+	// takes an Idempotency-Key, which belongs to the caller's session (see
+	// idempotent). A route names only the codes of its own work (see withCodes).
 	public := huma.NewGroup(api, apiPrefix)
 	signedIn := huma.NewGroup(api, apiPrefix)
-	signedIn.UseSimpleModifier(func(op *huma.Operation) { op.Security = signedInSecurity })
-	signedIn.UseSimpleModifier(documentIdempotencyKey(api))
+	signedIn.UseSimpleModifier(func(op *huma.Operation) {
+		op.Security = signedInSecurity
+		declareCodes(op, "unauthorized")
+	})
+	signedIn.UseSimpleModifier(documentIdempotencyKey())
 	signedIn.UseMiddleware(requireSignedIn(api), s.idempotent())
 
 	s.registerHealth(public)
@@ -186,6 +192,7 @@ func New(opts Options) *Server {
 	s.registerPasskeys(signedIn)
 	s.registerPasskeyLogin(public)
 	s.registerVersions(signedIn)
+	finishContract(api)
 
 	spa := spaHandler()
 	r.NotFound(func(w http.ResponseWriter, req *http.Request) {
@@ -259,13 +266,14 @@ type healthOutput struct {
 }
 
 func (s *Server) registerHealth(api huma.API) {
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-health",
 		Method:      http.MethodGet,
 		Path:        "/health",
 		Summary:     "Health check",
+		Description: "200 when the server can reach its database, and a 503 `service_unavailable` when it can't.",
 		Tags:        []string{"System"},
-	}, func(ctx context.Context, _ *struct{}) (*healthOutput, error) {
+	}, "service_unavailable"), func(ctx context.Context, _ *struct{}) (*healthOutput, error) {
 		if err := s.opts.Store.Ping(ctx); err != nil {
 			return nil, huma.Error503ServiceUnavailable("database unavailable", err)
 		}

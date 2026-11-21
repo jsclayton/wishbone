@@ -170,11 +170,28 @@ Two rules keep `Match` from letting a link through:
 - The hourly limit (30 links and photos per user in any rolling 60 minutes) is the pipeline's own limiter, so a cache hit, free text, and a photo when the LLM is off cost nothing. The routes that read a page again (adding a store link to an item, refreshing prices) call the pipeline too, through `Server.readLink` (`internal/server/search.go`), so they count against the same limit. `readLink` asks `unblockedAddress` about the address the page ended at. A refresh passes `pipeline.BypassCache()`, so each read counts. It asks `unblockedAddress` about each stored address first, so it doesn't read a link in a store blocked since the link was added. A database error there stops the refresh, and the prices already read are still saved.
 - `POST /images` with `{"url"}` downloads through `imagestore.Store.DownloadPut`, which uses the same `netguard` rule. It never touches the limiter.
 
+## The OpenAPI document
+
+The rule is in [Versions of the API](spec.md#versions-of-the-api): the document is the contract, and within an API version the server can add response fields, enum values, and error codes. `internal/server/contract.go` makes the document say that. `finishContract` runs once, in `New`, after every route is registered.
+
+- **Responses are open, requests are strict.** huma closes every struct (`additionalProperties: false`) and writes an `enum` tag as a closed enum. `openResponses` walks the schemas that a response can hold. It takes `additionalProperties` off each object, and makes each enum `anyOf` its values and any string. It doesn't touch a schema of a request, so the `enum` tags still check input.
+- A request and a response can't share a schema that has an object or an enum in it, because only the response may be opened. `openResponses` panics when they do, so every test finds it. Give the request a Go type of its own, as `RuleInput` and `RuleBody` are, and `PartialDateInput` and `user.PartialDate`.
+- **Each operation lists its codes** in `x-error-codes`, by status, and its error responses are the statuses of those codes. `documentAnswers` writes both from one list, so they can't differ.
+  - A route names the codes of its own work when it is registered: `huma.Register(api, withCodes(huma.Operation{...}, "not_found", "gift_given"), ...)`. `codeStatus` has the status of each code.
+  - A step that many routes share names its own codes where it joins the operation: the signed-in group (`unauthorized`), `documentIdempotencyKey`, and `collectionRules.apply`.
+  - `sharedAnswers` reads the rest from the operation's shape: the 500, `resource_changed` for a route that takes `If-Match`, and what huma answers for a parameter or a body that it checks (400, 408, 413, 415, 422).
+  - The codes of an address that has no operation (an unknown path, a wrong method, a removed API version) are in `x-error-codes` at the top of the document.
+- **To add a code:** return it with `server.Error`, add it to `codeStatus`, name it in the route's `withCodes(...)`, and add it to the route's row in the [route table](routes.md). Then refresh the copy of the document.
+- Tests hold this:
+  - `TestErrorCodesMatchTheRouteTable` reads `docs/routes.md` and holds its codes equal to the document's, route by route.
+  - `checked` (`internal/server/contract_test.go`) wraps the server of every test that uses `newEnv` or `newTestServer`. It fails a test when a route answers with a status and code that its operation doesn't list. So a route can't return a code that the document doesn't have, in any answer that some test reaches.
+  - `TestResponseSchemasAllowWhatTheSpecAllows` and `TestRequestSchemasStayStrict` hold the two halves of the first rule.
+
 ## Idempotency keys
 
 The rule is in [Writes](spec.md#writes), under **Retries**. Its limits are in the [route table](routes.md#idempotency-keys).
 
-- `Server.idempotent` (`internal/server/idempotency.go`) is the one place that handles the `Idempotency-Key` header. It is a middleware of the signed-in group, after `requireSignedIn`. So every write on that group takes a key, no route handles one, and a new write needs no code for it. `documentIdempotencyKey` puts the header and its two codes in the OpenAPI document of each write.
+- `Server.idempotent` (`internal/server/idempotency.go`) is the one place that handles the `Idempotency-Key` header. It is a middleware of the signed-in group, after `requireSignedIn`. So every write on that group takes a key, no route handles one, and a new write needs no code for it. `documentIdempotencyKey` puts the header and its codes in the OpenAPI document of each write (see [The OpenAPI document](#the-openapi-document)).
 - `requestHash` says what makes two requests the same. The middleware reads the body before the route does (`bufferBody`), up to the operation's `MaxBodyBytes`, and puts it back. A body at that limit, or one that can't be read, goes to the route with no key, so the route refuses it as before. It reads the body only of an operation that declares one (`RequestBody`). huma gives no other operation a limit or a deadline for a body, and such a route never reads one, so there the body and its `Content-Type` are no part of the request.
 - `internal/idempotency` owns the `idempotency_keys` table. The table holds only the answers of requests that are done. The requests that are still running are in the memory of `idempotency.Service`, so a restart never leaves a key in use.
 - The answer is kept after the route has answered, in a commit of its own, and with a context that the client can't cancel. If the server stops between the route's commit and that one, the work is done and no answer is kept: a repeat then does the work again.

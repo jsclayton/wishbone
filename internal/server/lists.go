@@ -215,7 +215,6 @@ func (s *Server) registerLists(api huma.API) {
 		Summary:     "The lists the caller can see",
 		Description: "The lists the caller can see: the ones they are a recipient of, and the ones that have a recipient they can see. The admin's access to every user doesn't reach lists. `can_edit=true` also keeps the lists of the caller's children.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	listRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listListsInput) (*collectionOutput[listRow], error) {
@@ -245,15 +244,14 @@ func (s *Server) registerLists(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-list",
 		Method:      http.MethodGet,
 		Path:        "/lists/{id}",
 		Summary:     "A list",
 		Description: "A list the caller can't see is a 404.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *listInput) (*resourceOutput[ListBody], error) {
+	}, "not_found"), func(ctx context.Context, in *listInput) (*resourceOutput[ListBody], error) {
 		caller, _ := CallerFrom(ctx)
 		l, err := s.visibleList(ctx, in.ID)
 		if err != nil {
@@ -262,16 +260,15 @@ func (s *Server) registerLists(api huma.API) {
 		return resourceOf(newListBody(l, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-list",
 		Method:      http.MethodPatch,
 		Path:        "/lists/{id}",
 		Summary:     "Rename a list or change its description",
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. " +
 			"A user who can edit the list changes it. A field the caller sees but can't change is a 403 `field_not_writable`. A caller who can edit the list only as the parent of a deactivated recipient gets a 403 `user_deactivated`. `If-Match` is optional.",
-		Tags:   []string{"Lists"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchListInput) (*resourceOutput[ListBody], error) {
+		Tags: []string{"Lists"},
+	}, "forbidden", "field_not_writable", "user_deactivated", "not_found"), func(ctx context.Context, in *patchListInput) (*resourceOutput[ListBody], error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleList(ctx, in.ID)
 		if err != nil {
@@ -296,7 +293,7 @@ func (s *Server) registerLists(api huma.API) {
 
 	acceptMergePatch(api, "/lists/{id}")
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-list",
 		Method:        http.MethodPost,
 		Path:          "/lists",
@@ -304,8 +301,7 @@ func (s *Server) registerLists(api huma.API) {
 		Description:   "Makes an extra list for the caller, or for one of their children. The recipient is the list's first recipient. A parent who makes a list for a child is not a recipient. A `recipient_id` the caller can't see is a 422 `reference_not_found`, one they see and aren't the parent of is a 403 `reference_not_allowed`, and a deactivated child is a 403 `user_deactivated`.",
 		Tags:          []string{"Lists"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createListInput) (*createdOutput[ListBody], error) {
+	}, "reference_not_allowed", "user_deactivated", "reference_not_found"), func(ctx context.Context, in *createListInput) (*createdOutput[ListBody], error) {
 		caller, _ := CallerFrom(ctx)
 		n := list.New{Name: in.Body.Name, Description: in.Body.Description}
 		if raw := in.Body.RecipientID; raw != nil {
@@ -320,7 +316,7 @@ func (s *Server) registerLists(api huma.API) {
 		return createdOf("/lists/"+formatID(l.ID), newListBody(l, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-list",
 		Method:        http.MethodDelete,
 		Path:          "/lists/{id}",
@@ -328,8 +324,7 @@ func (s *Server) registerLists(api huma.API) {
 		Description:   "The recipient of an extra list that has no other recipient deletes it, or their parent does. It deletes the list's items, as a delete by a user who can edit the list does. A primary list is a 403 `primary_list`, and a list with other recipients is a 403 `list_has_other_recipients`. It never refuses because of gifts. A parent of a deactivated recipient gets a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:          []string{"Lists"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteListInput) (*struct{}, error) {
+	}, "forbidden", "primary_list", "list_has_other_recipients", "user_deactivated", "not_found"), func(ctx context.Context, in *deleteListInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleList(ctx, in.ID)
 		if err != nil {

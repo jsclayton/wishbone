@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -247,4 +248,68 @@ func TestAnImageThatDoesNotExistIsA404(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, res.StatusCode, id)
 		require.Equal(t, "not_found", readProblem(t, res).Code, id)
 	}
+}
+
+// An image answers a Range request. A range that the image doesn't have, and
+// one that can't be read, is a 416 that is a problem with a code like every
+// other error of the API, and not Go's own plain text.
+func TestARangeThatAnImageDoesNotHaveIsA416WithACode(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+	img := e.uploaded(admin)
+	whole := readBody(t, e.getImage(admin, img.ID))
+	ranged := func(value string) *http.Response {
+		header := cookie(admin)
+		header.Set("Range", value)
+		return e.do(request{path: "/images/" + img.ID, header: header})
+	}
+
+	part := ranged("bytes=0-1")
+	require.Equal(t, http.StatusPartialContent, part.StatusCode)
+	require.Equal(t, whole[:2], readBody(t, part))
+	require.Equal(t, "private, max-age=31536000, immutable", part.Header.Get("Cache-Control"))
+
+	past := ranged("bytes=99999999-")
+	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, past.StatusCode)
+	require.Equal(t, "range_not_satisfiable", readProblem(t, past).Code)
+	// The size of the image, so the client can ask again.
+	require.Equal(t, "bytes */"+strconv.Itoa(len(whole)), past.Header.Get("Content-Range"))
+	require.Equal(t, "no-store", past.Header.Get("Cache-Control"))
+
+	unreadable := ranged("pages=1-2")
+	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, unreadable.StatusCode)
+	require.Equal(t, "range_not_satisfiable", readProblem(t, unreadable).Code)
+}
+
+// An image has no version, so a request that names one is served like any
+// other. It is not a 412 with no code, which Go's file server answers an
+// If-Match with when there is no ETag, and not a 304, which only GET /versions
+// gives.
+func TestAConditionOnAVersionDoesNotChangeHowAnImageIsServed(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+	img := e.uploaded(admin)
+	whole := readBody(t, e.getImage(admin, img.ID))
+
+	for _, condition := range []struct{ name, value string }{
+		{"If-Match", `"abc"`},
+		{"If-Match", "*"},
+		{"If-None-Match", "*"},
+		{"If-None-Match", `"abc"`},
+	} {
+		header := cookie(admin)
+		header.Set(condition.name, condition.value)
+		res := e.do(request{path: "/images/" + img.ID, header: header})
+		require.Equal(t, http.StatusOK, res.StatusCode, "%s: %s", condition.name, condition.value)
+		require.Equal(t, whole, readBody(t, res), "%s: %s", condition.name, condition.value)
+		require.Equal(t, "private, max-age=31536000, immutable", res.Header.Get("Cache-Control"))
+	}
+
+	// A range is still answered when the request has such a header too.
+	header := cookie(admin)
+	header.Set("If-Match", `"abc"`)
+	header.Set("Range", "bytes=0-1")
+	part := e.do(request{path: "/images/" + img.ID, header: header})
+	require.Equal(t, http.StatusPartialContent, part.StatusCode)
+	require.Equal(t, whole[:2], readBody(t, part))
 }

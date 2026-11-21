@@ -353,7 +353,6 @@ func (s *Server) registerOccasions(api huma.API) {
 		Summary:     "The occasions the caller can see",
 		Description: "The birthday and custom occasions of the users the caller can see, and the shared occasions that apply to them or to a user they see. The admin's access to every user shows every birthday, and no custom occasion, and the admin sees every shared occasion. With `user_id`, a user's own occasions and the shared occasions that apply to them, when the caller sees the user. Sorted by `next_date` (soonest first), then by name. An occasion with no `next_date` is last, in both directions of the sort.",
 		Tags:        []string{"Occasions"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	occasionRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listOccasionsInput) (*collectionOutput[occasionRow], error) {
@@ -399,15 +398,14 @@ func (s *Server) registerOccasions(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-occasion",
 		Method:      http.MethodGet,
 		Path:        "/occasions/{id}",
 		Summary:     "An occasion",
 		Description: "An occasion the caller can't see is a 404. A shared occasion is seen by the admin, by every user it applies to, and by every user who sees a user it applies to.",
 		Tags:        []string{"Occasions"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *occasionInput) (*resourceOutput[OccasionBody], error) {
+	}, "not_found"), func(ctx context.Context, in *occasionInput) (*resourceOutput[OccasionBody], error) {
 		o, err := s.visibleOccasion(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -415,7 +413,7 @@ func (s *Server) registerOccasions(api huma.API) {
 		return resourceOf(newOccasionBody(o))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-occasion",
 		Method:        http.MethodPost,
 		Path:          "/occasions",
@@ -423,8 +421,7 @@ func (s *Server) registerOccasions(api huma.API) {
 		Description:   "Makes a custom occasion for the caller, or for one of their children, or, for the admin, a shared occasion (`kind: shared`, with `is_everyone` to mark it everyone; any other caller gets a 403). A `user_id` the caller can't see is a 422 `reference_not_found`, one they see and aren't the parent of is a 403 `reference_not_allowed`, and a deactivated child is a 403 `user_deactivated`. The admin has no access to other users' custom occasions: for a user who isn't their child it is a 403 `reference_not_allowed` like anyone else.",
 		Tags:          []string{"Occasions"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createOccasionInput) (*createdOutput[OccasionBody], error) {
+	}, "forbidden", "reference_not_allowed", "user_deactivated", "reference_not_found"), func(ctx context.Context, in *createOccasionInput) (*createdOutput[OccasionBody], error) {
 		caller, _ := CallerFrom(ctx)
 		if in.Body.Kind == "shared" {
 			return s.createShared(ctx, in)
@@ -449,7 +446,7 @@ func (s *Server) registerOccasions(api huma.API) {
 		return createdOf("/occasions/"+formatID(o.ID), newOccasionBody(o))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-occasion",
 		Method:      http.MethodPatch,
 		Path:        "/occasions/{id}",
@@ -457,9 +454,8 @@ func (s *Server) registerOccasions(api huma.API) {
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. " +
 			"The occasion's user or their parent changes a custom occasion, while the user is active, and the admin changes a shared one, including `is_everyone`: marking it everyone detaches its groups, and unmarking it leaves it attached to none. A birthday is a 403 `birthday`: it follows the user's birthday. " +
 			"A field the caller sees but can't change is a 403 `field_not_writable`. `If-Match` is optional.",
-		Tags:   []string{"Occasions"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchOccasionInput) (*resourceOutput[OccasionBody], error) {
+		Tags: []string{"Occasions"},
+	}, "forbidden", "field_not_writable", "birthday", "user_deactivated", "not_found"), func(ctx context.Context, in *patchOccasionInput) (*resourceOutput[OccasionBody], error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleOccasion(ctx, in.ID)
 		if err != nil {
@@ -488,7 +484,7 @@ func (s *Server) registerOccasions(api huma.API) {
 
 	acceptMergePatch(api, "/occasions/{id}")
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-occasion",
 		Method:        http.MethodDelete,
 		Path:          "/occasions/{id}",
@@ -496,8 +492,7 @@ func (s *Server) registerOccasions(api huma.API) {
 		Description:   "The occasion's user or their parent deletes a custom occasion, while the user is active, and the admin deletes a shared one with its attachments. A birthday is a 403 `birthday`: it goes only with its user. `If-Match` is optional.",
 		Tags:          []string{"Occasions"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteOccasionInput) (*struct{}, error) {
+	}, "forbidden", "birthday", "user_deactivated", "not_found"), func(ctx context.Context, in *deleteOccasionInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleOccasion(ctx, in.ID)
 		if err != nil {

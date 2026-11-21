@@ -34,7 +34,7 @@ type setupInput struct {
 		SetupCode string           `json:"setup_code" minLength:"1" maxLength:"100" doc:"The one-time code in the server log."`
 		Name      string           `json:"name" minLength:"1" maxLength:"100"`
 		LastName  *string          `json:"last_name,omitempty" required:"false" nullable:"true" maxLength:"100"`
-		Birthday  user.PartialDate `json:"birthday"`
+		Birthday  PartialDateInput `json:"birthday"`
 	}
 }
 
@@ -62,7 +62,7 @@ func (s *Server) registerSetup(api huma.API) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "post-setup",
 		Method:        http.MethodPost,
 		Path:          "/setup",
@@ -70,9 +70,8 @@ func (s *Server) registerSetup(api huma.API) {
 		Description:   "Takes the setup code from the server log. Starts a cookie session. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
 		Tags:          []string{"Setup"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *setupInput) (*setupOutput, error) {
-		input := setup.Input{Name: in.Body.Name, Birthday: in.Body.Birthday}
+	}, "setup_complete", "setup_code_invalid", "rate_limited"), func(ctx context.Context, in *setupInput) (*setupOutput, error) {
+		input := setup.Input{Name: in.Body.Name, Birthday: user.PartialDate(in.Body.Birthday)}
 		if in.Body.LastName != nil {
 			input.LastName = *in.Body.LastName
 		}

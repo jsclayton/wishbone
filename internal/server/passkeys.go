@@ -149,15 +149,14 @@ type deletePasskeyInput struct {
 func (s *Server) registerPasskeys(api huma.API) {
 	svc := s.opts.Passkeys
 
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-passkeys",
 		Method:      http.MethodGet,
 		Path:        "/users/{id}/passkeys",
 		Summary:     "A user's passkeys",
 		Description: "The oldest first. The user, their parents, and the admin see them.",
 		Tags:        []string{"Passkeys"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}
+	}, "not_found")
 	passkeyRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listPasskeysInput) (*collectionOutput[passkeyRow], error) {
 		target, err := s.userToActFor(ctx, in.ID)
@@ -188,18 +187,17 @@ func (s *Server) registerPasskeys(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "begin-passkey-registration",
 		Method:      http.MethodPost,
 		Path:        "/users/{id}/passkeys/registration",
 		Summary:     "Start adding a passkey",
 		Description: "Only the user. Returns the options for navigator.credentials.create. Finish with the browser's answer within 5 minutes.",
 		Tags:        []string{"Passkeys"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
 		// The options are over after 5 minutes, so no copy of them is kept for a
 		// repeat: a repeat starts a new registration.
 		Metadata: map[string]any{answerNeverKept: "its answer is a challenge that lasts 5 minutes"},
-	}, func(ctx context.Context, in *userInput) (*struct{ Body json.RawMessage }, error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *userInput) (*struct{ Body json.RawMessage }, error) {
 		target, err := s.passkeyOwner(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -211,7 +209,7 @@ func (s *Server) registerPasskeys(api huma.API) {
 		return &struct{ Body json.RawMessage }{Body: opts}, nil
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "finish-passkey-registration",
 		Method:        http.MethodPost,
 		Path:          "/users/{id}/passkeys",
@@ -219,8 +217,7 @@ func (s *Server) registerPasskeys(api huma.API) {
 		Description:   "Only the user. Verifies the browser's answer to the registration options and stores the passkey.",
 		Tags:          []string{"Passkeys"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *finishPasskeyInput) (*createdOutput[passkeyBody], error) {
+	}, "passkey_registration_expired", "passkey_not_verified", "forbidden", "user_deactivated", "not_found", "passkey_already_added"), func(ctx context.Context, in *finishPasskeyInput) (*createdOutput[passkeyBody], error) {
 		target, err := s.passkeyOwner(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -233,16 +230,15 @@ func (s *Server) registerPasskeys(api huma.API) {
 		return createdOf(passkeyPath(target.ID, p.ID), newPasskeyBody(p, caller.User, target))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-passkey",
 		Method:      http.MethodPatch,
 		Path:        "/users/{id}/passkeys/{passkey_id}",
 		Summary:     "Rename a passkey",
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. Only the user renames a passkey. " +
 			"A field the caller sees but can't change is a 403 `field_not_writable`. `If-Match` is optional.",
-		Tags:   []string{"Passkeys"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchPasskeyInput) (*resourceOutput[passkeyBody], error) {
+		Tags: []string{"Passkeys"},
+	}, "forbidden", "field_not_writable", "user_deactivated", "not_found"), func(ctx context.Context, in *patchPasskeyInput) (*resourceOutput[passkeyBody], error) {
 		target, err := s.passkeyOwner(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -272,7 +268,7 @@ func (s *Server) registerPasskeys(api huma.API) {
 		return resourceOf(newPasskeyBody(updated, caller.User, target))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-passkey",
 		Method:        http.MethodDelete,
 		Path:          "/users/{id}/passkeys/{passkey_id}",
@@ -280,8 +276,7 @@ func (s *Server) registerPasskeys(api huma.API) {
 		Description:   "The user, their parents, and the admin delete a passkey, while the user is active: for a deactivated user it is a 403 `user_deactivated`. The user can then no longer sign in with it. `If-Match` is optional.",
 		Tags:          []string{"Passkeys"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deletePasskeyInput) (*struct{}, error) {
+	}, "user_deactivated", "not_found"), func(ctx context.Context, in *deletePasskeyInput) (*struct{}, error) {
 		target, err := s.userToWriteFor(ctx, in.ID)
 		if err != nil {
 			return nil, err

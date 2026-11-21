@@ -159,7 +159,6 @@ func (s *Server) registerInvitations(api huma.API) {
 		Summary:     "The invitations the caller can see",
 		Description: "The pending invitations to extra lists that the caller can see: the ones to the caller, to their children, and to the lists they are a recipient of. Only pending invitations exist.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	invitationRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listInvitationsInput) (*collectionOutput[invitationRow], error) {
@@ -181,7 +180,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-invitation",
 		Method:        http.MethodPost,
 		Path:          "/lists/{id}/invitations",
@@ -189,8 +188,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		Description:   "A recipient of an extra list invites a user they can see, with the admin's access not counted. The invitation stays pending until the invited user, or their parent, accepts or declines it. A user the caller can't see is a 422 `reference_not_found`, and one they see only as the admin is a 403 `reference_not_allowed`. A primary list is a 403 `primary_list`, a deactivated user is a 403 `user_deactivated`, and a caller who sees the list and is not a recipient is a 403 `forbidden`. A user who already has an invitation is a 409 `already_invited`, and one who is a recipient is a 409 `already_recipient`.",
 		Tags:          []string{"Lists"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createInvitationInput) (*createdOutput[InvitationBody], error) {
+	}, "forbidden", "primary_list", "reference_not_allowed", "user_deactivated", "not_found", "already_invited", "already_recipient", "reference_not_found"), func(ctx context.Context, in *createInvitationInput) (*createdOutput[InvitationBody], error) {
 		caller, _ := CallerFrom(ctx)
 		listID, ok := parseID(in.ID)
 		if !ok {
@@ -205,15 +203,14 @@ func (s *Server) registerInvitations(api huma.API) {
 		return createdOf("/invitations/"+formatID(inv.ID), newInvitationBody(inv))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-invitation",
 		Method:      http.MethodGet,
 		Path:        "/invitations/{id}",
 		Summary:     "An invitation",
 		Description: "Seen by the invited user, their parents, and the recipients of the list. For everyone else it is a 404.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *invitationInput) (*resourceOutput[InvitationBody], error) {
+	}, "not_found"), func(ctx context.Context, in *invitationInput) (*resourceOutput[InvitationBody], error) {
 		inv, err := s.visibleInvitation(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -221,15 +218,14 @@ func (s *Server) registerInvitations(api huma.API) {
 		return resourceOf(newInvitationBody(inv))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "accept-invitation",
 		Method:      http.MethodPost,
 		Path:        "/invitations/{id}/accept",
 		Summary:     "Accept an invitation",
 		Description: "The invited user, or their parent, accepts. The user becomes a recipient and the invitation is gone, so the answer is the **list**. A caller who sees the invitation and is not the user or their parent gets a 403 `forbidden`. While the invited user is deactivated, nobody accepts: 403 `user_deactivated`.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *invitationInput) (*resourceOutput[ListBody], error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *invitationInput) (*resourceOutput[ListBody], error) {
 		caller, _ := CallerFrom(ctx)
 		id, ok := parseID(in.ID)
 		if !ok {
@@ -242,7 +238,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		return resourceOf(newListBody(l, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-invitation",
 		Method:        http.MethodDelete,
 		Path:          "/invitations/{id}",
@@ -250,8 +246,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		Description:   "The invited user or their parent declines it, and a recipient of the list withdraws it. While the invited user is deactivated, only a recipient can: for anyone else it is a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:          []string{"Lists"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteInvitationInput) (*struct{}, error) {
+	}, "user_deactivated", "not_found"), func(ctx context.Context, in *deleteInvitationInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		id, ok := parseID(in.ID)
 		if !ok {
@@ -270,15 +265,14 @@ func (s *Server) registerInvitations(api huma.API) {
 		return nil, nil
 	})
 
-	recipientsOp := huma.Operation{
+	recipientsOp := withCodes(huma.Operation{
 		OperationID: "list-recipients",
 		Method:      http.MethodGet,
 		Path:        "/lists/{id}/recipients",
 		Summary:     "The recipients of a list",
 		Description: "Anyone who can see the list sees its recipients, as recipient resources. `sees_list_after_leaving` is only for that user and their parents.",
 		Tags:        []string{"Lists"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}
+	}, "not_found")
 	recipientRules.apply(&recipientsOp)
 	huma.Register(api, recipientsOp, listing(func(ctx context.Context, in *listRecipientsInput) (*collectionOutput[recipientRow], error) {
 		caller, _ := CallerFrom(ctx)
@@ -303,7 +297,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "leave-list",
 		Method:        http.MethodDelete,
 		Path:          "/lists/{id}/recipients/{user_id}",
@@ -311,8 +305,7 @@ func (s *Server) registerInvitations(api huma.API) {
 		Description:   "The recipient leaves an extra list, or their parent makes them leave. The last recipient can't leave: 403 `last_recipient`. A primary list is a 403 `primary_list`. A caller who sees the list and is neither the user nor their parent gets a 403 `forbidden`, and a parent of a deactivated user gets a 403 `user_deactivated`. A user who is not a recipient is a 404. `If-Match` is optional.",
 		Tags:          []string{"Lists"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *leaveListInput) (*struct{}, error) {
+	}, "forbidden", "primary_list", "last_recipient", "user_deactivated", "not_found"), func(ctx context.Context, in *leaveListInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		listID, ok := parseID(in.ID)
 		if !ok {

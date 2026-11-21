@@ -269,6 +269,13 @@ func userProblem(err error) error {
 	return err
 }
 
+// PartialDateInput is a partial date in a request (docs/spec.md, API
+// principles, Values). It is [user.PartialDate] under a name of its own, so
+// the document has two schemas: this one for a request, which refuses a
+// property that it doesn't know, and PartialDate for a response, which allows
+// one (see [openResponses]).
+type PartialDateInput user.PartialDate
+
 type userInput struct {
 	ID string `path:"id" example:"42" doc:"A user's ID, or me for the caller."`
 }
@@ -287,7 +294,7 @@ type createUserInput struct {
 	Body struct {
 		Name     string           `json:"name" minLength:"1" maxLength:"100" doc:"The first name."`
 		LastName *string          `json:"last_name,omitempty" required:"false" nullable:"true" maxLength:"100"`
-		Birthday user.PartialDate `json:"birthday" doc:"The month and the day are required. The year is optional."`
+		Birthday PartialDateInput `json:"birthday" doc:"The month and the day are required. The year is optional."`
 		Timezone *string          `json:"timezone,omitempty" required:"false" nullable:"true" doc:"An IANA zone name such as Europe/Paris."`
 
 		ParentIDs []string `json:"parent_ids,omitempty" required:"false" nullable:"false" doc:"The IDs of the new user's parents. A user who doesn't exist is a 422 reference_not_found."`
@@ -300,7 +307,7 @@ type createUserInput struct {
 type userChanges struct {
 	Name       Field[string]           `json:"name,omitempty" minLength:"1" maxLength:"100" doc:"The first name. It can't be null."`
 	LastName   Field[string]           `json:"last_name,omitempty" nullable:"true" maxLength:"100" doc:"The last name. null or an empty string clears it."`
-	Birthday   Field[user.PartialDate] `json:"birthday,omitempty" nullable:"true" doc:"A birthday can't be cleared: null is a 422 birthday_required."`
+	Birthday   Field[PartialDateInput] `json:"birthday,omitempty" nullable:"true" doc:"A birthday can't be cleared: null is a 422 birthday_required."`
 	GoodToKnow Field[string]           `json:"good_to_know,omitempty" nullable:"true" maxLength:"2000" doc:"null or an empty string clears it."`
 	Timezone   Field[string]           `json:"timezone,omitempty" nullable:"true" doc:"An IANA zone name such as Europe/Paris. null clears it."`
 
@@ -343,7 +350,7 @@ func (c userChanges) changes() (user.Changes, error) {
 	return user.Changes{
 		Name:          c.Name.Optional,
 		LastName:      c.LastName.Optional,
-		Birthday:      c.Birthday.Optional,
+		Birthday:      patch.Optional[user.PartialDate]{Set: c.Birthday.Set, Value: (*user.PartialDate)(c.Birthday.Value)},
 		GoodToKnow:    c.GoodToKnow.Optional,
 		Timezone:      c.Timezone.Optional,
 		AvatarImageID: avatar,
@@ -400,7 +407,6 @@ func (s *Server) registerUsers(api huma.API) {
 		Summary:     "The users the caller can see",
 		Description: "The caller, the users who share a group with them (directly or through nesting), their parents and children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves.",
 		Tags:        []string{"Users"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	userRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listUsersInput) (*collectionOutput[userRow], error) {
@@ -450,7 +456,7 @@ func (s *Server) registerUsers(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-user",
 		Method:        http.MethodPost,
 		Path:          "/users",
@@ -458,8 +464,7 @@ func (s *Server) registerUsers(api huma.API) {
 		Description:   "Only the admin. A user is made with a name and a birthday; the month and day are required and the year is optional. `parent_ids` links the new user's parents.",
 		Tags:          []string{"Users"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createUserInput) (*createdOutput[UserBody], error) {
+	}, "forbidden", "reference_not_found"), func(ctx context.Context, in *createUserInput) (*createdOutput[UserBody], error) {
 		caller, _ := CallerFrom(ctx)
 		if err := requireAdmin(ctx, "creates users"); err != nil {
 			return nil, err
@@ -468,7 +473,7 @@ func (s *Server) registerUsers(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		n := user.NewUser{Name: in.Body.Name, Birthday: in.Body.Birthday}
+		n := user.NewUser{Name: in.Body.Name, Birthday: user.PartialDate(in.Body.Birthday)}
 		if parents.Value != nil {
 			n.ParentIDs = *parents.Value
 		}
@@ -489,15 +494,14 @@ func (s *Server) registerUsers(api huma.API) {
 		return createdOf("/users/"+formatID(u.ID), body)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-user",
 		Method:      http.MethodGet,
 		Path:        "/users/{id}",
 		Summary:     "A user",
 		Description: "`me` stands for the caller. A user the caller can't see is a 404: the caller sees themselves, the users who share a group with them, their parents and their children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves. `timezone`, `profile_confirmed_at`, and `deactivated_at` are absent unless the caller is the user, a parent of the user, or the admin.",
 		Tags:        []string{"Users"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
+	}, "not_found"), func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
 		caller, _ := CallerFrom(ctx)
 		u, err := s.visibleUser(ctx, in.ID)
 		if err != nil {
@@ -510,7 +514,7 @@ func (s *Server) registerUsers(api huma.API) {
 		return resourceOf(body)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-user",
 		Method:      http.MethodPatch,
 		Path:        "/users/{id}",
@@ -519,9 +523,8 @@ func (s *Server) registerUsers(api huma.API) {
 			"A field that is present is set, one that is absent doesn't change, and `null` clears the fields that can be cleared. " +
 			"A field the caller sees but can't change is a 403 `field_not_writable`. `If-Match` is optional. " +
 			"The user, their parents, and the admin edit a user. Only the admin sets `parent_ids`. While a user is deactivated, nobody edits them, and the admin sets only `parent_ids`: any other edit is a 403 `user_deactivated`.",
-		Tags:   []string{"Users"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchUserInput) (*resourceOutput[UserBody], error) {
+		Tags: []string{"Users"},
+	}, "forbidden", "field_not_writable", "user_deactivated", "not_found", "image_attached", "reference_not_found", "birthday_required", "parent_loop", "admin_has_no_parents"), func(ctx context.Context, in *patchUserInput) (*resourceOutput[UserBody], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.visibleUser(ctx, in.ID)
 		if err != nil {
@@ -590,15 +593,14 @@ func (s *Server) registerUsers(api huma.API) {
 		return resourceOf(body)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "confirm-profile",
 		Method:      http.MethodPost,
 		Path:        "/users/{id}/confirm-profile",
 		Summary:     "Confirm the profile",
 		Description: "Only the user confirms their own profile; a parent's or the admin's edits don't. Sets `profile_confirmed_at`. A profile that is already confirmed keeps its first time and answers 200.",
 		Tags:        []string{"Users"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.visibleUser(ctx, in.ID)
 		if err != nil {
@@ -618,27 +620,25 @@ func (s *Server) registerUsers(api huma.API) {
 		return resourceOf(body)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "deactivate-user",
 		Method:      http.MethodPost,
 		Path:        "/users/{id}/deactivate",
 		Summary:     "Deactivate a user",
 		Description: "Only the admin. A pause: the user's sessions are revoked, their login links and passkeys stop working, and only the admin, their parents, and the user see them. Their open gifts are released: each one is deleted, and its quantity goes back on the item. The gifts they gave stay in Received. For gifts, they are now a recipient that no giver can see, so the open gifts for their occasions move and are flagged, and a gift whose giver sees no other recipient is flagged `no_longer_shared`. Everything else stays, and reactivation brings them back. A user who is already deactivated doesn't change, and the answer is 200. The admin can't be deactivated: 403 `admin_cannot_be_deactivated`.",
 		Tags:        []string{"Users"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
+	}, "forbidden", "admin_cannot_be_deactivated", "not_found"), func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
 		return s.setActive(ctx, in.ID, false)
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "reactivate-user",
 		Method:      http.MethodPost,
 		Path:        "/users/{id}/reactivate",
 		Summary:     "Reactivate a user",
 		Description: "Only the admin. Brings the user back as they were: login links that haven't expired work again. Their revoked sessions don't come back. A gift that moved or was flagged while they were deactivated stays as it is. An active user doesn't change, and the answer is 200.",
 		Tags:        []string{"Users"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *userInput) (*resourceOutput[UserBody], error) {
 		return s.setActive(ctx, in.ID, true)
 	})
 

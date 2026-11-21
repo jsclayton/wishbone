@@ -14,7 +14,6 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -47,39 +46,35 @@ func takesIdempotencyKey(method string) bool {
 	return method == http.MethodPost || method == http.MethodPatch || method == http.MethodDelete
 }
 
-// documentIdempotencyKey puts the key and its two codes in the document of
-// every write on the signed-in group. huma runs a group's modifiers more than
-// once on an operation, so it adds only what is missing.
-func documentIdempotencyKey(api huma.API) func(*huma.Operation) {
-	problem := map[string]*huma.MediaType{
-		"application/problem+json": {Schema: api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[Problem](), true, "")},
-	}
+// documentIdempotencyKey puts the key and its codes in the document of every
+// write on the signed-in group. huma runs a group's modifiers more than once on
+// an operation, so it adds only what is missing.
+func documentIdempotencyKey() func(*huma.Operation) {
 	return func(op *huma.Operation) {
 		if !takesIdempotencyKey(op.Method) {
 			return
 		}
-		if !slices.ContainsFunc(op.Parameters, func(p *huma.Param) bool { return p.In == "header" && p.Name == idempotencyKeyHeader }) {
-			desc := "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. A repeat of this write with the same key, from the same session, " +
-				"within 24 hours of the first request, gets the first 2xx answer again, and the server does no work again. " +
-				"The same key with another method, path or body is a 422 idempotency_key_reused. " +
-				"A repeat while the first request is still running is a 409 idempotency_key_in_use."
-			if why, never := op.Metadata[answerNeverKept]; never {
-				desc = "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. This route keeps no answer for a repeat, because " +
-					fmt.Sprint(why) + ": a repeat with the same key does the work again. " +
-					"A repeat while the first request is still running is a 409 idempotency_key_in_use."
-			}
-			op.Parameters = append(op.Parameters, &huma.Param{
-				Name:        idempotencyKeyHeader,
-				In:          "header",
-				Description: desc,
-				Schema:      &huma.Schema{Type: "string", MaxLength: new(idempotency.MaxKeyLength)},
-			})
+		// A key that is too long is a 422 invalid_input.
+		declareCodes(op, "idempotency_key_in_use", "idempotency_key_reused", "invalid_input")
+		if slices.ContainsFunc(op.Parameters, func(p *huma.Param) bool { return p.In == "header" && p.Name == idempotencyKeyHeader }) {
+			return
 		}
-		for _, status := range []int{http.StatusConflict, http.StatusUnprocessableEntity} {
-			if code := strconv.Itoa(status); op.Responses[code] == nil {
-				op.Responses[code] = &huma.Response{Description: http.StatusText(status), Content: problem}
-			}
+		desc := "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. A repeat of this write with the same key, from the same session, " +
+			"within 24 hours of the first request, gets the first 2xx answer again, and the server does no work again. " +
+			"The same key with another method, path or body is a 422 idempotency_key_reused. " +
+			"A repeat while the first request is still running is a 409 idempotency_key_in_use."
+		if why, never := op.Metadata[answerNeverKept]; never {
+			desc = "Optional, at most " + strconv.Itoa(idempotency.MaxKeyLength) + " bytes. This route keeps no answer for a repeat, because " +
+				fmt.Sprint(why) + ": a repeat with the same key does the work again. " +
+				"A repeat while the first request is still running is a 409 idempotency_key_in_use, " +
+				"or a 422 idempotency_key_reused when it has another method, path or body."
 		}
+		op.Parameters = append(op.Parameters, &huma.Param{
+			Name:        idempotencyKeyHeader,
+			In:          "header",
+			Description: desc,
+			Schema:      &huma.Schema{Type: "string", MaxLength: new(idempotency.MaxKeyLength)},
+		})
 	}
 }
 

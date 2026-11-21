@@ -75,13 +75,19 @@ The rule is in [Writes](spec.md#writes), under **Retries**.
 
 | Status | Code | When |
 |---|---|---|
+| 400 | `bad_request` | The route needs a body and the request has none, or the body can't be read as what its `Content-Type` says, for example JSON that doesn't parse |
 | 401 | `unauthorized` | No valid session or token, on a route that needs one |
 | 403 | `forbidden` | The caller can see the resource, but can't do this. A route can give a more specific code. |
 | 403 | `field_not_writable` | The body sets a field that the caller can see but can't change, for example `parent_ids` from a parent |
-| 404 | `not_found` | The resource doesn't exist, or the caller can't see it |
+| 403 | `reference_not_allowed` | A body field names a resource that the caller can see, but that a rule doesn't let them use there. See [References in a body](#references-in-a-body). |
+| 404 | `not_found` | The resource doesn't exist, or the caller can't see it. Also a path that nothing is at. |
+| 405 | `method_not_allowed` | The address doesn't take this method |
+| 408 | `bad_request` | The body didn't arrive in time |
 | 412 | `resource_changed` | `If-Match` doesn't match the current version |
 | 413 | `request_too_large` | The body is larger than the route allows. A route can give a more specific code (`POST /images` gives `image_too_large`). |
+| 415 | `bad_request` | The body's `Content-Type` is not one that the server reads |
 | 422 | `invalid_input` | The input isn't valid. `errors` says which fields. |
+| 422 | `reference_not_found` | A body field names a resource that doesn't exist, or that the caller can't see. See [References in a body](#references-in-a-body). |
 | 422 | `unknown_filter` | The query has a filter that the route doesn't know |
 | 422 | `unknown_sort` | The query has a sort key that the route doesn't allow |
 | 422 | `cursor_mismatch` | The cursor belongs to a different sort |
@@ -91,7 +97,11 @@ The rule is in [Writes](spec.md#writes), under **Retries**.
 | 429 | `rate_limited` | Over a rate limit |
 | 500 | `internal_error` | The server failed in a way the caller can't fix. The `detail` says to try again. |
 
-The tables below list only the other codes.
+The tables below list only the other codes. Some rows name a code of this table, to say when the route gives it.
+
+- A route gives a code of this table only when its cause can happen there. For example, only a route that takes `If-Match` gives `resource_changed`, only a route that takes a body gives `request_too_large`, and only a route with a rate limit gives `rate_limited`.
+- `bad_request` is the code of a 4xx that has no code of its own, so it comes with more than one status.
+- The OpenAPI document has the exact list for each route: `x-error-codes` on an operation gives its codes by status, for example `{"403": ["forbidden", "user_deactivated"]}`. At the top of the document, `x-error-codes` gives the codes of an address that has no operation: 404 `not_found`, 405 `method_not_allowed`, and the 410 of a removed API version (see [Health, setup, and the contract](#health-setup-and-the-contract)). A test holds the document and this table equal.
 
 ## Summary shapes
 
@@ -108,13 +118,13 @@ The tables below list only the other codes.
 
 | Method | Path | Roles | Notes |
 |---|---|---|---|
-| GET | `/health` | public | The container health check (`wishbone healthcheck`) uses it. |
+| GET | `/health` | public | The container health check (`wishbone healthcheck`) uses it. Code: 503 `service_unavailable` (the server can't reach its database). |
 | GET | `/setup` | public | `{ "is_needed": bool }`. See [Setup](spec.md#setup). |
 | POST | `/setup` | public | Body: `setup_code`, `name`, `birthday`, `last_name` (optional). Also creates the user's primary list and birthday occasion. 201 with the user. Codes: 422 `setup_code_invalid`, 409 `setup_complete`. |
-| GET | `/openapi` | public | The OpenAPI document. The contract. |
+| GET | `/openapi` | public | The OpenAPI document. The contract. It allows what [Versions of the API](spec.md#versions-of-the-api) allows: a response object can have properties that it doesn't list, and an enum in a response can have a value that it doesn't list. |
 | GET | `/docs` | public | The API docs page. |
 | GET | `/schemas/{name}` | public | The JSON schemas that the OpenAPI document refers to. |
-| any | `/api/v{N}/*` | public | 410 with `api_version_removed`, for N a whole number below the lowest active API version (only `2` is active, so that is any N below 2, such as `/api/v1/*`). The `detail` names the version and the one to use. A version above the highest active one is not registered: it answers as any unknown path (404 `not_found`). A malformed version (`vx`, `v01`, `v-1`) is not a version, and answers the same way. These paths are not under `/api/v2`. See [Versions of the API](spec.md#versions-of-the-api). |
+| any | `/api/v{N}/*` | public | 410 `api_version_removed`, for N a whole number below the lowest active API version (only `2` is active, so that is any N below 2, such as `/api/v1/*`). The `detail` names the version and the one to use. A version above the highest active one is not registered: it answers as any unknown path (404 `not_found`). A malformed version (`vx`, `v01`, `v-1`) is not a version, and answers the same way. These paths are not under `/api/v2`. See [Versions of the API](spec.md#versions-of-the-api). |
 
 ## Versions
 
@@ -219,7 +229,7 @@ In both, the body has `user_id`, `name` and `initials` (the user that the link s
 | GET | `/users` | signed in | The users the caller can see. Filters: `?group_id=` (the users who are in that group, directly or through nesting, and whom the caller can see; not a field; a group the caller can't see, or that doesn't exist, gives an empty result, so the filter doesn't show whether it exists; Home's People needs it, because `GET /groups/{id}/users` lists only the users directly in a group), `?occasion_id=` (users that the occasion applies to, not a field), `?invitable_to=` (a list ID: the users the caller can invite to that list, not a field; see below). Sort: `name`, `created_at`. |
 | POST | `/users` | admin | Body: `name`, `birthday`, `last_name`, `parent_ids`, `timezone` (all but `name` and `birthday` optional). Also creates the user's primary list and birthday occasion. 201. |
 | GET | `/users/{id}` | sees the user | 404 for a user whom the caller sees only as a summary. |
-| PATCH | `/users/{id}` | self, parent, admin | Fields as in the table above. Codes: 422 `birthday_required` (`birthday: null`), 422 `parent_loop`, 422 `admin_has_no_parents`. |
+| PATCH | `/users/{id}` | self, parent, admin | Fields as in the table above. Codes: 422 `birthday_required` (`birthday: null`), 422 `parent_loop`, 422 `admin_has_no_parents`, 409 `image_attached` (the image of `avatar_image_id` is attached to something else). |
 | POST | `/users/{id}/confirm-profile` | self | Sets `profile_confirmed_at`. 200 with the user. |
 | POST | `/users/{id}/deactivate` | admin | Revokes the user's sessions and releases their open gifts. 200 with the user. A user who is already deactivated doesn't change. Code: 403 `admin_cannot_be_deactivated`. |
 | POST | `/users/{id}/reactivate` | admin | 200 with the user. An active user doesn't change. |
@@ -377,7 +387,7 @@ There is no `can_move`. A move needs edit rights on the other list too, and `GET
 | GET | `/lists/{id}/items` | anyone who can see the list | Sort: `position`, `created_at`, `price` (see [Collections](spec.md#collections)). |
 | POST | `/lists/{id}/items` | recipient, recipient's parent | Body: `title` (optional with `from_gift_id`), and optionally `notes`, the price fields, `quantity` (1 by default), `is_unlimited`, `store_links` (each with `url`, and optionally `price_minor`, `currency`, `image_url`, at most 10), `image_ids`, `primary_image_id`, `from_gift_id`. 201. Codes: 422 `too_many_store_links`, 422 `too_many_images`, 422 `store_blocked`, 409 `image_attached`, 403 `user_deactivated` (the caller can edit the list only as the parent of a deactivated recipient, also for `from_gift_id` when the caller receives the gift only through a deactivated child). There is no duplicate check (see [Duplicates](spec.md#duplicates)). |
 | GET | `/items/{id}` | anyone who can see the list | |
-| PATCH | `/items/{id}` | recipient, recipient's parent | Fields as above. A new `list_id` moves the item. The caller must be able to edit both lists, or it is a 403 `cannot_edit_target_list`. `image_ids` replaces the whole array of images, in the order given, and the server deletes any image left out. `primary_image_id` picks the primary image: it must be one of the images after the change, and `null` picks the first. `image_ids` can't be `null` (send `[]`). `store_links` and `images` are read-only here: a store link changes through its own routes, and the images through `image_ids`. Codes: as for create, and 422 `reference_not_found` for an image the caller can't see (or one that was removed from an item: upload it again). The same 403 `user_deactivated` as for create, also when the other list of a move is the one that the caller can edit only through a deactivated child. |
+| PATCH | `/items/{id}` | recipient, recipient's parent | Fields as above. A new `list_id` moves the item. The caller must be able to edit both lists, or it is a 403 `cannot_edit_target_list`. `image_ids` replaces the whole array of images, in the order given, and the server deletes any image left out. `primary_image_id` picks the primary image: it must be one of the images after the change, and `null` picks the first. `image_ids` can't be `null` (send `[]`). `store_links` and `images` are read-only here: a store link changes through its own routes, and the images through `image_ids`. Codes: 422 `too_many_images` and 409 `image_attached`, as for create, and 422 `reference_not_found` for an image the caller can't see (or one that was removed from an item: upload it again). The same 403 `user_deactivated` as for create, also when the other list of a move is the one that the caller can edit only through a deactivated child. |
 | DELETE | `/items/{id}` | recipient, recipient's parent | Soft when it has open gifts, as in [Who changes an item](spec.md#who-changes-an-item). 204. Code: 403 `user_deactivated`. |
 | POST | `/items/{id}/refresh-prices` | recipient, recipient's parent | Reads each store link's page again, skipping the 24-hour cache, and saves the new price with the time it was captured. It changes only the store links' prices, never the item price. Each read counts against the hourly limit. A store link that can't be read, has no readable price, or is in a store blocked since it was added keeps its price and date. The answer does not say which links were read, and `captured_at` has whole-second precision, so a client can see which prices changed (from the item), but cannot tell a read that found the same price from a read that failed. 200 with the item. When the limit stops the refresh, the prices read before it are saved and the answer is the item. When it stops it before the first page is read, the answer is a 429 `rate_limited` and nothing changes. A read that fails or finds no price counts as a read, because the fetch happened. Code: 403 `user_deactivated` (as for create). |
 
@@ -429,7 +439,7 @@ A result has these fields, with the names of the `POST /lists/{id}/items` body:
 | Method | Path | Roles | Notes |
 |---|---|---|---|
 | POST | `/images` | signed in | Body: the image bytes, or `application/json` with `{ "url" }`, which the server downloads. At most 10 MiB. JPEG, PNG, GIF, or WebP. The server stores a JPEG at most 1200 px on its longest side. 201 with `{ id, url, width, height, content_type }`. A download doesn't count against the hourly limit. Codes: 422 `image_invalid`, 413 `image_too_large` (for bytes), 422 `image_fetch_failed` (for a URL: it is on the instance's own network, or the download fails, is too large, or isn't an image). |
-| GET | `/images/{id}` | who can see the resource it is attached to; for an avatar, also anyone who gets that user's summary; before it is attached, the user who uploaded it | The bytes, with `Cache-Control: private, max-age=31536000, immutable`. |
+| GET | `/images/{id}` | who can see the resource it is attached to; for an avatar, also anyone who gets that user's summary; before it is attached, the user who uploaded it | The bytes, with `Cache-Control: private, max-age=31536000, immutable`. Code: 416 `range_not_satisfiable` (the request has a `Range` that the image doesn't have, or that can't be read). |
 
 ## Occasions
 
@@ -462,7 +472,7 @@ Who sees an occasion: a birthday is seen by every user who sees its user. A cust
 | GET | `/occasions` | signed in | The occasions the caller can see. Filters: `?user_id=` (occasions that apply to this user: the user's birthday and custom occasions, and the shared occasions that apply to them, the last only when the caller sees the user; not a field), `?list_id=` (the occasions a giver can pick for a gift on this list, see [Occasions for a gift](spec.md#occasions-for-a-gift), limited to the occasions that the caller can see; not a field), `?kind=`, `?next_date_before=` (a date, `YYYY-MM-DD`; keeps the occasions whose `next_date` is on or before it, so it includes the date it names, and never one with a `null` `next_date`; not a field). Sort: `next_date` (soonest first, `null` last in both directions), `name`. |
 | POST | `/occasions` | see notes | Body: `kind` (`custom` or `shared`), `name`, `rule`. For `custom`: `user_id` (the caller by default), and the caller must be that user or their parent. For `shared`: admin only (403 `forbidden` for anyone else), no `user_id`, and optionally `is_everyone` (a shared occasion is attached to no groups at first). A 422 `invalid_input` for `is_everyone` on a custom occasion and for `user_id` on a shared one. 201. |
 | GET | `/occasions/{id}` | see above | |
-| PATCH | `/occasions/{id}` | see `can_edit` | Body: `name`, `rule`, and `is_everyone` for a shared occasion. Marking it everyone detaches its groups, and unmarking it leaves it attached to none. `is_everyone` is a 403 `field_not_writable` on a custom occasion. A shared occasion is a 403 `forbidden` for any caller but the admin. |
+| PATCH | `/occasions/{id}` | see `can_edit` | Body: `name`, `rule`, and `is_everyone` for a shared occasion. Marking it everyone detaches its groups, and unmarking it leaves it attached to none. `is_everyone` is a 403 `field_not_writable` on a custom occasion. A shared occasion is a 403 `forbidden` for any caller but the admin. Code: 403 `birthday` (nobody edits a birthday occasion). |
 | DELETE | `/occasions/{id}` | see `can_delete` | 204. Code: 403 `birthday`. A shared occasion's attachments go with it. |
 | GET | `/occasions/{id}/groups` | admin | The groups a shared occasion is attached to directly. Sort: `name`. A 404 for an occasion the caller can't see and for one that isn't shared, and a 403 for a caller who sees it and isn't the admin. The same holds for `POST` and `DELETE` below. |
 | POST | `/occasions/{id}/groups` | admin | Body: `group_id`. 201 with the group. Codes: 409 `occasion_is_everyone`, 409 `already_attached`. |

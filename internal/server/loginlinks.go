@@ -71,7 +71,7 @@ type redeemLoginLinkOutput struct {
 }
 
 func (s *Server) registerLoginLinks(public, signedIn huma.API) {
-	huma.Register(signedIn, huma.Operation{
+	huma.Register(signedIn, withCodes(huma.Operation{
 		OperationID:   "create-login-link",
 		Method:        http.MethodPost,
 		Path:          "/users/{id}/login-links",
@@ -82,8 +82,7 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		// The link is in this answer and nowhere else, so no copy of the answer
 		// is kept for a repeat.
 		Metadata: map[string]any{answerNeverKept: "its answer holds the link, which the server keeps nowhere"},
-		Errors:   []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *userInput) (*createLoginLinkOutput, error) {
+	}, "user_deactivated", "not_found"), func(ctx context.Context, in *userInput) (*createLoginLinkOutput, error) {
 		target, err := s.userToWriteFor(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -98,15 +97,14 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		return out, nil
 	})
 
-	huma.Register(public, huma.Operation{
+	huma.Register(public, withCodes(huma.Operation{
 		OperationID: "check-login-link",
 		Method:      http.MethodPost,
 		Path:        "/login-links/check",
 		Summary:     "Check a login link without redeeming it",
 		Description: "Says when the link expires and whether it is for the user signed in on this request. It never names a user or uses up the link. Like any request with a session, it moves that session forward. It has a rate limit of its own.",
 		Tags:        []string{"Login links"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *checkLoginLinkInput) (*checkLoginLinkOutput, error) {
+	}, "login_link_invalid", "rate_limited"), func(ctx context.Context, in *checkLoginLinkInput) (*checkLoginLinkOutput, error) {
 		var currentUser int64
 		if caller, ok := CallerFrom(ctx); ok {
 			currentUser = caller.User.ID
@@ -124,15 +122,14 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		return out, nil
 	})
 
-	huma.Register(public, huma.Operation{
+	huma.Register(public, withCodes(huma.Operation{
 		OperationID: "redeem-login-link",
 		Method:      http.MethodPost,
 		Path:        "/login-links/redeem",
 		Summary:     "Redeem a login link and sign in",
 		Description: "Uses the link and starts a session. If the caller's current session is of the same kind as the new one, the server revokes it. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
 		Tags:        []string{"Login links"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *redeemLoginLinkInput) (*redeemLoginLinkOutput, error) {
+	}, "login_link_invalid", "rate_limited"), func(ctx context.Context, in *redeemLoginLinkInput) (*redeemLoginLinkOutput, error) {
 		kind := in.Body.Session
 		if kind == "" {
 			kind = sessionKindCookie

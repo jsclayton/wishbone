@@ -22,7 +22,7 @@ func newTestServer(t *testing.T, p Pinger) *httptest.Server {
 	t.Helper()
 	opts, _, _ := testOptions(t)
 	opts.Store = p
-	ts := httptest.NewServer(New(opts))
+	ts := httptest.NewServer(checked(t, New(opts)))
 	t.Cleanup(ts.Close)
 	return ts
 }
@@ -50,7 +50,7 @@ func TestRequestsAreTracedByRoutePattern(t *testing.T) {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
 	opts, _, _ := testOptions(t)
 	opts.Tracer = tp
-	ts := httptest.NewServer(New(opts))
+	ts := httptest.NewServer(checked(t, New(opts)))
 	t.Cleanup(ts.Close)
 
 	get(t, ts.URL+"/api/v2/health")
@@ -72,7 +72,7 @@ func TestRequestLogMasksLoginTokens(t *testing.T) {
 	var buf bytes.Buffer
 	opts, _, _ := testOptions(t)
 	opts.Logger = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	ts := httptest.NewServer(New(opts))
+	ts := httptest.NewServer(checked(t, New(opts)))
 	t.Cleanup(ts.Close)
 
 	get(t, ts.URL+"/login/secret-login-token")

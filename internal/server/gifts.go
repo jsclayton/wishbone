@@ -425,7 +425,6 @@ func (s *Server) registerGifts(api huma.API) {
 		Summary:     "The gifts the caller can see",
 		Description: "The gifts the caller gives, and the given gifts for the caller and the caller's children. Until a gift is given, only its giver sees it. Giving is `?giver_id=me&state=open`. Given is `?giver_id=me&state=given&sort=-given_at`. Received is `?recipient_id=me&sort=-given_at`. Sorted by `reveal_at` (soonest first). A gift with no `given_at` is last in both directions of `given_at`.",
 		Tags:        []string{"Gifts"},
-		Errors:      []int{http.StatusUnauthorized},
 	}
 	giftRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listGiftsInput) (*collectionOutput[giftRow], error) {
@@ -477,7 +476,7 @@ func (s *Server) registerGifts(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-gift",
 		Method:        http.MethodPost,
 		Path:          "/items/{id}/gifts",
@@ -485,8 +484,7 @@ func (s *Server) registerGifts(api huma.API) {
 		Description:   "A giver claims some of an item for an occasion, which starts a gift. A giver is a user who can see the item's list and isn't one of its recipients: a recipient is a 403 `recipient_cannot_claim`. When `occasion_id` is left out, the server picks the first occasion of `GET /occasions?list_id=`. Two givers who claim the last one at once are serialized: one wins, and the other gets 409 `item_fully_claimed`. A giver can claim an item for each occasion once (409 `already_claimed`).",
 		Tags:          []string{"Gifts"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createGiftInput) (*createdOutput[GiftBody], error) {
+	}, "recipient_cannot_claim", "user_deactivated", "not_found", "item_fully_claimed", "already_claimed", "occasion_not_allowed"), func(ctx context.Context, in *createGiftInput) (*createdOutput[GiftBody], error) {
 		caller, _ := CallerFrom(ctx)
 		itemID, ok := parseID(in.ID)
 		if !ok {
@@ -513,15 +511,14 @@ func (s *Server) registerGifts(api huma.API) {
 		return createdOf("/gifts/"+formatID(g.ID), newGiftBody(g))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-gift",
 		Method:      http.MethodGet,
 		Path:        "/gifts/{id}",
 		Summary:     "A gift",
 		Description: "Until a gift is given, only its giver sees it. For everyone else it is a 404. Once it is given, its recipients and their parents see it too, without the giver's private note, bought mark, flags, and creation time.",
 		Tags:        []string{"Gifts"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *giftInput) (*resourceOutput[GiftBody], error) {
+	}, "not_found"), func(ctx context.Context, in *giftInput) (*resourceOutput[GiftBody], error) {
 		g, err := s.visibleGift(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -529,15 +526,14 @@ func (s *Server) registerGifts(api huma.API) {
 		return resourceOf(newGiftBody(g))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-gift",
 		Method:      http.MethodPatch,
 		Path:        "/gifts/{id}",
 		Summary:     "Change a gift",
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. The giver changes an open gift. A field the caller sees but can't change is a 403 `field_not_writable`. When the new occasion is one that the giver already has an open gift on the same item for, the two merge: the answer is 200 with the gift that stays, and this gift's address is a 404 from then on. `If-Match` is optional.",
 		Tags:        []string{"Gifts"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchGiftInput) (*resourceOutput[GiftBody], error) {
+	}, "forbidden", "field_not_writable", "quantity_raise_not_allowed", "not_found", "item_fully_claimed", "occasion_not_allowed", "occasion_locked"), func(ctx context.Context, in *patchGiftInput) (*resourceOutput[GiftBody], error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleGift(ctx, in.ID)
 		if err != nil {
@@ -564,7 +560,7 @@ func (s *Server) registerGifts(api huma.API) {
 		return resourceOf(newGiftBody(updated))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-gift",
 		Method:        http.MethodDelete,
 		Path:          "/gifts/{id}",
@@ -572,8 +568,7 @@ func (s *Server) registerGifts(api huma.API) {
 		Description:   "The giver unclaims an open gift, and the quantity goes back to all givers. A given gift is a 403 `gift_given`. `If-Match` is optional.",
 		Tags:          []string{"Gifts"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteGiftInput) (*struct{}, error) {
+	}, "gift_given", "not_found"), func(ctx context.Context, in *deleteGiftInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleGift(ctx, in.ID)
 		if err != nil {
@@ -585,15 +580,14 @@ func (s *Server) registerGifts(api huma.API) {
 		return nil, nil
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "acknowledge-gift",
 		Method:      http.MethodPost,
 		Path:        "/gifts/{id}/acknowledge",
 		Summary:     "Clear the flags on a gift",
 		Description: "The giver answers the flags on an open gift. `codes` names the flags to clear, and every flag is cleared by default. Keeping a gift whose item was deleted is acknowledging `removed`. A code the gift doesn't have is skipped, and a code that is no flag's is a 422. A given gift is a 403.",
 		Tags:        []string{"Gifts"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *acknowledgeGiftInput) (*resourceOutput[GiftBody], error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *acknowledgeGiftInput) (*resourceOutput[GiftBody], error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleGift(ctx, in.ID)
 		if err != nil {
@@ -610,7 +604,7 @@ func (s *Server) registerGifts(api huma.API) {
 		return resourceOf(newGiftBody(g))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "restore-gift",
 		Method:        http.MethodPost,
 		Path:          "/gifts/{id}/restore",
@@ -618,8 +612,7 @@ func (s *Server) registerGifts(api huma.API) {
 		Description:   "A recipient of a given gift, or their parent, says that it wasn't received. The gift opens again for its giver, who keeps it or unclaims it, and it is hidden again from everyone else: the answer is 204 with no body, and the gift's address is a 404 for the caller from then on. The quantity goes back on the item. When the giver was deleted or is deactivated, the gift is deleted instead, and the quantity goes back unclaimed. A gift that is open, or one the caller gave and doesn't receive, is a 403. A parent whose child receives the gift while deactivated sees it and gets a 403 `user_deactivated`.",
 		Tags:          []string{"Gifts"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *giftInput) (*struct{}, error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *giftInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		id, ok := parseID(in.ID)
 		if !ok {

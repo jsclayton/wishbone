@@ -138,7 +138,8 @@ func newEnvIn(t *testing.T, fallback *time.Location, change ...func(*Options)) *
 	code, err := opts.Setup.Prepare(t.Context())
 	require.NoError(t, err)
 	srv := New(opts)
-	ts := httptest.NewServer(srv)
+	// Every error answer of the test is held against the OpenAPI document.
+	ts := httptest.NewServer(checked(t, srv))
 	t.Cleanup(ts.Close)
 	return &env{t: t, srv: srv, ts: ts, db: db, clock: c, sessions: opts.Sessions, images: opts.Images,
 		revealer: gift.NewRevealer(db, opts.Images, opts.Occasions, c.now), code: code}
