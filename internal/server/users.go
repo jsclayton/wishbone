@@ -49,6 +49,7 @@ type UserBody struct {
 	CanConfirmProfile bool `json:"can_confirm_profile" doc:"True when the caller is this user and has not confirmed the profile yet."`
 	CanDeactivate     bool `json:"can_deactivate" doc:"True when the caller is the admin and the user is active and isn't the admin."`
 	CanReactivate     bool `json:"can_reactivate" doc:"True when the caller is the admin and the user is deactivated."`
+	CanCreateList     bool `json:"can_create_list" doc:"True when the caller can make an extra list for this user with POST /lists: the caller is this user, or their parent and the user is active. The admin's access doesn't count."`
 	CanAddOccasion    bool `json:"can_add_occasion" doc:"True when the caller is this user or their parent and the user is active. The admin's access doesn't count."`
 }
 
@@ -78,6 +79,7 @@ func newUserBody(u, caller user.User, seesList bool) UserBody {
 		CanConfirmProfile: caller.ID == u.ID && u.ProfileConfirmedAt == nil,
 		CanDeactivate:     caller.IsAdmin && !u.IsAdmin && u.Active(),
 		CanReactivate:     caller.IsAdmin && !u.Active(),
+		CanCreateList:     list.CanCreateFor(caller, u),
 		CanAddOccasion:    occasion.CanAddFor(caller, u),
 		Parents:           userSummaries(u.Parents),
 		Children:          userSummaries(u.Children),
