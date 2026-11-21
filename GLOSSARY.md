@@ -13,8 +13,12 @@ Markdown text on a user, such as sizes, favorite colors, and allergies. Anyone w
 _Avoid_: Bio, about me, notes, preferences
 
 **Admin**:
-The one user who runs the instance: they create users, link parents and children, and manage groups, blocked stores, and shared occasions. The first user, made at setup, is the admin. After that, only the CLI moves the role.
+The one user who manages the instance in the app: they create users, link parents and children, and manage groups, blocked stores, and shared occasions. The first user, made at setup, is the admin. After that, only the CLI moves the role.
 _Avoid_: Organizer, owner, root, superuser
+
+**Operator**:
+The person who runs the instance: they deploy it, set its configuration, read its log, run the CLI and keep its backups. The operator is often also the admin, but they are different roles: the admin is a user, and the operator might have no user at all. UI copy says "the person who runs Wishbone".
+_Avoid_: Host, owner, sysadmin, self-hoster
 
 **Setup code**:
 A one-time code that the server writes to its log while the instance has no users. It lets the first user create themselves as the admin.
@@ -37,7 +41,7 @@ The permanent removal of a user, done only with the CLI. The user leaves the lis
 _Avoid_: Remove, purge
 
 **Giver**:
-Any user who can see a list and isn't one of its recipients. Givers see claim state; recipients do not. A parent of a recipient who isn't a recipient is a giver too.
+Any user who can see a list and isn't one of its recipients. Givers see part of a list's claim state, and recipients see none of it. A parent of a recipient who isn't a recipient is a giver too.
 _Avoid_: Viewer, shopper
 
 ## Access
@@ -136,6 +140,10 @@ _Avoid_: Extraction limit, quota
 **Gift**:
 One giver's giving of an item: a quantity, for one occasion, for the recipients of the item's list. It starts when the giver claims the item, and it is given at reveal. Until then, only the giver sees it. After reveal, its recipients and their parents see it too.
 _Avoid_: Claim (as a noun), reservation, pledge, present
+
+**Claim state**:
+Which items on a list are claimed, and how many are still wanted. It also covers the gifts themselves: who claimed an item, and what a giver recorded about a gift, such as a note. A list's recipients never see any of it. A giver sees how many are claimed and still wanted, and only their own gifts.
+_Avoid_: Claim status, gift status
 
 **Claim**:
 To commit to giving some quantity of an item, which starts a gift. Claim is only a verb. The record is the gift.
