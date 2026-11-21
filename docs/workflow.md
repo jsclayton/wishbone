@@ -8,16 +8,15 @@ How work moves from the spec to merged code. These rules apply to everyone who c
 spec.md ──► tickets (GitHub issues, with blockers) ──► branch and PR ──► review ──► CI ──► squash merge
 ```
 
-The maintainer is the person who owns the repo and decides what Wishbone does. They approve the ticket breakdown, decide product and spec questions, and can revert any merge.
+The maintainer is the person who owns the repo and decides what Wishbone does. They decide what is built and in what order, decide product and spec questions, and can revert any merge.
 
 ## Tickets
 
 A ticket is a GitHub issue that describes one piece of work.
 
-- Break `docs/spec.md` into **tracer-bullet tickets** (each one a thin slice through every layer): schema, API, UI, and tests. Each one can be demoed on its own and fits in one working session.
+- Each ticket is a **tracer bullet**: a thin slice through every layer it touches (schema, API, UI, and tests). It can be demoed on its own, and fits in one working session.
 - Each ticket lists the tickets that **block** it and cites the spec sections it implements.
-- Size a ticket as one slice that can be demoed, with its tests.
-- The maintainer approves the breakdown before any ticket is published as an issue.
+- The maintainer opens the issue for planned work when that work starts. So the open issues show what is being worked on, not everything that is planned.
 - New issues get `needs-triage`. The label meanings are in [`docs/agents/triage-labels.md`](agents/triage-labels.md). A ticket is ready to work on when it has `ready-for-agent` and all its blockers are merged.
 - `needs-info` means a product or spec question is open and waits on the maintainer. A ticket with an open question is not `ready-for-agent`. `ready-for-human` is like `ready-for-agent`, for work a person must do. `wontfix` means it won't be done.
 
