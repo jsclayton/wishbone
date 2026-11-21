@@ -369,8 +369,18 @@ func (s *Server) registerImages(api huma.API) {
 			r, w := humachi.Unwrap(hctx)
 			w.Header().Set("Content-Type", imagestore.ContentType)
 			w.Header().Set("Cache-Control", imageCacheControl)
+			// An image has no version: it has no ETag, and it never changes. So a
+			// condition on a version means nothing here, and the request is served
+			// as if it had none. ServeContent would hold an If-Match against the
+			// ETag that isn't there and answer a 412 of its own, with no code, and
+			// it would answer `If-None-Match: *` with a 304, which only
+			// GET /versions gives (docs/spec.md, Versions of everything a caller
+			// sees).
+			unconditional := r.Clone(r.Context())
+			unconditional.Header.Del("If-Match")
+			unconditional.Header.Del("If-None-Match")
 			// ServeContent answers Range requests.
-			http.ServeContent(&rangeProblemWriter{ResponseWriter: w}, r, "", time.Time{}, f)
+			http.ServeContent(&rangeProblemWriter{ResponseWriter: w}, unconditional, "", time.Time{}, f)
 		}}, nil
 	})
 }

@@ -280,3 +280,36 @@ func TestARangeThatAnImageDoesNotHaveIsA416WithACode(t *testing.T) {
 	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, unreadable.StatusCode)
 	require.Equal(t, "range_not_satisfiable", readProblem(t, unreadable).Code)
 }
+
+// An image has no version, so a request that names one is served like any
+// other. It is not a 412 with no code, which Go's file server answers an
+// If-Match with when there is no ETag, and not a 304, which only GET /versions
+// gives.
+func TestAConditionOnAVersionDoesNotChangeHowAnImageIsServed(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+	img := e.uploaded(admin)
+	whole := readBody(t, e.getImage(admin, img.ID))
+
+	for _, condition := range []struct{ name, value string }{
+		{"If-Match", `"abc"`},
+		{"If-Match", "*"},
+		{"If-None-Match", "*"},
+		{"If-None-Match", `"abc"`},
+	} {
+		header := cookie(admin)
+		header.Set(condition.name, condition.value)
+		res := e.do(request{path: "/images/" + img.ID, header: header})
+		require.Equal(t, http.StatusOK, res.StatusCode, "%s: %s", condition.name, condition.value)
+		require.Equal(t, whole, readBody(t, res), "%s: %s", condition.name, condition.value)
+		require.Equal(t, "private, max-age=31536000, immutable", res.Header.Get("Cache-Control"))
+	}
+
+	// A range is still answered when the request has such a header too.
+	header := cookie(admin)
+	header.Set("If-Match", `"abc"`)
+	header.Set("Range", "bytes=0-1")
+	part := e.do(request{path: "/images/" + img.ID, header: header})
+	require.Equal(t, http.StatusPartialContent, part.StatusCode)
+	require.Equal(t, whole[:2], readBody(t, part))
+}

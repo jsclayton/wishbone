@@ -18,7 +18,7 @@ func TestMetricsEndpoint(t *testing.T) {
 	c.Inc()
 	opts, _, _ := testOptions(t)
 	opts.Metrics = promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
-	ts := httptest.NewServer(New(opts))
+	ts := httptest.NewServer(checked(t, New(opts)))
 	t.Cleanup(ts.Close)
 
 	res := get(t, ts.URL+"/metrics")
