@@ -44,6 +44,8 @@ A snapshot in the same volume doesn't protect you from losing the disk. Copy it 
 
 A restore puts a snapshot back in place of the current data. It loses every change made after the snapshot. Do it for a serious problem, such as a bad upgrade or a lost disk. For a small mistake, fix it in the app.
 
+A restore also puts back the counters that give IDs. So an ID that the server gave after the snapshot was taken can be given again, to a new row.
+
 The distroless image can't copy files, so use a throwaway container that mounts the volume. These steps put the snapshot in `./2026-12-01` back into the volume:
 
 1. Stop the server:
