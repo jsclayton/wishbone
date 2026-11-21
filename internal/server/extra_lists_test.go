@@ -246,3 +246,61 @@ func TestAGrandparentCannotEditAGrandchildsList(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, denied.StatusCode)
 	require.Equal(t, "cannot_edit_target_list", readProblem(t, denied).Code)
 }
+
+// TestCanCreateListSaysWhetherPostListsSucceeds holds a user's
+// `can_create_list` equal to whether the caller's POST /lists for that user
+// succeeds (docs/routes.md, User fields), for each kind of caller, while the
+// user is active and while they are deactivated.
+func TestCanCreateListSaysWhetherPostListsSucceeds(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	emmaID, emma := e.otherUser("Emma")
+	e.linkParents(f.admin, emmaID, f.momID, f.dadID)
+	// Sue sees Emma through a shared group, as a relative would. Hedy sees nobody.
+	e.join(f.admin, e.newGroup(f.admin, "Aunts").ID, emmaID, f.sueID)
+
+	canCreate := func(token string) bool { return decode[userView](t, e.getUser(token, emmaID)).CanCreateList }
+	created := func(token string) bool {
+		res := e.postList(token, map[string]any{"name": "Camping", "recipient_id": emmaID})
+		defer res.Body.Close()
+		return res.StatusCode == http.StatusCreated
+	}
+	callers := []struct {
+		name, token string
+		active      bool // can_create_list while Emma is active
+	}{
+		{"the user", emma, true},
+		{"a parent", f.mom, true},
+		{"the other parent", f.dad, true},
+		{"the admin", f.admin, false},
+		{"a relative who sees the user", f.sue, false},
+	}
+	for _, c := range callers {
+		require.Equal(t, c.active, canCreate(c.token), c.name)
+		require.Equal(t, c.active, created(c.token), c.name)
+	}
+	require.Equal(t, http.StatusNotFound, e.getUser(f.hedy, emmaID).StatusCode, "an outsider doesn't see the user")
+	require.False(t, created(f.hedy), "an outsider")
+
+	rows := decode[userList](t, e.listUsers(f.mom, ""))
+	for _, u := range rows.Data {
+		require.Equal(t, u.ID == f.momID || u.ID == emmaID, u.CanCreateList, u.Name+" in the collection")
+	}
+
+	// While Emma is deactivated she can't sign in, and her parents keep the
+	// read and lose the write.
+	e.deactivated(f.admin, emmaID)
+	for _, c := range callers[1:4] {
+		require.False(t, canCreate(c.token), c.name+", the user deactivated")
+		require.False(t, created(c.token), c.name+", the user deactivated")
+	}
+	for _, token := range []string{f.sue, f.hedy} {
+		require.Equal(t, http.StatusNotFound, e.getUser(token, emmaID).StatusCode, "only the user's parents and the admin see a deactivated user")
+		require.False(t, created(token))
+	}
+	require.True(t, decode[userView](t, e.getUser(f.mom, f.momID)).CanCreateList, "the parent, for themselves")
+
+	e.reactivate(f.admin, emmaID)
+	require.True(t, canCreate(f.mom))
+	require.True(t, created(f.mom))
+}

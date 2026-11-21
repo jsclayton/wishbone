@@ -37,6 +37,7 @@ type userView struct {
 	CanConfirmProfile bool `json:"can_confirm_profile"`
 	CanDeactivate     bool `json:"can_deactivate"`
 	CanReactivate     bool `json:"can_reactivate"`
+	CanCreateList     bool `json:"can_create_list"`
 	CanAddOccasion    bool `json:"can_add_occasion"`
 }
 

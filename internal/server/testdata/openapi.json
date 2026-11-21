@@ -4901,6 +4901,10 @@
             "description": "True when the caller is this user and has not confirmed the profile yet.",
             "type": "boolean"
           },
+          "can_create_list": {
+            "description": "True when the caller can make an extra list for this user with POST /lists: the caller is this user, or their parent and the user is active. The admin's access doesn't count.",
+            "type": "boolean"
+          },
           "can_deactivate": {
             "description": "True when the caller is the admin and the user is active and isn't the admin.",
             "type": "boolean"
@@ -5035,6 +5039,7 @@
           "can_confirm_profile",
           "can_deactivate",
           "can_reactivate",
+          "can_create_list",
           "can_add_occasion"
         ],
         "type": "object"
@@ -5190,6 +5195,10 @@
             "description": "True when the caller is this user and has not confirmed the profile yet.",
             "type": "boolean"
           },
+          "can_create_list": {
+            "description": "True when the caller can make an extra list for this user with POST /lists: the caller is this user, or their parent and the user is active. The admin's access doesn't count.",
+            "type": "boolean"
+          },
           "can_deactivate": {
             "description": "True when the caller is the admin and the user is active and isn't the admin.",
             "type": "boolean"
@@ -5329,6 +5338,7 @@
           "can_confirm_profile",
           "can_deactivate",
           "can_reactivate",
+          "can_create_list",
           "can_add_occasion"
         ],
         "type": "object"

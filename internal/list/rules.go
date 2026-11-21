@@ -208,6 +208,17 @@ func SummaryReaches(ctx context.Context, q sqlx.QueryerContext, viewer user.User
 	return ok, nil
 }
 
+// CanCreateFor says whether the viewer may make an extra list for the recipient:
+// the viewer themselves, or a child of theirs who is active (docs/spec.md,
+// Lists, Extra lists; docs/routes.md, User fields: `can_create_list`). A
+// signed-in viewer is active, so this is "self or parent, and the user is
+// active". It is the one rule: [Service.Create] and the user's `can_create_list`
+// both call it. The recipient must be one the viewer sees, which a parent always
+// does.
+func CanCreateFor(viewer, recipient user.User) bool {
+	return viewer.ID == recipient.ID || (recipient.HasParent(viewer.ID) && recipient.Active())
+}
+
 // IsRecipient says whether the viewer is one of the list's recipients.
 func (l List) IsRecipient(viewer user.User) bool {
 	for _, r := range l.Recipients {

@@ -479,11 +479,11 @@ func (s *Service) Create(ctx context.Context, viewer user.User, n New) (List, er
 		if recipient, err = user.Get(ctx, tx, *n.RecipientID); err != nil {
 			return List{}, err
 		}
-		if !recipient.HasParent(viewer.ID) {
+		if !CanCreateFor(viewer, recipient) {
+			if recipient.HasParent(viewer.ID) {
+				return List{}, ErrRecipientDeactivated
+			}
 			return List{}, ErrRecipientNotAllowed
-		}
-		if !recipient.Active() {
-			return List{}, ErrRecipientDeactivated
 		}
 	}
 	now := s.now()
