@@ -140,6 +140,17 @@ WISHBONE_DATA_DIR=./tmp/scratch-9234 ./bin/wishbone serve
 `internal/store/migrations/` holds goose SQL migrations. The server applies them at `serve` startup, after an [automatic snapshot](operations.md#automatic-snapshots).
 
 - Make a migration with `just migration <name>`. Its version is the real creation time, so branches in parallel don't collide. Write only the `Up` part.
+- A table whose rows have an ID declares it `id INTEGER PRIMARY KEY AUTOINCREMENT`. The spec promises that an ID is never used again. Without `AUTOINCREMENT`, SQLite gives the highest ID of a table again after that row is deleted. A test checks every table (`internal/store/ids_test.go`): add a new table with an ID to its `idTables`.
+- SQLite can change little of a table in place. To change more, a migration rebuilds the table: copy `20261121013109_ids_never_come_back.sql`, and add the step for the counters that the next line gives. It runs with `-- +goose NO TRANSACTION`, turns foreign keys off, opens its own transaction, and checks the foreign keys before it commits. With foreign keys on, `DROP TABLE` deletes the rows that point at the table's rows. The rebuild also makes the table's indexes and triggers again.
+- A rebuild of a table that has an ID must also carry the table's counter over, which `20261121013109` does not do. The copy sets the new table's counter to the highest ID that is in the table now, and `DROP TABLE` deletes the old counter with the old table. So without this step, the ID of a deleted row comes back. No table had a counter before `20261121013109`, so it had none to carry. For each table `x`, after the copy into `new_x` and before `DROP TABLE x`, run:
+
+  ```sql
+  UPDATE sqlite_sequence
+  SET seq = (SELECT max(seq) FROM sqlite_sequence WHERE name IN ('x', 'new_x'))
+  WHERE name = 'new_x';
+  ```
+
+  The rename then gives the counter the table's name. A test rebuilds each table with this step, after a delete of its highest row (`TestARebuildThatCarriesTheCounterOverGivesNoIDAgain` in `internal/store/ids_test.go`).
 - What snapshots and the version guard must keep true is in [`architecture.md`](architecture.md#snapshots-and-the-version-guard).
 
 ### The baseline migration

@@ -8,10 +8,12 @@
 // a session has to know about this package.
 //
 // Two things stop an answer from being kept after its session, or what it
-// shows, is gone. A session is its ID and its token ([Session]), because SQLite
-// gives the ID of a deleted session to a later one. And the kept answers have
-// an epoch, which the delete of a user raises ([ForgetAll]): a request that
-// began in an older epoch keeps nothing.
+// shows, is gone. A session is its ID and its token ([Session]), so the ID
+// alone never names a session. Until the migration 20261121013109 the database
+// gave the ID of a deleted session to a later one, and a database that is
+// restored from an older snapshot still can. And the kept answers have an
+// epoch, which the delete of a user raises ([ForgetAll]): a request that began
+// in an older epoch keeps nothing.
 package idempotency
 
 import (
@@ -47,9 +49,9 @@ var (
 	ErrReused = errors.New("this idempotency key was used for another request")
 )
 
-// Session says which session a key belongs to. The ID alone is not enough: the
-// database gives the ID of a deleted session to the next one, and the token is
-// what the two never share.
+// Session says which session a key belongs to. The ID alone is not enough: a
+// later session can have the ID of a session that is gone (see the package
+// comment), and the token is what the two never share.
 type Session struct {
 	ID int64
 	// TokenHash is what the database keeps of the session's token

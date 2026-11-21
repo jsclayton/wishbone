@@ -322,10 +322,20 @@ func (e *env) over(c *http.Client) {
 	require.NoError(e.t, res.Body.Close())
 }
 
-// SQLite gives a new session the highest ID plus one, so the ID of a deleted
-// user's newest session comes back. A request of that user that is still
-// running must not keep its answer for the session that gets the ID: a key
-// never meets another session.
+// giveSessionID gives a session the ID of a session that is gone. The database
+// never does this itself (an ID is never used again), but a key's session is
+// its ID and its token, so that the ID alone never names a session.
+func (e *env) giveSessionID(sessionID, goneID int64) {
+	e.t.Helper()
+	_, err := e.db.ExecContext(e.t.Context(), `UPDATE sessions SET id = ? WHERE id = ?`, goneID, sessionID)
+	require.NoError(e.t, err)
+}
+
+// A session can have the ID of a deleted user's session: the database gave the
+// ID of a deleted session to the next one before the IDs migration, and a
+// restored snapshot still can. A request of that user that is still running
+// must not keep its answer for the session that has the ID: a key never meets
+// another session.
 func TestARunOfADeletedUserKeepsNothingForTheSessionThatGetsItsID(t *testing.T) {
 	slow := newSlowSearch()
 	e := newEnv(t, func(o *Options) { o.Search = slow })
@@ -348,7 +358,7 @@ func TestARunOfADeletedUserKeepsNothingForTheSessionThatGetsItsID(t *testing.T) 
 	// The admin signs in, and the new session gets the ID that Grace's had.
 	token, next, err := session.Create(t.Context(), e.db, e.clock.now(), mustParse(t, adminID), "")
 	require.NoError(t, err)
-	require.Equal(t, graceSession, next.ID, "the new session has the ID of the deleted one")
+	e.giveSessionID(next.ID, graceSession)
 
 	// Grace's search ends.
 	release()
@@ -939,7 +949,7 @@ func TestARequestOfADeletedUserNeverGetsTheAnswerOfTheSessionThatHasItsID(t *tes
 	e.deleteUser(graceID)
 	token, next, err := session.Create(t.Context(), e.db, e.clock.now(), mustParse(t, adminID), "")
 	require.NoError(t, err)
-	require.Equal(t, graceSession, next.ID, "the new session has the ID of the deleted one")
+	e.giveSessionID(next.ID, graceSession)
 
 	// The new session sends the same request with the same key, and its answer is kept.
 	theirs := answerOf(t, e.do(request{method: http.MethodPost, path: "/lists", raw: body, header: keyed(token, "key-1")}))

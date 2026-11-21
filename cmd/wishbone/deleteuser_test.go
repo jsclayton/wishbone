@@ -54,6 +54,30 @@ func TestDeleteUserDeletesTheUserByIDAndSaysSo(t *testing.T) {
 	require.Equal(t, 1, count(t, st, `SELECT count(*) FROM sessions WHERE user_id = ?`, ada), "nobody else's does")
 }
 
+// An ID is never used again (docs/spec.md, API principles, Values). The
+// user with the highest ID and their session go, and the next user and the next
+// session get new IDs.
+func TestDeleteUserDoesNotGiveTheUsersIDOrTheirSessionsIDAgain(t *testing.T) {
+	dir, st := newDB(t)
+	ada := addUser(t, st, "Ada", "Lovelace", true)
+	grace := addUser(t, st, "Grace", "Hopper", false)
+	_, adaSession, err := session.Create(t.Context(), st.DB(), time.Now(), ada, "browser")
+	require.NoError(t, err)
+	_, graceSession, err := session.Create(t.Context(), st.DB(), time.Now(), grace, "browser")
+	require.NoError(t, err)
+	require.Greater(t, graceSession.ID, adaSession.ID)
+
+	_, err = runDeleteUser(t, dir, "2", "", true)
+	require.NoError(t, err)
+
+	linus := addUser(t, st, "Linus", "", false)
+	require.Greater(t, linus, grace, "Grace's ID is not Linus's")
+	_, linusSession, err := session.Create(t.Context(), st.DB(), time.Now(), linus, "browser")
+	require.NoError(t, err)
+	require.Greater(t, linusSession.ID, graceSession.ID, "the ID of Grace's session is not the ID of Linus's")
+	require.Equal(t, "1\tAda Lovelace\tadmin\n3\tLinus\n", listUsers(t, dir))
+}
+
 func TestDeleteUserTakesAnIDOfAUserWhoExists(t *testing.T) {
 	dir, st := newDB(t)
 	addUser(t, st, "Ada", "", true)

@@ -43,6 +43,17 @@ func newSession(t *testing.T, db *sqlx.DB, c *clock) idempotency.Session {
 	return idempotency.Session{ID: sess.ID, TokenHash: session.Hash(token)}
 }
 
+// withID gives a session the ID of a session that is gone, and returns it as
+// it is then. The database never does this itself (an ID is never used again),
+// but the service must not depend on that.
+func withID(t *testing.T, db *sqlx.DB, sess idempotency.Session, id int64) idempotency.Session {
+	t.Helper()
+	_, err := db.ExecContext(t.Context(), `UPDATE sessions SET id = ? WHERE id = ?`, id, sess.ID)
+	require.NoError(t, err)
+	sess.ID = id
+	return sess
+}
+
 var created = idempotency.Answer{
 	Status: http.StatusCreated,
 	Header: http.Header{"Location": {"/api/v2/items/7"}, "Link": {"<a>", "<b>"}},
@@ -181,17 +192,18 @@ func TestARequestThatEndedItsOwnSessionKeepsNothing(t *testing.T) {
 	require.Zero(t, rows(t, db))
 }
 
-// The database gives the ID of a deleted session to the next one. A run of the
-// old session keeps nothing for the new one, which has another token, and the
-// new one's request with the same key is not held up by the old run.
+// A session can have the ID of a session that is gone: the database gave the
+// ID of a deleted session to the next one before the IDs migration, and a
+// restored snapshot still can. A run of the old session keeps nothing for the
+// new one, which has another token, and the new one's request with the same
+// key is not held up by the old run.
 func TestARunKeepsNothingForALaterSessionThatHasItsID(t *testing.T) {
 	db, svc, c, sid := setup(t)
 	run, _, err := svc.Begin(t.Context(), sid, "k", "request")
 	require.NoError(t, err)
 	_, err = db.ExecContext(t.Context(), `DELETE FROM sessions WHERE id = ?`, sid.ID)
 	require.NoError(t, err)
-	next := newSession(t, db, c)
-	require.Equal(t, sid.ID, next.ID, "the new session has the ID of the deleted one")
+	next := withID(t, db, newSession(t, db, c), sid.ID)
 	require.NotEqual(t, sid.TokenHash, next.TokenHash)
 
 	// The new session's request runs while the old run is not over.
@@ -299,8 +311,7 @@ func TestACallerWithTheIDOfALaterSessionFindsNoneOfItsAnswers(t *testing.T) {
 	db, svc, c, old := setup(t)
 	_, err := db.ExecContext(t.Context(), `DELETE FROM sessions WHERE id = ?`, old.ID)
 	require.NoError(t, err)
-	next := newSession(t, db, c)
-	require.Equal(t, old.ID, next.ID, "the new session has the ID of the deleted one")
+	next := withID(t, db, newSession(t, db, c), old.ID)
 	keep(t, svc, next, "k", "request", created)
 
 	for _, request := range []string{"request", "another request"} {
