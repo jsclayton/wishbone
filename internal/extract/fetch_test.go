@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"jsclayton.dev/wishbone/internal/netguard"
+	"jsclayton.dev/wishbone/internal/netguard/netguardtest"
 )
 
 const productPage = `<html><head><meta property="og:title" content="Widget">
@@ -173,6 +175,24 @@ func TestFetchNonHTMLIsNoData(t *testing.T) {
 func TestFetchInvalidURL(t *testing.T) {
 	_, err := newDirect(Options{}).Fetch(context.Background(), "ftp://x.test/")
 	require.Error(t, err)
+}
+
+// shop.test resolves only through the fake DNS, so the fetch reaches the server
+// only if Direct looks names up with Options.Resolver.
+func TestFetchLooksUpHostsWithTheResolverOption(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		serveHTML(w, productPage)
+	}))
+	defer srv.Close()
+	resolver := netguardtest.Resolver(t, map[string][]netip.Addr{"shop.test": {netip.MustParseAddr("127.0.0.1")}})
+	target := strings.Replace(srv.URL, "127.0.0.1", "shop.test", 1)
+
+	res, err := newDirect(Options{Resolver: resolver}).Fetch(context.Background(), target)
+	require.NoError(t, err)
+	require.Equal(t, StatusOK, res.Status)
+
+	_, err = NewDirect(Options{Resolver: resolver}).Fetch(context.Background(), target)
+	require.ErrorIs(t, err, netguard.ErrPrivateAddress, "the private address check runs on the resolver's answer")
 }
 
 func TestFetchBlocksPrivateAddressesByDefault(t *testing.T) {

@@ -103,6 +103,10 @@ type Options struct {
 	// Tracer records a span for each request, redirects included. The span
 	// has the host and status, never the URL. Nil turns tracing off.
 	Tracer trace.TracerProvider
+	// Resolver looks up host names. Nil means the system resolver. Tests set
+	// it so that no lookup reaches the machine's DNS. The private address
+	// check runs on the addresses it gives, as it does on the system's.
+	Resolver *net.Resolver
 }
 
 // Direct fetches pages over HTTP with no proxy or unblocker.
@@ -132,7 +136,7 @@ func NewDirect(o Options) *Direct {
 	if o.PreviewUserAgent == "" {
 		o.PreviewUserAgent = PreviewUserAgent
 	}
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	dialer := &net.Dialer{Timeout: 5 * time.Second, Resolver: o.Resolver}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.Proxy = nil
 	tr.DialContext = dialer.DialContext

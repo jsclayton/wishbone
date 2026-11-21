@@ -24,6 +24,9 @@ type RedirectsOptions struct {
 	// link-local addresses. Tests turn it on to use httptest.
 	AllowPrivateAddrs bool
 	Tracer            trace.TracerProvider
+	// Resolver looks up host names. Nil means the system resolver. Tests set
+	// it so that no lookup reaches the machine's DNS.
+	Resolver *net.Resolver
 }
 
 // Redirects finds where a link leads. It reads no page: it sends a GET for
@@ -42,7 +45,7 @@ func NewRedirects(o RedirectsOptions) *Redirects {
 	if o.MaxRedirects <= 0 {
 		o.MaxRedirects = DefaultMaxRedirects
 	}
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	dialer := &net.Dialer{Timeout: 5 * time.Second, Resolver: o.Resolver}
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.Proxy = nil
 	tr.DialContext = dialer.DialContext
