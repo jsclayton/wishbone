@@ -38,6 +38,7 @@ func (e *env) redeem(token, session string, header http.Header) *http.Response {
 
 type redeemBody struct {
 	Token           string `json:"token"`
+	UserID          string `json:"user_id"`
 	Name            string `json:"name"`
 	Initials        string `json:"initials"`
 	ReplacedSession bool   `json:"replaced_session"`
@@ -145,6 +146,65 @@ func TestRedeemingALoginLinkWithABearerSessionGivesATokenAndNoCookie(t *testing.
 	var agent string
 	require.NoError(t, e.db.GetContext(t.Context(), &agent, `SELECT user_agent FROM sessions ORDER BY id DESC LIMIT 1`))
 	require.Equal(t, "Wishbone iOS/1.0", agent)
+}
+
+// userBody is the part of a user that the redeem tests read.
+type userBody struct {
+	ID string `json:"id"`
+}
+
+func TestABearerRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
+	e := newEnv(t)
+	_, adminToken := e.signUp()
+	graceID, _ := e.otherUser("Grace")
+	link := e.makeLink(adminToken, graceID)
+
+	res := e.redeem(link, "bearer", nil)
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	b := decode[redeemBody](t, res)
+	require.Equal(t, graceID, b.UserID)
+	me := e.do(request{path: "/users/me", header: bearer(b.Token)})
+	require.Equal(t, http.StatusOK, me.StatusCode)
+	require.Equal(t, b.UserID, decode[userBody](t, me).ID)
+}
+
+func TestACookieRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
+	e := newEnv(t)
+	_, adminToken := e.signUp()
+	graceID, _ := e.otherUser("Grace")
+	link := e.makeLink(adminToken, graceID)
+
+	res := e.redeem(link, "", nil)
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	c := sessionCookie(res)
+	require.NotNil(t, c)
+	raw := decode[map[string]any](t, res)
+	require.Equal(t, graceID, raw["user_id"], "an ID is a JSON string")
+	me := e.do(request{path: "/users/me", header: cookie(c.Value)})
+	require.Equal(t, http.StatusOK, me.StatusCode)
+	require.Equal(t, graceID, decode[userBody](t, me).ID)
+}
+
+func TestARedeemThatFailsNamesNoUser(t *testing.T) {
+	e := newEnv(t)
+	id, token := e.signUp()
+	used := e.makeLink(token, id)
+	require.Equal(t, http.StatusOK, e.redeem(used, "bearer", nil).StatusCode)
+	expired := e.makeLink(token, id)
+	e.clock.advance(7*24*time.Hour + time.Second)
+
+	for name, link := range map[string]string{"used": used, "expired": expired} {
+		for _, session := range []string{"", "bearer"} {
+			res := e.redeem(link, session, nil)
+			require.Equal(t, http.StatusUnauthorized, res.StatusCode, name)
+			raw := decode[map[string]any](t, res)
+			require.Equal(t, "login_link_invalid", raw["code"], name)
+			require.NotContains(t, raw, "user_id", name)
+			require.NotContains(t, raw, "token", name)
+		}
+	}
 }
 
 func TestARedeemWithAnUnknownSessionKindIs422(t *testing.T) {

@@ -4150,9 +4150,17 @@
           "token": {
             "description": "The new session's token. Only a bearer session has one, and this response is the only place it appears.",
             "type": "string"
+          },
+          "user_id": {
+            "description": "The ID of the user the link signs in. GET /users/me with the new session gives the same ID. An opaque string. Don't parse it.",
+            "examples": [
+              "7"
+            ],
+            "type": "string"
           }
         },
         "required": [
+          "user_id",
           "name",
           "initials",
           "replaced_session",

@@ -62,6 +62,7 @@ type redeemLoginLinkOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 	Body      struct {
 		Token           string `json:"token,omitempty" required:"false" doc:"The new session's token. Only a bearer session has one, and this response is the only place it appears."`
+		UserID          string `json:"user_id" example:"7" doc:"The ID of the user the link signs in. GET /users/me with the new session gives the same ID. An opaque string. Don't parse it."`
 		Name            string `json:"name" doc:"The first name of the user the link signs in."`
 		Initials        string `json:"initials"`
 		ReplacedSession bool   `json:"replaced_session" doc:"True when the server revoked the caller's current session of this kind."`
@@ -160,6 +161,7 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		if res.User.LastName != nil {
 			last = *res.User.LastName
 		}
+		out.Body.UserID = formatID(res.User.ID)
 		out.Body.Name = res.User.Name
 		out.Body.Initials = initials.Of(res.User.Name, last)
 		out.Body.ReplacedSession = res.Replaced

@@ -175,7 +175,7 @@ How redeem starts the session depends on `session`:
 - **`cookie`** (the default): the response sets the `wishbone_session` cookie, and the body has no token. If the caller's current session is a cookie session, the server revokes it.
 - **`bearer`**, for a native app: the body also has `token`, the new session's token, and there is no `Set-Cookie`. If the caller's current session is a bearer token, the server revokes it.
 
-In both, the body has `name` and `initials` (the user that the link signs in), `replaced_session` (`true` when the server revoked the caller's current session), and `switched_user` (`true` when that session was another user's). The token is in this response and nowhere else, because the server keeps only its hash. Setup and passkey sign-in start cookie sessions only.
+In both, the body has `user_id`, `name` and `initials` (the user that the link signs in, so a native app needn't read `GET /users/me` to learn who it is), `replaced_session` (`true` when the server revoked the caller's current session), and `switched_user` (`true` when that session was another user's). The token is in this response and nowhere else, because the server keeps only its hash. Setup and passkey sign-in start cookie sessions only.
 
 ## Users
 
