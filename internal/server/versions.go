@@ -95,7 +95,7 @@ type VersionsBody struct {
 }
 
 type versionsInput struct {
-	IfNoneMatch string `header:"If-None-Match" doc:"The ETag of an earlier answer. When nothing the caller can see changed since, the answer is 304 with no body."`
+	IfNoneMatch string `header:"If-None-Match" doc:"The ETag of an earlier answer. When nothing in the answer changed since, the answer is 304 with no body."`
 }
 
 type versionsOutput struct {
@@ -522,7 +522,7 @@ func (s *Server) registerVersions(api huma.API) {
 		Middlewares: huma.Middlewares{noQuery},
 		Responses: map[string]*huma.Response{
 			"304": {
-				Description: "Nothing the caller can see changed since the answer whose `ETag` is in `If-None-Match`. No body.",
+				Description: "Nothing in the answer changed since the answer whose `ETag` is in `If-None-Match`. No body.",
 				Headers: map[string]*huma.Param{
 					"ETag": {Description: "The version of the whole answer, the same as in If-None-Match.", Schema: &huma.Schema{Type: "string"}},
 				},

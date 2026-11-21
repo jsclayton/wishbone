@@ -14604,11 +14604,11 @@
         "operationId": "list-versions",
         "parameters": [
           {
-            "description": "The ETag of an earlier answer. When nothing the caller can see changed since, the answer is 304 with no body.",
+            "description": "The ETag of an earlier answer. When nothing in the answer changed since, the answer is 304 with no body.",
             "in": "header",
             "name": "If-None-Match",
             "schema": {
-              "description": "The ETag of an earlier answer. When nothing the caller can see changed since, the answer is 304 with no body.",
+              "description": "The ETag of an earlier answer. When nothing in the answer changed since, the answer is 304 with no body.",
               "type": "string"
             }
           }
@@ -14633,7 +14633,7 @@
             }
           },
           "304": {
-            "description": "Nothing the caller can see changed since the answer whose `ETag` is in `If-None-Match`. No body.",
+            "description": "Nothing in the answer changed since the answer whose `ETag` is in `If-None-Match`. No body.",
             "headers": {
               "ETag": {
                 "description": "The version of the whole answer, the same as in If-None-Match.",
