@@ -189,9 +189,10 @@ func TestPrivateHostNameStopsThePipelineThroughRealDirect(t *testing.T) {
 		_, _ = w.Write([]byte("<html></html>"))
 	}))
 	defer srv.Close()
-	// localhost resolves to a loopback address, as a private host name would.
-	target := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
-	e := newEnv(t, func(o *Options) { o.Direct = extract.NewDirect(extract.Options{}) })
+	// lan.test resolves to a loopback address, as a private host name would.
+	target := strings.Replace(srv.URL, "127.0.0.1", "lan.test", 1)
+	resolver := netguardtest.Resolver(t, map[string][]netip.Addr{"lan.test": {netip.MustParseAddr("127.0.0.1")}})
+	e := newEnv(t, func(o *Options) { o.Direct = extract.NewDirect(extract.Options{Resolver: resolver}) })
 	res, err := e.svc.Extract(context.Background(), 1, target)
 	require.NoError(t, err)
 	require.False(t, res.Found())
@@ -286,18 +287,20 @@ func TestUnresolvableHostStopsThePipelineThroughRealDirect(t *testing.T) {
 	}))
 	defer redirect.Close()
 	cases := map[string]struct {
-		target string
-		opts   extract.Options
+		target       string
+		allowPrivate bool
 	}{
-		// The .invalid cases assume the machine's resolver answers NXDOMAIN.
 		"direct link":         {target: "http://nas.invalid/p"},
 		"decimal address":     {target: "http://3232235777/p"},
 		"short dotted":        {target: "http://192.168.1/p"},
-		"redirect to unknown": {target: redirect.URL, opts: extract.Options{AllowPrivateAddrs: true}},
+		"redirect to unknown": {target: redirect.URL, allowPrivate: true},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			e := newEnv(t, func(o *Options) { o.Direct = extract.NewDirect(c.opts) })
+			// The fake DNS answers "no such host" for every name, so the test
+			// never asks the machine's resolver.
+			opts := extract.Options{AllowPrivateAddrs: c.allowPrivate, Resolver: netguardtest.Resolver(t, nil)}
+			e := newEnv(t, func(o *Options) { o.Direct = extract.NewDirect(opts) })
 			res, err := e.svc.Extract(context.Background(), 1, c.target)
 			require.NoError(t, err)
 			require.False(t, res.Found())

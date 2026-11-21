@@ -3,6 +3,8 @@ package extract_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"jsclayton.dev/wishbone/internal/extract"
+	"jsclayton.dev/wishbone/internal/netguard"
+	"jsclayton.dev/wishbone/internal/netguard/netguardtest"
 )
 
 func TestRedirectsFollowsEveryHopAndReadsNoBody(t *testing.T) {
@@ -89,4 +93,24 @@ func TestRedirectsFollowsOnlyRedirectStatuses(t *testing.T) {
 		require.NoError(t, err, code)
 		require.Equal(t, []string{hop.URL + "/b"}, chain, code)
 	}
+}
+
+// short.test resolves only through the fake DNS, so Follow reaches the server
+// only if it looks names up with RedirectsOptions.Resolver.
+func TestRedirectsLooksUpHostsWithTheResolverOption(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/a" {
+			http.Redirect(w, r, "/b", http.StatusFound)
+		}
+	}))
+	defer srv.Close()
+	resolver := netguardtest.Resolver(t, map[string][]netip.Addr{"short.test": {netip.MustParseAddr("127.0.0.1")}})
+	target := strings.Replace(srv.URL, "127.0.0.1", "short.test", 1)
+
+	chain, err := extract.NewRedirects(extract.RedirectsOptions{AllowPrivateAddrs: true, Resolver: resolver}).Follow(t.Context(), target+"/a")
+	require.NoError(t, err)
+	require.Equal(t, []string{target + "/b"}, chain)
+
+	_, err = extract.NewRedirects(extract.RedirectsOptions{Resolver: resolver}).Follow(t.Context(), target+"/a")
+	require.ErrorIs(t, err, netguard.ErrPrivateAddress, "the private address check runs on the resolver's answer")
 }
