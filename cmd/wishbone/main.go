@@ -316,7 +316,9 @@ func main() {
 
 // metricsHandler serves /metrics. A metric that fails to gather is left out
 // and its error goes to the log, not to the answer: the answer needs no
-// sign-in, and promhttp's default puts the error's text in a 500.
+// sign-in, and promhttp's default puts the error's text in a 500. promhttp
+// still answers that 500 when no metric gathers at all, which can't happen
+// here: the Go and process collectors always gather.
 func metricsHandler(g prometheus.Gatherer, logger *slog.Logger) http.Handler {
 	return promhttp.HandlerFor(g, promhttp.HandlerOpts{
 		ErrorHandling: promhttp.ContinueOnError,

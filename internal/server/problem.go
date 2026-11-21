@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -111,10 +110,6 @@ func defaultCode(status int) string {
 	return "bad_request"
 }
 
-// bodyReadFailed is huma's message for a request body it could not read to
-// the end. It writes it when the client cut the body off or went away.
-const bodyReadFailed = "cannot read request body"
-
 func init() {
 	// Every error that huma writes itself (input that fails validation, a
 	// missing header) goes through here, so it gets a code too.
@@ -169,11 +164,10 @@ func logServerErrors(ctx huma.Context, _ string, v any) (any, error) {
 // logServerError logs the detail and cause of a 5xx, with the operation's
 // method and path template. The template has no ids in it.
 //
-// A request whose client went away (it dropped the connection, so the
-// request's context was canceled, or it cut its body off) logs at INFO, not
-// ERROR: the server did nothing wrong, and nobody reads the answer. It stays
-// at INFO, the default level, so that a run of them, which can mean the
-// server is too slow, still shows.
+// A request whose client went away logs at INFO, not ERROR: the server did
+// nothing wrong, and nobody reads the answer. It stays at INFO, the default
+// level, so that a run of them, which can mean the server is too slow, still
+// shows. The line keeps the status, detail and cause.
 func logServerError(ctx huma.Context, p *Problem) {
 	if p.Status < 500 {
 		return
@@ -189,21 +183,20 @@ func logServerError(ctx huma.Context, p *Problem) {
 	}
 	attrs = append(attrs, slog.String("request_id", middleware.GetReqID(rctx)))
 	logger := loggerFrom(rctx)
-	if clientWentAway(rctx, p) {
+	if clientWentAway(rctx) {
 		logger.InfoContext(rctx, "client went away", attrs...)
 		return
 	}
 	logger.ErrorContext(rctx, "internal error", attrs...)
 }
 
-// clientWentAway says whether a 5xx comes from a client that left before its
-// answer. net/http cancels a request's context when its client closes the
-// connection.
-func clientWentAway(ctx context.Context, p *Problem) bool {
-	if errors.Is(ctx.Err(), context.Canceled) {
-		return true
-	}
-	return p.Status == http.StatusInternalServerError && p.msg == bodyReadFailed && errors.Is(p.cause, io.ErrUnexpectedEOF)
+// clientWentAway says whether a request's client left before its answer.
+// net/http cancels a request's context when its client closes the
+// connection, and when a read of the body fails, as it does for a body cut
+// off. The server never cancels a request's context itself: its own
+// deadlines end as context.DeadlineExceeded.
+func clientWentAway(ctx context.Context) bool {
+	return errors.Is(ctx.Err(), context.Canceled)
 }
 
 // writeProblem answers outside huma, for a path no operation matches.

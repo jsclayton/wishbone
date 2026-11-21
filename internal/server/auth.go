@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"jsclayton.dev/wishbone/internal/clientip"
 	"jsclayton.dev/wishbone/internal/ratelimit"
@@ -114,7 +115,16 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			return
 		}
 		if err != nil {
-			s.opts.Logger.ErrorContext(ctx, "find the caller failed", slog.Any("error", err))
+			// chi has matched no route yet, so there is no path template, and the
+			// raw path can have ids in it. The request id ties the line to the
+			// request's own line.
+			attrs := []any{slog.String("detail", "find the caller"), slog.Any("error", err),
+				slog.String("method", r.Method), slog.String("request_id", middleware.GetReqID(ctx))}
+			if clientWentAway(ctx) {
+				s.opts.Logger.InfoContext(ctx, "client went away", attrs...)
+			} else {
+				s.opts.Logger.ErrorContext(ctx, "internal error", attrs...)
+			}
 			writeProblem(w, http.StatusInternalServerError, "internal_error", internalErrorDetail)
 			return
 		}

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -278,7 +279,7 @@ func TestACutOffBodyWritesNoErrorLine(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, conn.(*net.TCPConn).CloseWrite())
 
-	requireClientWentAway(t, log, bodyReadFailed)
+	requireClientWentAway(t, log, "cannot read request body") // huma's detail
 }
 
 // requireClientWentAway waits for the INFO line of a client that went away,
@@ -299,4 +300,58 @@ func keys(m map[string]any) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// loggedEnv is a server whose log the test reads.
+func loggedEnv(t *testing.T, change ...func(*Options)) (*env, *lockedBuffer) {
+	t.Helper()
+	log := &lockedBuffer{}
+	change = append(change, func(o *Options) { o.Logger = slog.New(slog.NewJSONHandler(log, nil)) })
+	return newEnv(t, change...), log
+}
+
+// The one test of the log on the API that New builds: every other one uses
+// failingEnv's own API.
+func TestA503OnTheServersOwnAPIIsLoggedOnce(t *testing.T) {
+	e, log := loggedEnv(t, func(o *Options) { o.Store = fakePinger{err: errors.New(cause)} })
+
+	res := e.do(request{path: "/health"})
+
+	require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+	require.Equal(t, 1, strings.Count(log.String(), cause))
+	line := findLogLine(t, log.String(), cause)
+	require.Equal(t, "ERROR", line["level"])
+	require.Equal(t, "/api/v2/health", line["path"])
+	require.NotEmpty(t, line["request_id"])
+}
+
+func TestAFailedIdempotencyKeyLookupIsLoggedOnce(t *testing.T) {
+	e, log := loggedEnv(t)
+	_, token := e.signUp()
+	_, err := e.db.Exec("DROP TABLE idempotency_keys")
+	require.NoError(t, err)
+
+	res := e.do(request{method: http.MethodPost, path: "/lists", body: map[string]any{"name": "Wishes"}, header: keyed(token, "key-1")})
+
+	requirePlain500(t, res)
+	require.Equal(t, 1, strings.Count(log.String(), `"level":"ERROR"`), "one ERROR line for one 500:\n%s", log)
+	line := findLogLine(t, log.String(), "idempotency_keys")
+	require.Equal(t, "/api/v2/lists", line["path"])
+	require.NotEmpty(t, line["request_id"])
+}
+
+func TestAClientGoneWhenTheCallerIsFoundWritesNoErrorLine(t *testing.T) {
+	e, log := loggedEnv(t)
+	_, token := e.signUp()
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/users/me", nil)
+	req.Header = cookie(token)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel() // as net/http does when the client closes the connection
+
+	e.srv.ServeHTTP(httptest.NewRecorder(), req.WithContext(ctx))
+
+	line := findLogLine(t, log.String(), "client went away")
+	require.Equal(t, "INFO", line["level"])
+	require.NotEmpty(t, line["request_id"])
+	require.NotContains(t, log.String(), `"level":"ERROR"`)
 }
