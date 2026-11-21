@@ -22,6 +22,21 @@ type storeLinkRow struct {
 	Version string `json:"version" doc:"The same value as the ETag of GET /items/{id}/store-links/{store_link_id} for this caller. Send it in If-Match."`
 }
 
+// newStoreLinkRows are the store links of an item as the caller sees them, in
+// the order the item has them for this caller.
+func newStoreLinkRows(it item.Item) ([]storeLinkRow, error) {
+	rows := make([]storeLinkRow, len(it.StoreLinks))
+	for i, l := range it.StoreLinks {
+		body := newStoreLinkBody(l, it.CanEdit)
+		v, err := versionOf(body)
+		if err != nil {
+			return nil, err
+		}
+		rows[i] = storeLinkRow{StoreLinkBody: body, Version: v}
+	}
+	return rows, nil
+}
+
 // storeLinkRules has no sort key and no filter: an item has at most 10 store
 // links, and the order depends on the caller (see [StoreLinkBody]).
 var storeLinkRules = collectionRules{Name: "store-links"}
@@ -214,14 +229,9 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		rows := make([]storeLinkRow, len(it.StoreLinks))
-		for i, l := range it.StoreLinks {
-			body := newStoreLinkBody(l, it.CanEdit)
-			v, err := versionOf(body)
-			if err != nil {
-				return nil, err
-			}
-			rows[i] = storeLinkRow{StoreLinkBody: body, Version: v}
+		rows, err := newStoreLinkRows(it)
+		if err != nil {
+			return nil, err
 		}
 		out := &collectionOutput[storeLinkRow]{}
 		out.Body.Data = rows

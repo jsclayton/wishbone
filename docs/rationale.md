@@ -159,3 +159,11 @@ Every CI job runs on `ubuntu-26.04`. A self-hosted runner on a public repo would
 ### SQLite gotcha: no `STRICT` tables with timestamps
 
 `STRICT` tables reject `TIMESTAMP`/`DATETIME` column types. The modernc driver (`_time_format=sqlite`) needs those declared types to scan columns as `time.Time`. Don't use `STRICT` on tables with time columns.
+
+### `GET /versions` builds the whole answer for each request
+
+The route keeps nothing between two requests, also for a 304. A version is a hash of the body that one caller gets, so it depends on that caller's roles, parents, groups, and the claim state they may see. What a caller sees also changes with no write: a gift is given at its reveal, `needs_attention` and `next_date` move with the clock, and a claim hides an item from another giver. A kept answer would need a rule for each of these, for each caller, and a missed one would show a caller an old view or a hidden change. So the route builds every row with the code that the collections use, and compares.
+
+It is fast enough without a cache. On an instance with 41 users, 307 lists and 5,202 items, one request for a caller whose answer has 12,451 entries takes about 180 ms on a laptop (`BenchmarkVersions`). The first version read the items and the recipients of each list with about nine queries, and took about 1.1 s: a SQLite query costs about the same however little it reads. Reading every list in one query fixed that. Hashing the bodies is about 5% of the time. If the route gets slow again, count its queries first.
+
+One statement can't hold everything, though. The users of every group and every occasion are read 10 filters to a statement (`matchingChunk` in `internal/user`), because SQLite refuses a statement with too many subqueries in it, and each filter brings the rule of who sees a user. A statement with all 85 of the benchmark's occasions worked, and one with 85 groups did not.

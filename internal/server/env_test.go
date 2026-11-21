@@ -60,14 +60,14 @@ func (c *clock) set(t time.Time) {
 
 // testOptions are the options of a server on a new database, with the real
 // services. A test changes what it needs and calls New.
-func testOptions(t *testing.T) (Options, *sqlx.DB, *clock) {
+func testOptions(t testing.TB) (Options, *sqlx.DB, *clock) {
 	t.Helper()
 	return testOptionsIn(t, time.UTC)
 }
 
 // testOptionsIn is testOptions with a fallback zone: the zone of a user who has
 // no timezone.
-func testOptionsIn(t *testing.T, fallback *time.Location) (Options, *sqlx.DB, *clock) {
+func testOptionsIn(t testing.TB, fallback *time.Location) (Options, *sqlx.DB, *clock) {
 	t.Helper()
 	st, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "wishbone.db"))
 	require.NoError(t, err)

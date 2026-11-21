@@ -169,3 +169,26 @@ func TestParseNeedsAKey(t *testing.T) {
 	_, err := page.Parse("users", nil, "", "", 0)
 	require.Error(t, err)
 }
+
+func TestAllAsksForEveryRowInTheDefaultSortAndSliceCutsNothing(t *testing.T) {
+	r, err := page.All("users", keys)
+	require.NoError(t, err)
+	require.Equal(t, "name", r.Key)
+	require.False(t, r.Desc)
+	require.Nil(t, r.After)
+	require.Greater(t, r.Limit, page.MaxLimit)
+	require.Positive(t, r.Limit+1, "a domain package asks the database for one row more")
+
+	rows := make([]int, 5*page.MaxLimit)
+	got, next := page.Slice(r, rows, func(i int) page.Position { return page.Position{Value: "v", ID: int64(i)} })
+
+	require.Len(t, got, len(rows))
+	require.Nil(t, next)
+}
+
+func TestAllNeedsANameAndAKeyAsParseDoes(t *testing.T) {
+	_, err := page.All("", keys)
+	require.Error(t, err)
+	_, err = page.All("users", nil)
+	require.Error(t, err)
+}

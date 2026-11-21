@@ -183,6 +183,7 @@ func New(opts Options) *Server {
 	s.registerSessions(signedIn)
 	s.registerPasskeys(signedIn)
 	s.registerPasskeyLogin(public)
+	s.registerVersions(signedIn)
 
 	spa := spaHandler()
 	r.NotFound(func(w http.ResponseWriter, req *http.Request) {

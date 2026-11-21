@@ -759,14 +759,30 @@ func (s *Service) sharedForAdmin(ctx context.Context, q sqlx.QueryerContext, vie
 	if err != nil {
 		return Occasion{}, err
 	}
-	if o.Type != TypeShared {
-		return Occasion{}, ErrNotFound
-	}
-	if !o.Admin {
-		return Occasion{}, ErrNotEditable
+	if err := o.groupsError(); err != nil {
+		return Occasion{}, err
 	}
 	return o, nil
 }
+
+// groupsError says why the viewer can't read or change the groups of an occasion
+// that they can see: [ErrNotFound] for one that isn't shared, which has no
+// groups, and [ErrNotEditable] for a viewer who isn't the admin. It is nil for
+// the admin and a shared occasion.
+func (o Occasion) groupsError() error {
+	switch {
+	case o.Type != TypeShared:
+		return ErrNotFound
+	case !o.Admin:
+		return ErrNotEditable
+	}
+	return nil
+}
+
+// CanReadGroups says whether the viewer can read the groups that the occasion is
+// attached to: the admin, for a shared occasion. It is the rule of
+// [Service.GroupsOf], for an occasion that is already loaded.
+func (o Occasion) CanReadGroups() bool { return o.groupsError() == nil }
 
 // AttachGroup attaches a group to a shared occasion. Only the admin does. It
 // returns [ErrNotFound] for an occasion that is not a shared occasion the viewer
@@ -862,6 +878,11 @@ func (s *Service) UsersWhere(ctx context.Context, viewer user.User, id int64) (s
 	where, args := appliesToWhere(o)
 	return where, args, nil
 }
+
+// UsersOf is the condition of [Service.UsersWhere] for an occasion that is
+// already loaded as the viewer sees it, such as a row of [Service.Visible]. It
+// asks the database nothing.
+func UsersOf(o Occasion) (string, []any) { return appliesToWhere(o) }
 
 // NewShared is the input for [Service.CreateShared].
 type NewShared struct {

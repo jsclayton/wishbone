@@ -4160,6 +4160,71 @@
         ],
         "type": "object"
       },
+      "ResourceVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The resource's ID: the last part of its address. A list recipient has the ID of its user, so it is one resource only together with list_id. A membership has the ID of its group or its occasion.",
+            "examples": [
+              "42"
+            ],
+            "type": "string"
+          },
+          "item_id": {
+            "description": "For a store link, its item. null for every other kind.",
+            "examples": [
+              "12"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "What the entry is. user_summary is a user whom the caller gets only as a summary inside another resource: GET /users/{id} is a 404 for them. The last five are memberships, each named for its collection: group_users is GET /groups/{id}/users (the users directly in a group), group_groups is GET /groups/{id}/groups, occasion_groups is GET /occasions/{id}/groups, users_in_group is GET /users?group_id= (the users in a group, directly or through nesting), and users_of_occasion is GET /users?occasion_id= (the users an occasion applies to).",
+            "enum": [
+              "user",
+              "user_summary",
+              "list",
+              "list_recipient",
+              "item",
+              "store_link",
+              "gift",
+              "occasion",
+              "group",
+              "invitation",
+              "group_users",
+              "group_groups",
+              "occasion_groups",
+              "users_in_group",
+              "users_of_occasion"
+            ],
+            "type": "string"
+          },
+          "list_id": {
+            "description": "For an item and a list recipient, the list they are on. null for every other kind.",
+            "examples": [
+              "7"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "For a resource with a GET of its own, the same value as the ETag of that GET for this caller, and as its version in a collection. A list recipient has only the version of its row in GET /lists/{id}/recipients. A user summary has no address: its version is a hash of the summary. A membership's version is a hash of the IDs that its collection gives this caller, in the collection's order.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "version",
+          "list_id",
+          "item_id"
+        ],
+        "type": "object"
+      },
       "RuleBody": {
         "additionalProperties": false,
         "properties": {
@@ -5298,6 +5363,31 @@
           "id",
           "name",
           "avatar"
+        ],
+        "type": "object"
+      },
+      "VersionsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/v2/schemas/VersionsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "data": {
+            "description": "Every resource the caller can see and every membership the caller can read, each one once. The order means nothing. A resource that is not here is gone for this caller: deleted, moved out of view, or hidden.",
+            "items": {
+              "$ref": "#/components/schemas/ResourceVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       }
@@ -14505,6 +14595,96 @@
         "summary": "Revoke a session",
         "tags": [
           "Sessions"
+        ]
+      }
+    },
+    "/api/v2/versions": {
+      "get": {
+        "description": "The kind, the ID and the version of every resource the caller can see: users, lists, list recipients, items, store links, gifts, occasions, groups and invitations. It also has the memberships that the caller can read, each as one entry: the users directly in a group, the groups in a group, the groups on an occasion, the users in a group with nesting, and the users an occasion applies to. Sessions, passkeys, blocked stores and images are not in the answer. A client that keeps a copy compares the answer with it, gets what differs, and drops what is absent. The answer is one response: it has no cursor and no limit, and takes no filter and no sort. A request with any query parameter is a 422 `unknown_filter`. Its `ETag` is the version of the whole answer. Sent back in `If-None-Match`, it gets a 304 with no body while nothing in the answer changed. A version here moves only when the caller's own `GET` of that resource, or of that membership's collection, moves, so the answer shows nothing that a `GET` doesn't.",
+        "operationId": "list-versions",
+        "parameters": [
+          {
+            "description": "The ETag of an earlier answer. When nothing in the answer changed since, the answer is 304 with no body.",
+            "in": "header",
+            "name": "If-None-Match",
+            "schema": {
+              "description": "The ETag of an earlier answer. When nothing in the answer changed since, the answer is 304 with no body.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionsBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The version of the whole answer: a hash of the body. Send it back in If-None-Match.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Nothing in the answer changed since the answer whose `ETag` is in `If-None-Match`. No body.",
+            "headers": {
+              "ETag": {
+                "description": "The version of the whole answer, the same as in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "The version of everything the caller can see",
+        "tags": [
+          "Versions"
         ]
       }
     }
