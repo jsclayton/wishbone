@@ -12,7 +12,6 @@ import (
 
 	"jsclayton.dev/wishbone/internal/gift"
 	"jsclayton.dev/wishbone/internal/giftflag"
-	"jsclayton.dev/wishbone/internal/group"
 	"jsclayton.dev/wishbone/internal/list"
 	"jsclayton.dev/wishbone/internal/occasion"
 	"jsclayton.dev/wishbone/internal/user"
@@ -36,11 +35,14 @@ import (
 //
 // A membership (the users of a group, the groups on an occasion) is in no
 // resource's body, so it has an entry of its own: a hash of the IDs that the
-// caller's own collection gives, in that collection's order. The caller gets the
-// entry only for a collection that they can read, by the check that the
-// collection's route makes. The collections of users are read for every group
-// and every occasion in one statement ([user.Service.IDsMatchingEach]), with the
-// filter that `GET /users` builds for one.
+// caller's own collection gives, in that collection's order
+// ([membershipVersion]). The caller gets the entry only for a collection that
+// they can read, by the check that the collection's route makes. The collections
+// of users are read for every group and every occasion in one statement
+// ([user.Service.IDsMatchingEach]), with the filter that `GET /users` builds for
+// one. The collection's own answer carries the same version as its `ETag`
+// ([membershipOf]): the route reads the IDs with the read that this file uses,
+// and hashes them with the same function.
 //
 // Nothing is kept between two calls. What a caller sees can change with no
 // write (a gift's `needs_attention`, an occasion's `next_date`), so every call
@@ -121,17 +123,24 @@ func (v *seenVersions) addOn(kind, id, version string, listID, itemID *string) {
 	v.data = append(v.data, ResourceVersion{Kind: kind, ID: id, Version: version, ListID: listID, ItemID: itemID})
 }
 
-// addMembership adds a membership: the collection of IDs that belongs to the
-// group or the occasion with the owner's ID. Its version is a hash of the IDs
-// as the caller's own collection gives them, in the collection's order, so it
+// membershipVersion is the version of a membership: a hash of the IDs as the
+// caller's own collection gives them, in the collection's default order. So it
 // moves exactly when that collection gains a member, loses one, or changes its
-// order.
-func (v *seenVersions) addMembership(kind string, owner int64, members []int64) error {
+// order. It is the one copy of the rule: the entry of GET /versions
+// ([seenVersions.addMembership]) and the `ETag` of the collection's own answer
+// ([membershipOf]) both come from it.
+func membershipVersion(members []int64) (string, error) {
 	ids := make([]string, len(members))
 	for i, id := range members {
 		ids[i] = formatID(id)
 	}
-	version, err := versionOf(ids)
+	return versionOf(ids)
+}
+
+// addMembership adds a membership: the collection of IDs that belongs to the
+// group or the occasion with the owner's ID.
+func (v *seenVersions) addMembership(kind string, owner int64, members []int64) error {
+	version, err := membershipVersion(members)
 	if err != nil {
 		return err
 	}
@@ -385,31 +394,19 @@ func (s *Server) occasionVersions(ctx context.Context, caller user.User, seen *s
 
 	// The groups each occasion is attached to, as `GET /occasions/{id}/groups`
 	// gives them: for the admin, and a shared occasion.
-	attached, err := occasionGroupsRules.all()
-	if err != nil {
-		return err
-	}
 	for _, o := range occasions {
 		if !o.CanReadGroups() {
 			continue
 		}
-		groups, _, _, err := s.opts.Groups.AttachedTo(ctx, caller, o.ID, attached)
+		attached, err := s.opts.Groups.IDsAttachedTo(ctx, caller, o.ID)
 		if err != nil {
 			return err
 		}
-		if err := seen.addMembership(kindOccasionGroups, o.ID, groupIDs(groups)); err != nil {
+		if err := seen.addMembership(kindOccasionGroups, o.ID, attached); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func groupIDs(groups []group.Entry) []int64 {
-	ids := make([]int64, len(groups))
-	for i, g := range groups {
-		ids[i] = g.ID
-	}
-	return ids
 }
 
 func (s *Server) groupVersions(ctx context.Context, caller user.User, seen *seenVersions) error {
@@ -450,16 +447,12 @@ func (s *Server) groupVersions(ctx context.Context, caller user.User, seen *seen
 	if requireAdmin(ctx, "lists the groups inside a group") != nil {
 		return nil
 	}
-	inside, err := groupGroupsRules.all()
-	if err != nil {
-		return err
-	}
 	for _, g := range groups {
-		inner, _, _, err := s.opts.Groups.Inside(ctx, caller, g.ID, inside)
+		inside, err := s.opts.Groups.IDsInside(ctx, caller, g.ID)
 		if err != nil {
 			return err
 		}
-		if err := seen.addMembership(kindGroupGroups, g.ID, groupIDs(inner)); err != nil {
+		if err := seen.addMembership(kindGroupGroups, g.ID, inside); err != nil {
 			return err
 		}
 	}

@@ -7664,7 +7664,7 @@
     },
     "/api/v2/groups/{id}/groups": {
       "get": {
-        "description": "Only the admin: a user in the outer group is not in the groups inside it. Sort keys: `name` (the default is the first). Filters: none.",
+        "description": "Only the admin: a user in the outer group is not in the groups inside it. The `ETag` is the version of this membership: the `group_groups` entry of the group in `GET /versions`. Sort keys: `name` (the default is the first). Filters: none.",
         "operationId": "list-group-groups",
         "parameters": [
           {
@@ -7723,7 +7723,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {
@@ -8165,7 +8173,7 @@
     },
     "/api/v2/groups/{id}/users": {
       "get": {
-        "description": "For a user in the group, directly or through nesting, and the admin. Full users: the caller shares the group with each of them. Sort keys: `name` (the default is the first). Filters: none.",
+        "description": "For a user in the group, directly or through nesting, and the admin. Full users: the caller shares the group with each of them. The `ETag` is the version of this membership: the `group_users` entry of the group in `GET /versions`. Sort keys: `name` (the default is the first). Filters: none.",
         "operationId": "list-group-users",
         "parameters": [
           {
@@ -8224,7 +8232,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {
@@ -14191,7 +14207,7 @@
     },
     "/api/v2/occasions/{id}/groups": {
       "get": {
-        "description": "Only the admin. The groups that the occasion is attached to directly. An occasion marked everyone has none. An occasion that isn't shared is a 404. Sort keys: `name` (the default is the first). Filters: none.",
+        "description": "Only the admin. The groups that the occasion is attached to directly. An occasion marked everyone has none. An occasion that isn't shared is a 404. The `ETag` is the version of this membership: the `occasion_groups` entry of the occasion in `GET /versions`. Sort keys: `name` (the default is the first). Filters: none.",
         "operationId": "list-occasion-groups",
         "parameters": [
           {
@@ -14250,7 +14266,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {
@@ -15068,7 +15092,7 @@
     },
     "/api/v2/users": {
       "get": {
-        "description": "The caller, the users who share a group with them (directly or through nesting), their parents and children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves. Sort keys: `name`, `created_at` (the default is the first). Filters: `group_id`, `invitable_to`, `occasion_id`.",
+        "description": "The caller, the users who share a group with them (directly or through nesting), their parents and children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves. With `group_id` or `occasion_id` as its one filter, the answer is a membership, and its `ETag` is the version of that membership: the `users_in_group` entry of the group, or the `users_of_occasion` entry of the occasion, in `GET /versions`. Sort keys: `name`, `created_at` (the default is the first). Filters: `group_id`, `invitable_to`, `occasion_id`.",
         "operationId": "list-users",
         "parameters": [
           {
@@ -15144,7 +15168,15 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "description": "Only when group_id or occasion_id is the one filter of the request, so the answer is a membership. The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions. Any other request for users has no ETag.",
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {

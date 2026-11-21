@@ -30,6 +30,28 @@ type collectionOutput[T any] struct {
 	Body Collection[T]
 }
 
+// membershipOutput is the output of a route whose collection is a membership:
+// the users of a group, the groups on an occasion (docs/routes.md, Versions).
+// A membership is in no resource's body, so GET /versions gives it a version of
+// its own, and the collection's answer carries that version.
+type membershipOutput[T any] struct {
+	ETag string `header:"ETag" doc:"The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions."`
+	Body Collection[T]
+}
+
+// membershipOf wraps one page of a membership's collection as the output of its
+// route. members are the IDs of the whole collection as the caller sees it, in
+// its default order, read in the same snapshot of the database as the page
+// (see [user.Service.MatchingWithIDs]). The `ETag` is their
+// [membershipVersion], as the membership's entry in GET /versions is.
+func membershipOf[T any](rows []T, total int, next *string, members []int64) (*membershipOutput[T], error) {
+	version, err := membershipVersion(members)
+	if err != nil {
+		return nil, err
+	}
+	return &membershipOutput[T]{ETag: version, Body: Collection[T]{Data: rows, NextCursor: next, TotalCount: total}}, nil
+}
+
 // PageParams are the query parameters that every collection takes. A route
 // embeds them in its input. The route's own filters are named in its
 // [collectionRules]. `sort` is checked there too, and read from the input by
