@@ -20,6 +20,10 @@ By default, the server listens on every address of its machine, on `WISHBONE_POR
 
 In a container, keep the default. The compose file publishes the port, and Docker can't reach a server that listens only on the container's loopback address. The `healthcheck` command probes `127.0.0.1`, so it also fails when the server listens on another address.
 
+## Plain HTTP
+
+You can run an instance over plain HTTP, for example on a tailnet or at an IP address and a port. The iOS app works with it. The web app can sign in on it only from the server's own machine (localhost): the session cookie is always `Secure`, and a browser sends a `Secure` cookie over plain HTTP only to localhost. For web use, serve the instance over HTTPS through a reverse proxy. See [Configuration](spec.md#configuration).
+
 ## Back up
 
 `wishbone backup <path>` writes a snapshot of the database and the images while the server runs. Run it in the running container:
