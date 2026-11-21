@@ -30,3 +30,4 @@ body:
     attributes:
       label: Image tag or version
       description: The image tag you run, or the version at the bottom of Menu. Leave this empty if your question is not about a build you run.
+      placeholder: ghcr.io/jsclayton/wishbone:2.1.0
