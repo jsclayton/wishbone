@@ -47,4 +47,4 @@ Wishbone is under the [AGPL-3.0](LICENSE). When you contribute, you agree that y
 - **Use the pull request template.** Say what changed and why, and the choices you made.
 - **You don't have to file issues for what you find.** If you notice a problem outside your change, mention it in the pull request or open an issue.
 
-Questions are welcome in [Discussions](https://github.com/jsclayton/wishbone/discussions).
+Questions are welcome. Open an [issue](https://github.com/jsclayton/wishbone/issues/new/choose) and pick **Question**.

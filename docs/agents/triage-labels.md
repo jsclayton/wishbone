@@ -6,7 +6,7 @@ Issues use these labels. [`docs/workflow.md`](../workflow.md#tickets) says how a
 
 | Label | Meaning |
 |---|---|
-| `needs-triage` | The maintainer needs to evaluate this issue. Every new issue starts here. |
+| `needs-triage` | The maintainer needs to evaluate this issue. An issue opened through a form starts here. |
 | `needs-info` | Waiting on the maintainer for a product or spec decision. |
 | `ready-for-agent` | Fully specified, and an agent can take it. |
 | `ready-for-human` | A person must do the work. |

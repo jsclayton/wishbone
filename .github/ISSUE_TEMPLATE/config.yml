@@ -3,6 +3,3 @@ contact_links:
   - name: Report a security problem
     url: https://github.com/jsclayton/wishbone/security/advisories/new
     about: Report it in private. Don't open an issue for a vulnerability.
-  - name: Ask a question
-    url: https://github.com/jsclayton/wishbone/discussions
-    about: For help with setup or how something works.

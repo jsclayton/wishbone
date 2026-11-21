@@ -1,0 +1,33 @@
+name: Question
+description: Ask how something in Wishbone works, or get help with it
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask here when you are not sure whether something is a bug, or how Wishbone is meant to work. [The spec](https://github.com/jsclayton/wishbone/blob/main/docs/spec.md) says what it does, and may already have the answer.
+
+        A question about the iPhone and iPad app goes to [the app's repo](https://github.com/jsclayton/wishbone-ios/issues) instead.
+
+        Don't post a login link, your server's address, or anything from your family's lists.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you want to know?
+      description: What are you trying to do, and where are you stuck?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: What you did, and what Wishbone did.
+
+  - type: input
+    id: version
+    attributes:
+      label: Image tag or version
+      description: The image tag you run, or the version at the bottom of Menu. Leave this empty if your question is not about a build you run.
+      placeholder: ghcr.io/jsclayton/wishbone:2.1.0
