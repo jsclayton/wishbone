@@ -41,6 +41,9 @@ var schemas = []struct {
 	sql   string
 }{
 	{since: store.BaselineVersion, sql: imagesKeysSQL}, // the baseline schema, with images
+	// The IDs migration rebuilt images, to give its ID AUTOINCREMENT. The key
+	// column is as it was, so the query is the same.
+	{since: 20261121013109, sql: imagesKeysSQL},
 }
 
 // KeysAt returns the image keys that a database at goose version uses. It

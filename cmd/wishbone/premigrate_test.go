@@ -85,3 +85,52 @@ func TestACommandRefusesADatabaseWhoseMigrationIsPending(t *testing.T) {
 
 	require.ErrorIs(t, err, store.ErrMigrationPending)
 }
+
+// The IDs migration (20261121013109) rebuilds every table that has an ID. The
+// snapshot before it holds the database as it was, with its images. A server
+// that starts on the restored snapshot migrates it, and every row keeps its ID.
+func TestTheSnapshotBeforeTheIDsMigrationRestoresAndMigrates(t *testing.T) {
+	const before, ids = 20261120145721, 20261121013109
+	const imageKey = "ab0123456789abcdef0123456789abcd"
+	dir := t.TempDir()
+	st := newDataDirStore(t, dir)
+	require.NoError(t, st.MigrateTo(t.Context(), before))
+	exec(t, st, `INSERT INTO users (id, name, birthday_month, birthday_day, created_at) VALUES
+		(1, 'Ada', 1, 1, CURRENT_TIMESTAMP), (4, 'Grace', 1, 1, CURRENT_TIMESTAMP)`)
+	exec(t, st, `INSERT INTO images (id, key, width, height, uploaded_by, created_at) VALUES (6, ?, 1, 1, 4, CURRENT_TIMESTAMP)`, imageKey)
+	exec(t, st, `UPDATE users SET avatar_image_id = 6 WHERE id = 4`)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "images", "ab"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "images", "ab", imageKey+".jpg"), []byte("jpeg"), 0o600))
+	now := func() time.Time { return time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC) }
+
+	require.NoError(t, migrate(t.Context(), st, dir, now, slog.New(slog.DiscardHandler)))
+
+	v, err := store.Version(t.Context(), st.DB())
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, v, int64(ids))
+	snaps := automaticSnapshots(t, dir)
+	require.Len(t, snaps, 1)
+	require.Regexp(t, fmt.Sprintf(`pre-migrate-%d-to-%d-20261121T120000Z$`, before, v), snaps[0])
+
+	// A restore puts the snapshot's files in place of the data (docs/operations.md, Restore).
+	restored := t.TempDir()
+	require.NoError(t, os.CopyFS(restored, os.DirFS(snaps[0])))
+	require.FileExists(t, filepath.Join(restored, "images", "ab", imageKey+".jpg"))
+	rst := newDataDirStore(t, restored)
+	v, err = store.Version(t.Context(), rst.DB())
+	require.NoError(t, err)
+	require.Equal(t, int64(before), v, "the snapshot is of the database before the migration")
+
+	require.NoError(t, migrate(t.Context(), rst, restored, now, slog.New(slog.DiscardHandler)))
+
+	v, err = store.Version(t.Context(), rst.DB())
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, v, int64(ids))
+	require.Equal(t, 1, count(t, rst, `SELECT count(*) FROM users WHERE id = 4 AND name = 'Grace' AND avatar_image_id = 6`))
+	require.Equal(t, 1, count(t, rst, `SELECT count(*) FROM images WHERE id = 6 AND key = ? AND uploaded_by = 4`, imageKey))
+	require.Len(t, automaticSnapshots(t, restored), 1, "the restored database got its own snapshot first")
+	exec(t, rst, `UPDATE users SET avatar_image_id = NULL WHERE id = 4`)
+	exec(t, rst, `DELETE FROM images WHERE id = 6`)
+	exec(t, rst, `INSERT INTO images (key, width, height, created_at) VALUES ('cd', 1, 1, CURRENT_TIMESTAMP)`)
+	require.Equal(t, 7, count(t, rst, `SELECT max(id) FROM images`), "the ID of the deleted image doesn't come back")
+}

@@ -31,8 +31,8 @@ type Caller struct {
 	// came as a bearer token. Only cookie sessions have a cookie to renew or clear.
 	ViaCookie bool
 	// tokenHash is what the database keeps of the session's token. With the ID,
-	// it says which session an Idempotency-Key belongs to: a later session can
-	// get the ID of a deleted one, and never its token.
+	// it says which session an Idempotency-Key belongs to: a later session
+	// never has the token of a deleted one (see idempotency.Session).
 	tokenHash string
 }
 

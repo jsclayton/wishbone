@@ -74,3 +74,31 @@ func TestKeysAtADatabaseWithImagesListsEveryImage(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"held", "loose"}, keys)
 }
+
+// The IDs migration (20261121013109) rebuilt images. The snapshot before it
+// reads the table as it was, and a backup after it reads the rebuilt one. Both
+// list every key.
+func TestKeysAtReadsImagesBeforeAndAfterTheIDsMigration(t *testing.T) {
+	const before, ids = 20261120145721, 20261121013109
+	st, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "test.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	require.NoError(t, st.MigrateTo(t.Context(), before))
+	exec(t, st, `INSERT INTO users (id, name, birthday_month, birthday_day, created_at) VALUES (1, 'Ann', 1, 1, CURRENT_TIMESTAMP)`)
+	exec(t, st, `INSERT INTO images (id, key, width, height, uploaded_by, created_at) VALUES
+		(2, 'held', 1, 1, 1, CURRENT_TIMESTAMP), (5, 'loose', 1, 1, 1, CURRENT_TIMESTAMP)`)
+	exec(t, st, `UPDATE users SET avatar_image_id = 2 WHERE id = 1`)
+
+	keys, err := imagerefs.KeysAt(t.Context(), st.DB(), before)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"held", "loose"}, keys)
+
+	require.NoError(t, st.MigrateTo(t.Context(), ids))
+	v, err := store.Version(t.Context(), st.DB())
+	require.NoError(t, err)
+	require.Equal(t, int64(ids), v)
+
+	keys, err = imagerefs.KeysAt(t.Context(), st.DB(), v)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"held", "loose"}, keys)
+}

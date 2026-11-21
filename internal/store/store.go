@@ -169,7 +169,33 @@ func (s *Store) MigrateAfter(ctx context.Context, before func(ctx context.Contex
 		}
 	}
 	if _, err := p.Up(ctx); err != nil {
-		return fmt.Errorf("run migrations: %w", err)
+		return errors.Join(fmt.Errorf("run migrations: %w", err), s.restoreConnection(ctx))
+	}
+	return nil
+}
+
+// restoreConnection undoes what a failed migration can leave on the
+// connection. A migration that runs with NO TRANSACTION, to rebuild a table,
+// turns foreign keys off and opens its own transaction. When one of its
+// statements fails, goose stops there, with the transaction open and foreign
+// keys off. The pool has one connection, so without this the next query would
+// run inside that transaction, and see a schema that is half rebuilt.
+func (s *Store) restoreConnection(ctx context.Context) error {
+	// The cause can be a canceled context, and the connection still needs this.
+	ctx = context.WithoutCancel(ctx)
+	// A ROLLBACK with no open transaction fails, and that is the usual case.
+	_, _ = s.db.ExecContext(ctx, `ROLLBACK`)
+	// SQLite ignores this pragma inside a transaction, so the read after it also
+	// shows that none is open.
+	var on bool
+	if _, err := s.db.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+		return fmt.Errorf("turn foreign keys on after a failed migration: %w", err)
+	}
+	if err := s.db.GetContext(ctx, &on, `PRAGMA foreign_keys`); err != nil {
+		return fmt.Errorf("read foreign keys after a failed migration: %w", err)
+	}
+	if !on {
+		return errors.New("foreign keys are still off after a failed migration")
 	}
 	return nil
 }
@@ -206,7 +232,7 @@ func (s *Store) MigrateTo(ctx context.Context, version int64) error {
 		return err
 	}
 	if _, err := p.UpTo(ctx, version); err != nil {
-		return fmt.Errorf("run migrations to %d: %w", version, err)
+		return errors.Join(fmt.Errorf("run migrations to %d: %w", version, err), s.restoreConnection(ctx))
 	}
 	return nil
 }
