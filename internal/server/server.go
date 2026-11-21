@@ -123,6 +123,7 @@ func New(opts Options) *Server {
 	r := chi.NewRouter()
 	r.Use(telemetry.Middleware(opts.Tracer)) // outside the recoverer, so a panic shows as a 500
 	r.Use(middleware.RequestID)
+	r.Use(withLogger(opts.Logger))
 	r.Use(recoverer(opts.Logger))
 	r.Use(securityHeaders)
 	r.Use(apiNoStore)
