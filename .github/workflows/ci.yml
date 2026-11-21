@@ -90,7 +90,9 @@ jobs:
             fi
             echo "The main image was built from $base."
           fi
-          files=$(git diff --name-only "$base" HEAD)
+          # --no-renames lists both names of a renamed file. With only the new
+          # name, a source file that moves into docs/ would read as docs only.
+          files=$(git diff --name-only --no-renames "$base" HEAD)
           printf 'Changed files:\n%s\n' "$files"
           if [ -z "$files" ] && [ "$EVENT" != pull_request ]; then
             # On main, an empty diff means the image is already at HEAD. A PR
