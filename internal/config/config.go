@@ -8,7 +8,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"jsclayton.dev/wishbone/internal/clientip"
@@ -17,9 +19,10 @@ import (
 // Config is embedded into the `serve` command, so Kong fills it from flags
 // and environment variables.
 type Config struct {
-	PublicURL string `name:"public-url" env:"WISHBONE_PUBLIC_URL" required:"" help:"Public base URL, used for login links, QR codes, and passkeys."`
-	Port      int    `name:"port" short:"p" env:"WISHBONE_PORT" default:"8080" help:"HTTP port."`
-	DataDir   string `name:"data-dir" short:"d" env:"WISHBONE_DATA_DIR" default:"./data" help:"Directory for the SQLite database and images."`
+	PublicURL     string `name:"public-url" env:"WISHBONE_PUBLIC_URL" required:"" help:"Public base URL, used for login links, QR codes, and passkeys."`
+	Port          int    `name:"port" short:"p" env:"WISHBONE_PORT" default:"8080" help:"HTTP port."`
+	ListenAddress string `name:"listen-address" env:"WISHBONE_LISTEN_ADDRESS" help:"IP address to listen on, such as 127.0.0.1. Empty listens on every address."`
+	DataDir       string `name:"data-dir" short:"d" env:"WISHBONE_DATA_DIR" default:"./data" help:"Directory for the SQLite database and images."`
 
 	TrustedProxies []string `name:"trusted-proxies" env:"WISHBONE_TRUSTED_PROXIES" sep:"," help:"CIDRs whose X-Forwarded-For header is trusted."`
 
@@ -40,6 +43,12 @@ type Config struct {
 // BrightDataEnabled reports whether the Bright Data stage is configured.
 func (c *Config) BrightDataEnabled() bool { return c.BrightDataAPIKey != "" && c.BrightDataZone != "" }
 
+// ListenAddr is the host:port the server listens on. With no
+// ListenAddress, the host is empty, so the server listens on every address.
+func (c *Config) ListenAddr() string {
+	return net.JoinHostPort(c.ListenAddress, strconv.Itoa(c.Port))
+}
+
 // Validate checks values that Kong cannot check on its own.
 func (c *Config) Validate() error {
 	u, err := url.Parse(c.PublicURL)
@@ -51,6 +60,9 @@ func (c *Config) Validate() error {
 	}
 	if u.Host == "" {
 		return errors.New("WISHBONE_PUBLIC_URL: host is required")
+	}
+	if c.ListenAddress != "" && net.ParseIP(c.ListenAddress) == nil {
+		return fmt.Errorf("WISHBONE_LISTEN_ADDRESS: %q is not an IP address", c.ListenAddress)
 	}
 	if _, err := clientip.New(c.TrustedProxies); err != nil {
 		return fmt.Errorf("WISHBONE_TRUSTED_PROXIES: %w", err)

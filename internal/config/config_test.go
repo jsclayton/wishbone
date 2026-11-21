@@ -184,3 +184,42 @@ func TestLLMConfigFromEnv(t *testing.T) {
 		require.ErrorContains(t, err, "WISHBONE_LLM_API_KEY")
 	})
 }
+
+func TestListenAddress(t *testing.T) {
+	parse := func(t *testing.T, env map[string]string) (Config, error) {
+		t.Helper()
+		isolateEnv(t)
+		for k, v := range env {
+			t.Setenv(k, v)
+		}
+		var c Config
+		k, err := kong.New(&c)
+		require.NoError(t, err)
+		_, err = k.Parse(nil)
+		return c, err
+	}
+	base := map[string]string{"WISHBONE_PUBLIC_URL": "http://localhost", "WISHBONE_PORT": "9234"}
+
+	t.Run("unset listens on every address", func(t *testing.T) {
+		c, err := parse(t, base)
+		require.NoError(t, err)
+		require.Equal(t, ":9234", c.ListenAddr())
+	})
+	t.Run("an IPv4 address", func(t *testing.T) {
+		c, err := parse(t, withEnv(base, "WISHBONE_LISTEN_ADDRESS", "127.0.0.1"))
+		require.NoError(t, err)
+		require.Equal(t, "127.0.0.1:9234", c.ListenAddr())
+	})
+	t.Run("an IPv6 address", func(t *testing.T) {
+		c, err := parse(t, withEnv(base, "WISHBONE_LISTEN_ADDRESS", "::1"))
+		require.NoError(t, err)
+		require.Equal(t, "[::1]:9234", c.ListenAddr())
+	})
+	for _, bad := range []string{"localhost", "127.0.0.1:8080", "256.0.0.1", "[::1]", "10.0.0.0/8"} {
+		t.Run("rejects "+bad, func(t *testing.T) {
+			_, err := parse(t, withEnv(base, "WISHBONE_LISTEN_ADDRESS", bad))
+			require.ErrorContains(t, err, "WISHBONE_LISTEN_ADDRESS")
+			require.ErrorContains(t, err, "not an IP address")
+		})
+	}
+}
