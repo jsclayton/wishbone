@@ -87,7 +87,7 @@ Every job runs on a GitHub-hosted runner, which is free for a public repo. CI st
 
 - CI doesn't run on draft PRs.
 - Editing a PR title or body runs only the `PR Title` workflow.
-- A change to docs only skips the Go, Web, and E2E jobs. Docs are `docs/`, `LICENSE`, any `*.md` file, `.github/ISSUE_TEMPLATE/`, and `.github/pull_request_template.md`.
+- A change to docs only skips the Go, Web, and E2E jobs. Docs are `docs/`, `LICENSE`, any `*.md` file, `.github/ISSUE_TEMPLATE/`, and `.github/pull_request_template.md`. A renamed file counts by its old name and its new name, so a source file renamed into `docs/` or to a `*.md` name is a code change.
 - A PR runs `Image Check`, which builds an amd64 image, only when one of these files changes: `Dockerfile`, `.dockerignore`, `go.mod`, `go.sum`, `package.json`, `web/package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, or `.github/workflows/ci.yml`. A change to source code alone doesn't run it. It never pushes the image.
 - These two lists copy `docs_only` and `image_inputs` in the `Changes` job of `ci.yml`. If they differ, `ci.yml` is right.
 - The multi-arch image is built and pushed to GHCR from `main` only. It gets the tags `main`, `unstable`, and `sha-<short>`.
