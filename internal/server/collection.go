@@ -197,6 +197,7 @@ func (c collectionRules) middleware() func(huma.Context, func(huma.Context)) {
 
 // writeProblemOn answers from a middleware with a problem that has its own code.
 func writeProblemOn(ctx huma.Context, p *Problem) {
+	logServerError(ctx, p)
 	ctx.SetHeader("Content-Type", "application/problem+json")
 	ctx.SetStatus(p.Status)
 	_ = json.NewEncoder(ctx.BodyWriter()).Encode(p)

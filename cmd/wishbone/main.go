@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -235,7 +236,7 @@ func (s *ServeCmd) Run() error {
 		Version:         version,
 		Commit:          commit,
 		Tracer:          tracer,
-		Metrics:         promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
+		Metrics:         metricsHandler(reg, logger),
 		Users:           users,
 		Groups:          groups,
 		Blocked:         blocklist.NewService(st.DB(), time.Now),
@@ -311,4 +312,23 @@ func main() {
 		kong.ConfigureHelp(kong.HelpOptions{Compact: true}),
 	)
 	ctx.FatalIfErrorf(ctx.Run())
+}
+
+// metricsHandler serves /metrics. A metric that fails to gather is left out
+// and its error goes to the log, not to the answer: the answer needs no
+// sign-in, and promhttp's default puts the error's text in a 500. promhttp
+// still answers that 500 when no metric gathers at all, which can't happen
+// here: the Go and process collectors always gather.
+func metricsHandler(g prometheus.Gatherer, logger *slog.Logger) http.Handler {
+	return promhttp.HandlerFor(g, promhttp.HandlerOpts{
+		ErrorHandling: promhttp.ContinueOnError,
+		ErrorLog:      promLogger{logger},
+	})
+}
+
+// promLogger is the server's logger as promhttp's.
+type promLogger struct{ logger *slog.Logger }
+
+func (l promLogger) Println(v ...any) {
+	l.logger.Error("metrics", slog.String("error", strings.TrimSpace(fmt.Sprintln(v...))))
 }

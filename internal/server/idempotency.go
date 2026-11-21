@@ -134,8 +134,7 @@ func (s *Server) idempotent() func(huma.Context, func(huma.Context)) {
 				"This "+idempotencyKeyHeader+" was used for another request. Use a new key for a new request."))
 			return
 		case err != nil:
-			s.opts.Logger.ErrorContext(ctx.Context(), "find the idempotency key failed", slog.Any("error", err))
-			writeProblemOn(ctx, Error(http.StatusInternalServerError, "internal_error", internalErrorDetail))
+			writeProblemOn(ctx, Error(http.StatusInternalServerError, "internal_error", "find the idempotency key", err))
 			return
 		case answer != nil:
 			for name, values := range answer.Header {
