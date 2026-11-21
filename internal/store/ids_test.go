@@ -12,7 +12,7 @@ import (
 )
 
 // The migration that makes an ID never come back (docs/spec.md, API principles,
-// Collections), and the version of the schema just before it.
+// Values), and the version of the schema just before it.
 const (
 	idsVersion       int64 = 20261121013109
 	beforeIDsVersion int64 = 20261120145721
@@ -446,4 +446,98 @@ func TestTheIDsMigrationRunsAgainOnADatabaseThatAlreadyHasIt(t *testing.T) {
 	delete(seqs, "goose_db_version")
 	require.Equal(t, seqs, got)
 	requireSound(t, st)
+}
+
+// carryCounter is the step that a rebuild of a table with an ID needs, after
+// the copy and before the drop (docs/development.md, Migrations). %[1]s is the
+// table. The copy sets the new table's counter to the highest ID that is in the
+// table, and DROP TABLE deletes the old counter with the old table. This gives
+// the new table the old counter when that is higher.
+const carryCounter = `UPDATE sqlite_sequence
+SET seq = (SELECT max(seq) FROM sqlite_sequence WHERE name IN ('%[1]s', 'new_%[1]s'))
+WHERE name = 'new_%[1]s'`
+
+var createTableName = regexp.MustCompile(`^CREATE TABLE "?\w+"?`)
+
+// rebuild rebuilds a table as a later migration would, by the steps of the IDs
+// migration: foreign keys off, a transaction of its own, the new table, the
+// copy, the drop, the rename, and the table's indexes and triggers again. The
+// new table has the definition of the old one. With carry, it runs
+// [carryCounter] between the copy and the drop.
+func rebuild(t *testing.T, st *Store, table string, carry bool) {
+	t.Helper()
+	var create string
+	require.NoError(t, st.db.GetContext(t.Context(), &create, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`, table))
+	var again []string
+	require.NoError(t, st.db.SelectContext(t.Context(), &again,
+		`SELECT sql FROM sqlite_master WHERE tbl_name = ? AND type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY rowid`, table))
+
+	steps := []string{
+		`PRAGMA foreign_keys = OFF`,
+		`BEGIN IMMEDIATE`,
+		createTableName.ReplaceAllString(create, "CREATE TABLE new_"+table),
+		`INSERT INTO new_` + table + ` SELECT * FROM ` + table,
+	}
+	if carry {
+		steps = append(steps, fmt.Sprintf(carryCounter, table))
+	}
+	steps = append(steps, `DROP TABLE `+table, `ALTER TABLE new_`+table+` RENAME TO `+table)
+	steps = append(steps, again...)
+	steps = append(steps, `COMMIT`, `PRAGMA foreign_keys = ON`)
+	execAll(t, st, steps...)
+}
+
+// A later migration that rebuilds a table with an ID must carry the table's
+// counter over, or the ID of a deleted row comes back. In each table, the row
+// with the highest ID is deleted, the table is rebuilt with the step that
+// docs/development.md gives, and the next row still gets a higher ID. The
+// deletes leave some tables with no row (blocked_stores is one), so a table
+// that is empty at its rebuild keeps its counter too.
+func TestARebuildThatCarriesTheCounterOverGivesNoIDAgain(t *testing.T) {
+	st := migrated(t)
+	execAll(t, st, seed...)
+	schema, keys := schemaObjects(t, st), foreignKeys(t, st)
+	// The highest ID that each table ever had, read before the deletes: a
+	// delete takes rows of the tables after it too.
+	highest := sequences(t, st)
+	var empty []string
+
+	for _, tb := range idTables {
+		// An earlier delete can have taken the row with the highest ID already.
+		execAll(t, st, fmt.Sprintf(`DELETE FROM %[1]s WHERE id = (SELECT max(id) FROM %[1]s)`, tb.table))
+		var left int64
+		require.NoError(t, st.db.GetContext(t.Context(), &left, `SELECT COALESCE(max(id), 0) FROM `+tb.table))
+		require.Less(t, left, highest[tb.table], "%s: the row with the highest ID is gone", tb.table)
+		rows := allRows(t, st)
+		if len(rows[tb.table]) == 1 {
+			empty = append(empty, tb.table)
+		}
+
+		rebuild(t, st, tb.table, true)
+
+		require.Equal(t, rows, allRows(t, st), tb.table)
+		require.Equal(t, highest[tb.table], sequences(t, st)[tb.table], "%s: the counter came over", tb.table)
+		require.Greater(t, insertID(t, st, tb.insert), highest[tb.table], tb.table)
+	}
+
+	require.Contains(t, empty, "blocked_stores", "some tables had no row at their rebuild")
+	require.NotContains(t, empty, "items", "and some had rows")
+	require.Equal(t, schema, schemaObjects(t, st), "the rebuild in this test keeps the schema, as a migration's must")
+	require.Equal(t, keys, foreignKeys(t, st))
+	requireSound(t, st)
+}
+
+// Without that step, a rebuild loses the counter: the next row gets the ID of
+// the deleted one. This is why the step is in the rule for a rebuild.
+func TestARebuildThatLeavesTheCounterGivesADeletedIDAgain(t *testing.T) {
+	st := migrated(t)
+	execAll(t, st, seed...)
+	highest := maxID(t, st, "items")
+	execAll(t, st, fmt.Sprintf(`DELETE FROM items WHERE id = %d`, highest))
+	left := maxID(t, st, "items")
+
+	rebuild(t, st, "items", false)
+
+	require.Equal(t, left+1, insertID(t, st, `INSERT INTO items (list_id, title, position, created_at) VALUES (1, 'New', 9, `+at+`)`))
+	require.Less(t, left+1, highest, "an ID below the deleted one, which a row once had")
 }
