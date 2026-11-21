@@ -5,7 +5,7 @@ How work moves from the spec to merged code. These rules apply to everyone who c
 ## Overview
 
 ```
-spec.md ──► tickets (GitHub issues, with blockers) ──► branch and PR ──► review ──► CI ──► squash merge
+spec.md ──► tickets (GitHub issues, opened when work starts) ──► branch and PR ──► review ──► CI ──► squash merge
 ```
 
 The maintainer is the person who owns the repo and decides what Wishbone does. They decide what is built and in what order, decide product and spec questions, and can revert any merge.
