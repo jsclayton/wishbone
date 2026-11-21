@@ -933,6 +933,7 @@ Wishbone reads its settings from environment variables. `serve` also takes each 
 |---|---|
 | `WISHBONE_PUBLIC_URL` | Required. The address people use in their browser, with the scheme `http` or `https`. Login links, QR codes, and the WebAuthn relying party use it. |
 | `WISHBONE_PORT` | HTTP port. Default `8080`. |
+| `WISHBONE_LISTEN_ADDRESS` | The IP address the server listens on, such as `127.0.0.1` or `::1`. Default: every address. A host name is not valid. |
 | `WISHBONE_DATA_DIR` | Location of the SQLite database and images. Default `./data`. The image sets it to `/data`. |
 | `WISHBONE_TRUSTED_PROXIES` | CIDRs, separated by commas, whose `X-Forwarded-For` header is trusted. |
 | `WISHBONE_RATE_LIMIT_REDEEM` | Login link redemption attempts allowed per minute per client IP. At least `1`. Default `10`. Setup attempts count against it too (see [Setup](#setup)). |

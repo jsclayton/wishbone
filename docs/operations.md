@@ -14,6 +14,12 @@ Everything lives in the volume that the compose file mounts at `/data`:
 
 The image is distroless: it has no shell, so you can't `docker compose exec wishbone sh`. The `wishbone` program is at `/app/wishbone`, and the commands below run it with `docker compose exec`.
 
+## Listen address
+
+By default, the server listens on every address of its machine, on `WISHBONE_PORT`. To keep it off the local network, set `WISHBONE_LISTEN_ADDRESS` to one IP address, such as `127.0.0.1` when a proxy on the same host forwards to it. The value must be an IP address, not a host name, and the server refuses to start with another value. The other settings are in the [Configuration](spec.md#configuration) part of the spec.
+
+In a container, keep the default. The compose file publishes the port, and Docker can't reach a server that listens only on the container's loopback address. The `healthcheck` command probes `127.0.0.1`, so it also fails when the server listens on another address.
+
 ## Back up
 
 `wishbone backup <path>` writes a snapshot of the database and the images while the server runs. Run it in the running container:

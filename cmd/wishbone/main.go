@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -256,16 +257,19 @@ func (s *ServeCmd) Run() error {
 		RateLimitRedeem: cfg.RateLimitRedeem,
 	})
 
+	ln, err := listen(ctx, cfg)
+	if err != nil {
+		return err
+	}
 	httpSrv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           withE2EHooks(srv, revealer, logger),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("listening", slog.Int("port", cfg.Port), slog.String("public_url", cfg.PublicURL))
-		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Info("listening", slog.String("address", ln.Addr().String()), slog.String("public_url", cfg.PublicURL))
+		if err := httpSrv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 		close(errCh)
@@ -280,6 +284,17 @@ func (s *ServeCmd) Run() error {
 		defer cancel()
 		return httpSrv.Shutdown(shutdownCtx)
 	}
+}
+
+// listen opens the server's socket on WISHBONE_LISTEN_ADDRESS and
+// WISHBONE_PORT. With no address, it listens on every address.
+func listen(ctx context.Context, cfg config.Config) (net.Listener, error) {
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", cfg.ListenAddr())
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", cfg.ListenAddr(), err)
+	}
+	return ln, nil
 }
 
 type VersionCmd struct {
