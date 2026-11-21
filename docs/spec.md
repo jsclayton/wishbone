@@ -946,6 +946,7 @@ Wishbone reads its settings from environment variables. `serve` also takes each 
 
 - The server refuses to start when a setting is not valid, and says which.
 - Cookies are always `Secure`, `HttpOnly`, and `SameSite=Lax`. The reverse proxy terminates TLS.
+- An instance on plain HTTP (a tailnet, or an IP address and a port) is for the native app, which sends its token and not a cookie. The web app signs in there only from the server's own machine (localhost), because a browser sends a `Secure` cookie over plain HTTP only to localhost. For web use, serve the instance over HTTPS.
 
 ### Observability
 
