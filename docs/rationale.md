@@ -167,3 +167,15 @@ The route keeps nothing between two requests, also for a 304. A version is a has
 It is fast enough without a cache. On an instance with 41 users, 307 lists and 5,202 items, one request for a caller whose answer has 12,451 entries takes about 180 ms on a laptop (`BenchmarkVersions`). The first version read the items and the recipients of each list with about nine queries, and took about 1.1 s: a SQLite query costs about the same however little it reads. Reading every list in one query fixed that. Hashing the bodies is about 5% of the time. If the route gets slow again, count its queries first.
 
 One statement can't hold everything, though. The users of every group and every occasion are read 10 filters to a statement (`matchingChunk` in `internal/user`), because SQLite refuses a statement with too many subqueries in it, and each filter brings the rule of who sees a user. A statement with all 85 of the benchmark's occasions worked, and one with 85 groups did not.
+
+### The OpenAPI document: open responses, open enums, and `x-error-codes`
+
+The spec lets the server add response fields, enum values, and error codes within an API version, and tells a client to accept them (see [Versions of the API](spec.md#versions-of-the-api)). The document is what a client is generated from and checked against, so it must not be stricter than that rule. How it is done is in [architecture.md](architecture.md#the-openapi-document). The choices:
+
+- **A response object leaves `additionalProperties` out. It doesn't say `true`.** Both allow other properties. A generator such as apple/swift-openapi-generator reads `true` as "collect them", and gives every type a container of extra properties. With the keyword left out, its client ignores a property that it doesn't know, which is what the spec asks.
+- **An enum in a response is `anyOf` its values and any string.** This is the form that apple/swift-openapi-generator documents for an open enum. The other ways lose something: no `enum` at all takes the known values out of the document, and an extension such as `x-extensible-enum` is read by few tools.
+- **A request stays strict.** The server refuses an unknown field and an unknown enum value, and the `enum` tags do that check. Loosening a request later is allowed within a version. Tightening it is not.
+- **Error codes are in `x-error-codes` on each operation, by status.** An enum on `Problem.code` would be one list for the whole API, which says nothing about a route, and it would be a closed enum again. A code in a response's description is there for a person, but a tool can't read it. The descriptions have the codes too, from the same list.
+- **The statuses come from the codes.** A route names codes, and its error responses are the statuses of those codes. So the document can't have a status without a code, or a code without its status.
+- **The document says what the server does, not what would look better.** A 408 and a 415 carry `bad_request`, the code of every 4xx with no code of its own, and the document lists them so. A code doesn't change within an API version.
+

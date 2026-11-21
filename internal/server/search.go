@@ -92,7 +92,9 @@ type SearchBody struct {
 }
 
 type searchInput struct {
-	RawBody     []byte
+	// The tag keeps huma from adding application/octet-stream to the types of
+	// the body: the route takes a form and nothing else.
+	RawBody     []byte `contentType:"multipart/form-data"`
 	contentType string
 }
 
@@ -373,7 +375,7 @@ func (s *Server) registerSearch(api huma.API) {
 			"image": {Type: "string", Format: "binary", Description: "A photo: JPEG, PNG, GIF, or WebP, at most 10 MiB."},
 		},
 	}
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "search",
 		Method:      http.MethodPost,
 		Path:        "/search",
@@ -395,8 +397,7 @@ func (s *Server) registerSearch(api huma.API) {
 				"image": {ContentType: "image/jpeg, image/png, image/gif, image/webp"},
 			}},
 		}},
-		Errors: []int{http.StatusUnauthorized, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *searchInput) (*struct{ Body SearchBody }, error) {
+	}, "image_too_large", "invalid_input", "store_blocked", "image_invalid", "rate_limited"), func(ctx context.Context, in *searchInput) (*struct{ Body SearchBody }, error) {
 		caller, _ := CallerFrom(ctx)
 		f, err := parseSearchForm(in.contentType, in.RawBody)
 		if err != nil {

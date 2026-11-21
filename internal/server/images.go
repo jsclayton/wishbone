@@ -283,7 +283,7 @@ var imageResponses = map[string]*huma.Response{
 
 func (s *Server) registerImages(api huma.API) {
 	binary := &huma.MediaType{Schema: &huma.Schema{Type: "string", Format: "binary"}}
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-image",
 		Method:        http.MethodPost,
 		Path:          "/images",
@@ -292,11 +292,13 @@ func (s *Server) registerImages(api huma.API) {
 		Tags:          []string{"Images"},
 		DefaultStatus: http.StatusCreated,
 		MaxBodyBytes:  imageTooLargeLimit,
+		// The handler reads the bytes or the JSON itself, and huma parses
+		// neither. This says so in the document (see sharedAnswers).
+		SkipValidateBody: true,
 		RequestBody: &huma.RequestBody{Content: map[string]*huma.MediaType{
 			"image/jpeg": binary, "image/png": binary, "image/gif": binary, "image/webp": binary,
 		}},
-		Errors: []int{http.StatusUnauthorized, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createImageInput) (*createdOutput[ImageBody], error) {
+	}, "image_too_large", "invalid_input", "image_invalid", "image_fetch_failed"), func(ctx context.Context, in *createImageInput) (*createdOutput[ImageBody], error) {
 		caller, _ := CallerFrom(ctx)
 		var img image.Image
 		var err error
@@ -323,16 +325,15 @@ func (s *Server) registerImages(api huma.API) {
 		Schema: api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[downloadRequest](), true, "DownloadImageRequest"),
 	}
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-image",
 		Method:      http.MethodGet,
 		Path:        "/images/{id}",
 		Summary:     "The bytes of an image",
-		Description: "Before the image is attached, only the user who uploaded it can see it. After that, it follows the visibility of the resource it is attached to, and an avatar is also visible to everyone who gets that user's summary. An image that a resource let go of is a 404 for everyone, its uploader too. Every other caller gets a 404.",
+		Description: "Before the image is attached, only the user who uploaded it can see it. After that, it follows the visibility of the resource it is attached to, and an avatar is also visible to everyone who gets that user's summary. An image that a resource let go of is a 404 for everyone, its uploader too. Every other caller gets a 404. A `Range` that the image doesn't have, or that can't be read, is a 416 `range_not_satisfiable`.",
 		Tags:        []string{"Images"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
 		Responses:   imageResponses,
-	}, func(ctx context.Context, in *imageInput) (*huma.StreamResponse, error) {
+	}, "not_found", "range_not_satisfiable"), func(ctx context.Context, in *imageInput) (*huma.StreamResponse, error) {
 		caller, _ := CallerFrom(ctx)
 		id, ok := parseID(in.ID)
 		if !ok {
@@ -369,7 +370,39 @@ func (s *Server) registerImages(api huma.API) {
 			w.Header().Set("Content-Type", imagestore.ContentType)
 			w.Header().Set("Cache-Control", imageCacheControl)
 			// ServeContent answers Range requests.
-			http.ServeContent(w, r, "", time.Time{}, f)
+			http.ServeContent(&rangeProblemWriter{ResponseWriter: w}, r, "", time.Time{}, f)
 		}}, nil
 	})
+}
+
+// rangeProblemWriter is the writer that [http.ServeContent] serves an image
+// through. ServeContent answers a `Range` that the image doesn't have, and one
+// that it can't read, with a 416 in plain text. Every error of the API is a
+// problem with a code (docs/spec.md, API principles, Errors), so this writes
+// the 416 as one, with the code `range_not_satisfiable`, and drops the text.
+// It keeps the `Content-Range` that ServeContent set, which gives the size of
+// the image. Every other answer goes through as it is.
+type rangeProblemWriter struct {
+	http.ResponseWriter
+	refused bool
+}
+
+func (w *rangeProblemWriter) WriteHeader(status int) {
+	if status != http.StatusRequestedRangeNotSatisfiable {
+		w.ResponseWriter.WriteHeader(status)
+		return
+	}
+	w.refused = true
+	// ServeContent took the image's Cache-Control off its error. An error of
+	// the API is never kept (see apiNoStore).
+	w.Header().Set("Cache-Control", "no-store")
+	writeProblem(w.ResponseWriter, status, "range_not_satisfiable", "The image doesn't have that range of bytes. Ask for the whole image, or for a range inside it.")
+}
+
+func (w *rangeProblemWriter) Write(b []byte) (int, error) {
+	if w.refused {
+		// The plain text of ServeContent's own error.
+		return len(b), nil
+	}
+	return w.ResponseWriter.Write(b)
 }

@@ -462,15 +462,14 @@ func (s *Server) newImages(caller user.User, rawIDs []string, rawPrimary *string
 }
 
 func (s *Server) registerItems(api huma.API) {
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-items",
 		Method:      http.MethodGet,
 		Path:        "/lists/{id}/items",
 		Summary:     "The items on a list",
 		Description: "The items of a list the caller can see, in the order the users who can edit the list set. `price` sorts by the low end of a range, by currency code and then by amount, and an item with no price is last in both directions.",
 		Tags:        []string{"Items"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}
+	}, "not_found")
 	itemRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listItemsInput) (*collectionOutput[itemRow], error) {
 		caller, _ := CallerFrom(ctx)
@@ -499,7 +498,7 @@ func (s *Server) registerItems(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-item",
 		Method:        http.MethodPost,
 		Path:          "/lists/{id}/items",
@@ -507,8 +506,7 @@ func (s *Server) registerItems(api huma.API) {
 		Description:   "A user who can edit the list adds an item. It goes at the end of the list, and `added_by` is the caller. There is no duplicate check. A caller who can edit the list only as the parent of a deactivated recipient gets a 403 `user_deactivated`.",
 		Tags:          []string{"Items"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *createItemInput) (*createdOutput[ItemBody], error) {
+	}, "forbidden", "reference_not_allowed", "user_deactivated", "not_found", "image_attached", "reference_not_found", "too_many_store_links", "too_many_images", "store_blocked"), func(ctx context.Context, in *createItemInput) (*createdOutput[ItemBody], error) {
 		caller, _ := CallerFrom(ctx)
 		l, err := s.visibleList(ctx, in.ID)
 		if err != nil {
@@ -557,15 +555,14 @@ func (s *Server) registerItems(api huma.API) {
 		return createdOf("/items/"+formatID(it.ID), newItemBody(it))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-item",
 		Method:      http.MethodGet,
 		Path:        "/items/{id}",
 		Summary:     "An item",
 		Description: "An item on a list the caller can't see is a 404.",
 		Tags:        []string{"Items"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *itemInput) (*resourceOutput[ItemBody], error) {
+	}, "not_found"), func(ctx context.Context, in *itemInput) (*resourceOutput[ItemBody], error) {
 		it, err := s.visibleItem(ctx, in.ID)
 		if err != nil {
 			return nil, err
@@ -573,7 +570,7 @@ func (s *Server) registerItems(api huma.API) {
 		return resourceOf(newItemBody(it))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-item",
 		Method:      http.MethodPatch,
 		Path:        "/items/{id}",
@@ -581,9 +578,8 @@ func (s *Server) registerItems(api huma.API) {
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. " +
 			"A user who can edit the item's list changes it, whoever added it. A new `position` moves the item and the others shift. A new `list_id` moves the item to the end of another list. " +
 			"A field the caller sees but can't change is a 403 `field_not_writable`. `If-Match` is optional.",
-		Tags:   []string{"Items"},
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchItemInput) (*resourceOutput[ItemBody], error) {
+		Tags: []string{"Items"},
+	}, "forbidden", "field_not_writable", "cannot_edit_target_list", "user_deactivated", "not_found", "image_attached", "reference_not_found", "too_many_images"), func(ctx context.Context, in *patchItemInput) (*resourceOutput[ItemBody], error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleItem(ctx, in.ID)
 		if err != nil {
@@ -610,7 +606,7 @@ func (s *Server) registerItems(api huma.API) {
 		return resourceOf(newItemBody(updated))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-item",
 		Method:        http.MethodDelete,
 		Path:          "/items/{id}",
@@ -618,8 +614,7 @@ func (s *Server) registerItems(api huma.API) {
 		Description:   "A user who can edit the item's list deletes it, and the items after it close the gap. A parent of a deactivated recipient gets a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:          []string{"Items"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteItemInput) (*struct{}, error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *deleteItemInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		current, err := s.visibleItem(ctx, in.ID)
 		if err != nil {

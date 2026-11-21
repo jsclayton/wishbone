@@ -22,7 +22,7 @@ func newTestServer(t *testing.T, p Pinger) *httptest.Server {
 	t.Helper()
 	opts, _, _ := testOptions(t)
 	opts.Store = p
-	ts := httptest.NewServer(New(opts))
+	ts := httptest.NewServer(checked(t, New(opts)))
 	t.Cleanup(ts.Close)
 	return ts
 }

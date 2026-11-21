@@ -505,7 +505,7 @@ func noQuery(ctx huma.Context, next func(huma.Context)) {
 }
 
 func (s *Server) registerVersions(api huma.API) {
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "list-versions",
 		Method:      http.MethodGet,
 		Path:        "/versions",
@@ -518,7 +518,6 @@ func (s *Server) registerVersions(api huma.API) {
 			"Its `ETag` is the version of the whole answer. Sent back in `If-None-Match`, it gets a 304 with no body while nothing in the answer changed. " +
 			"A version here moves only when the caller's own `GET` of that resource, or of that membership's collection, moves, so the answer shows nothing that a `GET` doesn't.",
 		Tags:        []string{"Versions"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
 		Middlewares: huma.Middlewares{noQuery},
 		Responses: map[string]*huma.Response{
 			"304": {
@@ -528,7 +527,7 @@ func (s *Server) registerVersions(api huma.API) {
 				},
 			},
 		},
-	}, func(ctx context.Context, in *versionsInput) (*versionsOutput, error) {
+	}, "unknown_filter"), func(ctx context.Context, in *versionsInput) (*versionsOutput, error) {
 		body, err := s.versions(ctx, callerUser(ctx))
 		if err != nil {
 			return nil, err

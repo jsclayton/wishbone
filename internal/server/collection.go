@@ -136,7 +136,9 @@ func (c collectionRules) apply(op *huma.Operation) {
 		panic("server: a collection needs a name")
 	}
 	op.Middlewares = append(op.Middlewares, c.middleware())
-	op.Errors = append(op.Errors, http.StatusUnprocessableEntity)
+	// The middleware answers the first two, and a cursor that parse can't read
+	// is an invalid_input.
+	declareCodes(op, "unknown_filter", "unknown_sort", "cursor_mismatch", "invalid_input")
 
 	keys := make([]string, len(c.Sorts))
 	for i, k := range c.Sorts {

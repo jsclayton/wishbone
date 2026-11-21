@@ -214,16 +214,15 @@ func (s *Server) refreshPrices(ctx context.Context, userID int64, it item.Item) 
 }
 
 func (s *Server) registerStoreLinks(api huma.API) {
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-store-links",
 		Method:      http.MethodGet,
 		Path:        "/items/{id}/store-links",
 		Summary:     "The store links of an item",
 		Description: "The places where the item can be bought. A caller who can edit the item's list gets them in the order added. Every other caller gets them by price: within one currency the lowest first and the unpriced last, and with prices in several currencies the order added. An item has at most 10, so there is one page. There are no sort keys and no filters.",
 		Tags:        []string{"Store links"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusUnprocessableEntity},
 		Middlewares: huma.Middlewares{storeLinkRules.middleware()},
-	}
+	}, "not_found", "unknown_filter", "unknown_sort")
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *itemInput) (*collectionOutput[storeLinkRow], error) {
 		it, err := s.visibleItem(ctx, in.ID)
 		if err != nil {
@@ -239,15 +238,14 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "get-store-link",
 		Method:      http.MethodGet,
 		Path:        "/items/{id}/store-links/{store_link_id}",
 		Summary:     "A store link",
 		Description: "A store link of an item on a list the caller can't see is a 404.",
 		Tags:        []string{"Store links"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}, func(ctx context.Context, in *storeLinkPath) (*resourceOutput[StoreLinkBody], error) {
+	}, "not_found"), func(ctx context.Context, in *storeLinkPath) (*resourceOutput[StoreLinkBody], error) {
 		it, l, err := s.visibleStoreLink(ctx, in.ID, in.StoreLinkID)
 		if err != nil {
 			return nil, err
@@ -255,7 +253,7 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		return resourceOf(newStoreLinkBody(l, it.CanEdit))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "create-store-link",
 		Method:        http.MethodPost,
 		Path:          "/items/{id}/store-links",
@@ -263,8 +261,7 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		Description:   "A user who can edit the item's list adds a store link. The server reads the page for its price and the store's picture, and the read counts against the caller's hourly limit unless it comes from the 24-hour cache. Over the limit is a 429 `rate_limited` and nothing is added. A page that can't be read gives a store link with no price. A link from a blocked store is a 422 `store_blocked`, before the read, and after it for a link that redirects there (that one counts). An item with no price that never had one takes the price of the store link. A caller who can edit the list only as the parent of a deactivated recipient gets a 403 `user_deactivated`.",
 		Tags:          []string{"Store links"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *addStoreLinkInput) (*createdOutput[StoreLinkBody], error) {
+	}, "forbidden", "user_deactivated", "not_found", "too_many_store_links", "store_blocked", "rate_limited"), func(ctx context.Context, in *addStoreLinkInput) (*createdOutput[StoreLinkBody], error) {
 		caller, _ := CallerFrom(ctx)
 		it, err := s.editableItem(ctx, in.ID)
 		if err != nil {
@@ -289,15 +286,14 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		return createdOf("/items/"+formatID(it.ID)+"/store-links/"+formatID(l.ID), newStoreLinkBody(l, true))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "update-store-link",
 		Method:      http.MethodPatch,
 		Path:        "/items/{id}/store-links/{store_link_id}",
 		Summary:     "Set, change or clear the price of a store link",
 		Description: "JSON Merge Patch (RFC 7396), as `application/merge-patch+json` or `application/json`. A user who can edit the item's list sets the price and currency by hand. The captured date becomes now when the change sets a price or clears one. A later refresh replaces a typed price. An item with no price that never had one takes the first price a store link gets. A caller who can edit the list only as the parent of a deactivated recipient gets a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:        []string{"Store links"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *patchStoreLinkInput) (*resourceOutput[StoreLinkBody], error) {
+	}, "forbidden", "field_not_writable", "user_deactivated", "not_found"), func(ctx context.Context, in *patchStoreLinkInput) (*resourceOutput[StoreLinkBody], error) {
 		caller, _ := CallerFrom(ctx)
 		it, l, err := s.visibleStoreLink(ctx, in.ID, in.StoreLinkID)
 		if err != nil {
@@ -321,7 +317,7 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		return resourceOf(newStoreLinkBody(updated, true))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "delete-store-link",
 		Method:        http.MethodDelete,
 		Path:          "/items/{id}/store-links/{store_link_id}",
@@ -329,8 +325,7 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		Description:   "A user who can edit the item's list deletes it. The item stays, with the price it has, even with no store links. A parent of a deactivated recipient gets a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:          []string{"Store links"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *deleteStoreLinkInput) (*struct{}, error) {
+	}, "forbidden", "user_deactivated", "not_found"), func(ctx context.Context, in *deleteStoreLinkInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		it, l, err := s.visibleStoreLink(ctx, in.ID, in.StoreLinkID)
 		if err != nil {
@@ -345,15 +340,14 @@ func (s *Server) registerStoreLinks(api huma.API) {
 		return nil, nil
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID: "refresh-prices",
 		Method:      http.MethodPost,
 		Path:        "/items/{id}/refresh-prices",
 		Summary:     "Refresh the prices of an item's store links",
 		Description: "A user who can edit the item's list reads each store link's page again, skipping the cache, and saves the new price with the time it was captured. Each read counts against the caller's hourly limit. It changes only the store links' prices, never the item price, the title or the images. A store link that can't be read, or has no readable price, keeps its price and date. The answer does not say which links were read, and `captured_at` has whole-second precision, so a client can tell a changed price from the item, but not a read that found the same price from a read that failed. When the hourly limit stops the refresh, the prices read before it are saved and the answer is the item; when it stops it before the first page is read (a read that fails or finds no price counts as a read), the answer is a 429 `rate_limited`. A parent of a deactivated recipient gets a 403 `user_deactivated`. Returns the item.",
 		Tags:        []string{"Items"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests},
-	}, func(ctx context.Context, in *itemInput) (*resourceOutput[ItemBody], error) {
+	}, "forbidden", "user_deactivated", "not_found", "rate_limited"), func(ctx context.Context, in *itemInput) (*resourceOutput[ItemBody], error) {
 		caller, _ := CallerFrom(ctx)
 		it, err := s.editableItem(ctx, in.ID)
 		if err != nil {

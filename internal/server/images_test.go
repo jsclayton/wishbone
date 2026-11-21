@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -247,4 +248,35 @@ func TestAnImageThatDoesNotExistIsA404(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, res.StatusCode, id)
 		require.Equal(t, "not_found", readProblem(t, res).Code, id)
 	}
+}
+
+// An image answers a Range request. A range that the image doesn't have, and
+// one that can't be read, is a 416 that is a problem with a code like every
+// other error of the API, and not Go's own plain text.
+func TestARangeThatAnImageDoesNotHaveIsA416WithACode(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+	img := e.uploaded(admin)
+	whole := readBody(t, e.getImage(admin, img.ID))
+	ranged := func(value string) *http.Response {
+		header := cookie(admin)
+		header.Set("Range", value)
+		return e.do(request{path: "/images/" + img.ID, header: header})
+	}
+
+	part := ranged("bytes=0-1")
+	require.Equal(t, http.StatusPartialContent, part.StatusCode)
+	require.Equal(t, whole[:2], readBody(t, part))
+	require.Equal(t, "private, max-age=31536000, immutable", part.Header.Get("Cache-Control"))
+
+	past := ranged("bytes=99999999-")
+	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, past.StatusCode)
+	require.Equal(t, "range_not_satisfiable", readProblem(t, past).Code)
+	// The size of the image, so the client can ask again.
+	require.Equal(t, "bytes */"+strconv.Itoa(len(whole)), past.Header.Get("Content-Range"))
+	require.Equal(t, "no-store", past.Header.Get("Cache-Control"))
+
+	unreadable := ranged("pages=1-2")
+	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, unreadable.StatusCode)
+	require.Equal(t, "range_not_satisfiable", readProblem(t, unreadable).Code)
 }

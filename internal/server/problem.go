@@ -22,7 +22,7 @@ import (
 type Problem struct {
 	Status int    `json:"status" example:"409" doc:"HTTP status code"`
 	Title  string `json:"title" example:"Conflict" doc:"The status text. It does not change between occurrences."`
-	Code   string `json:"code" example:"item_fully_claimed" doc:"What went wrong, for a client to act on. A snake_case string that does not change within an API version."`
+	Code   string `json:"code" example:"item_fully_claimed" doc:"What went wrong, for a client to act on. A snake_case string that does not change within an API version. An operation's x-error-codes lists the codes that it can answer with, by status. The server can add a code within an API version: show detail for one you don't know."`
 	Detail string `json:"detail" example:"Someone else just claimed the last one." doc:"A sentence in plain English. Its words can change."`
 	// Errors lists the problems with each field of the input.
 	Errors []*huma.ErrorDetail `json:"errors,omitempty" doc:"The problems with each field of the input."`

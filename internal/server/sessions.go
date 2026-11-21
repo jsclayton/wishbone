@@ -65,15 +65,14 @@ type revokeSessionOutput struct {
 }
 
 func (s *Server) registerSessions(api huma.API) {
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-sessions",
 		Method:      http.MethodGet,
 		Path:        "/users/{id}/sessions",
 		Summary:     "A user's sessions",
 		Description: "The live sessions, cookie and bearer, the most recently used first. The user, their parents, and the admin see them.",
 		Tags:        []string{"Sessions"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound},
-	}
+	}, "not_found")
 	sessionRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *listSessionsInput) (*collectionOutput[sessionRow], error) {
 		target, err := s.userToActFor(ctx, in.ID)
@@ -104,7 +103,7 @@ func (s *Server) registerSessions(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "revoke-session",
 		Method:        http.MethodDelete,
 		Path:          "/users/{id}/sessions/{session_id}",
@@ -112,8 +111,7 @@ func (s *Server) registerSessions(api huma.API) {
 		Description:   "`DELETE /users/me/sessions/current` signs out. The user, their parents, and the admin revoke a user's sessions, while the user is active: for a deactivated user it is a 403 `user_deactivated`. `If-Match` is optional.",
 		Tags:          []string{"Sessions"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusPreconditionFailed},
-	}, func(ctx context.Context, in *revokeSessionInput) (*revokeSessionOutput, error) {
+	}, "user_deactivated", "not_found"), func(ctx context.Context, in *revokeSessionInput) (*revokeSessionOutput, error) {
 		target, err := s.userToWriteFor(ctx, in.ID)
 		if err != nil {
 			return nil, err

@@ -47,15 +47,14 @@ func (s *Server) managedSharedOccasion(ctx context.Context, rawID string) (id in
 }
 
 func (s *Server) registerOccasionGroups(api huma.API) {
-	listOp := huma.Operation{
+	listOp := withCodes(huma.Operation{
 		OperationID: "list-occasion-groups",
 		Method:      http.MethodGet,
 		Path:        "/occasions/{id}/groups",
 		Summary:     "The groups attached to a shared occasion",
 		Description: "Only the admin. The groups that the occasion is attached to directly. An occasion marked everyone has none. An occasion that isn't shared is a 404.",
 		Tags:        []string{"Occasions"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}
+	}, "forbidden", "not_found")
 	occasionGroupsRules.apply(&listOp)
 	huma.Register(api, listOp, listing(func(ctx context.Context, in *occasionGroupsInput) (*collectionOutput[groupRow], error) {
 		caller, _ := CallerFrom(ctx)
@@ -80,7 +79,7 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		return out, nil
 	}))
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "attach-occasion-group",
 		Method:        http.MethodPost,
 		Path:          "/occasions/{id}/groups",
@@ -88,8 +87,7 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		Description:   "Only the admin. Returns the group, with the group's own address in `Location`. The occasion then applies to every user in the group, directly or through nesting. A group that is already attached is a 409 `already_attached`, and an occasion marked everyone takes no group: a 409 `occasion_is_everyone`. A group that doesn't exist is a 422 `reference_not_found`.",
 		Tags:          []string{"Occasions"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
-	}, func(ctx context.Context, in *attachGroupInput) (*createdOutput[GroupBody], error) {
+	}, "forbidden", "not_found", "occasion_is_everyone", "already_attached", "reference_not_found"), func(ctx context.Context, in *attachGroupInput) (*createdOutput[GroupBody], error) {
 		caller, _ := CallerFrom(ctx)
 		id, err := s.managedSharedOccasion(ctx, in.ID)
 		if err != nil {
@@ -109,7 +107,7 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		return createdOf("/groups/"+formatID(e.ID), newGroupBody(e, caller.User))
 	})
 
-	huma.Register(api, huma.Operation{
+	huma.Register(api, withCodes(huma.Operation{
 		OperationID:   "detach-occasion-group",
 		Method:        http.MethodDelete,
 		Path:          "/occasions/{id}/groups/{group_id}",
@@ -117,8 +115,7 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		Description:   "Only the admin. A group that isn't attached is a 404. The group stays.",
 		Tags:          []string{"Occasions"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
-	}, func(ctx context.Context, in *detachGroupInput) (*struct{}, error) {
+	}, "forbidden", "not_found"), func(ctx context.Context, in *detachGroupInput) (*struct{}, error) {
 		caller, _ := CallerFrom(ctx)
 		id, err := s.managedSharedOccasion(ctx, in.ID)
 		if err != nil {
