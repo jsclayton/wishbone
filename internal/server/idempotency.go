@@ -135,7 +135,7 @@ func (s *Server) idempotent() func(huma.Context, func(huma.Context)) {
 			return
 		case err != nil:
 			s.opts.Logger.ErrorContext(ctx.Context(), "find the idempotency key failed", slog.Any("error", err))
-			writeProblemOn(ctx, Error(http.StatusInternalServerError, "internal_error", "Something went wrong on our side. Try again."))
+			writeProblemOn(ctx, Error(http.StatusInternalServerError, "internal_error", internalErrorDetail))
 			return
 		case answer != nil:
 			for name, values := range answer.Header {

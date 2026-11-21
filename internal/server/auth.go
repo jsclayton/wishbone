@@ -115,7 +115,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		}
 		if err != nil {
 			s.opts.Logger.ErrorContext(ctx, "find the caller failed", slog.Any("error", err))
-			writeProblem(w, http.StatusInternalServerError, "internal_error", "Something went wrong on our side. Try again.")
+			writeProblem(w, http.StatusInternalServerError, "internal_error", internalErrorDetail)
 			return
 		}
 		caller := Caller{User: u, SessionID: sess.ID, ViaCookie: viaCookie, tokenHash: session.Hash(token)}

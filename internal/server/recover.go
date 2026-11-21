@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -28,14 +29,26 @@ func recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 				logger.ErrorContext(r.Context(), "panic in handler",
 					slog.Any("panic", rvr),
 					slog.String("stack", string(debug.Stack())),
+					slog.String("method", r.Method),
+					slog.String("path", routePattern(r)),
 					slog.String("request_id", middleware.GetReqID(r.Context())),
 				)
 				if ww.Status() != 0 || ww.BytesWritten() > 0 {
 					return // the answer has begun, and a second one would not parse
 				}
-				writeProblem(ww, http.StatusInternalServerError, "internal_error", "Something went wrong on our side. Try again.")
+				writeProblem(ww, http.StatusInternalServerError, "internal_error", internalErrorDetail)
 			}()
 			next.ServeHTTP(ww, r)
 		})
 	}
+}
+
+// routePattern is the path template that chi matched, such as
+// /api/v2/lists/{id}, so the log has no ids in it. It is empty when chi
+// matched nothing.
+func routePattern(r *http.Request) string {
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		return rc.RoutePattern()
+	}
+	return ""
 }
