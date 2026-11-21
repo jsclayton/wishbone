@@ -146,6 +146,7 @@ func New(opts Options) *Server {
 	humaCfg.Components.SecuritySchemes = securitySchemes
 	// A PATCH body is JSON Merge Patch. It is JSON, so it uses the JSON format.
 	humaCfg.Formats[mergePatchContentType] = huma.DefaultJSONFormat
+	humaCfg.Transformers = append(humaCfg.Transformers, logServerErrors)
 	api := humachi.New(r, humaCfg)
 	// huma serves the document as openapi.json and openapi.yaml. The route
 	// table also names the bare path.
@@ -266,7 +267,7 @@ func (s *Server) registerHealth(api huma.API) {
 		Tags:        []string{"System"},
 	}, func(ctx context.Context, _ *struct{}) (*healthOutput, error) {
 		if err := s.opts.Store.Ping(ctx); err != nil {
-			return nil, huma.Error503ServiceUnavailable("database unavailable")
+			return nil, huma.Error503ServiceUnavailable("database unavailable", err)
 		}
 		out := &healthOutput{}
 		out.Body.Status = "ok"

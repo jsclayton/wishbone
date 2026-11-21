@@ -5,10 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -40,10 +44,20 @@ func (b *lockedBuffer) String() string {
 // and the log it writes.
 func failingEnv(t *testing.T) (*env, *lockedBuffer) {
 	t.Helper()
+	e, log, _ := failingEnvWaiting(t)
+	return e, log
+}
+
+// failingEnvWaiting is failingEnv, and a channel that GET /wait closes when
+// its handler starts to wait for the client to go away.
+func failingEnvWaiting(t *testing.T) (*env, *lockedBuffer, <-chan struct{}) {
+	t.Helper()
+	waiting := make(chan struct{})
 	log := &lockedBuffer{}
 	e := newEnv(t, func(o *Options) { o.Logger = slog.New(slog.NewJSONHandler(log, nil)) })
 	cfg := huma.DefaultConfig("test", "test")
 	cfg.OpenAPIPath, cfg.DocsPath, cfg.SchemasPath = "", "", ""
+	cfg.Transformers = append(cfg.Transformers, logServerErrors) // as New sets it
 	api := humachi.New(e.srv.router, cfg)
 	huma.Register(api, huma.Operation{
 		OperationID: "fail", Method: http.MethodPost, Path: "/api/v2/fail/{id}",
@@ -56,6 +70,29 @@ func failingEnv(t *testing.T) (*env, *lockedBuffer) {
 		OperationID: "fail-500", Method: http.MethodGet, Path: "/api/v2/fail-500",
 	}, func(context.Context, *struct{}) (*struct{}, error) {
 		return nil, huma.Error500InternalServerError(cause)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "fail-500-cause", Method: http.MethodGet, Path: "/api/v2/fail-500-cause",
+	}, func(context.Context, *struct{}) (*struct{}, error) {
+		return nil, Error(http.StatusInternalServerError, "internal_error", "save the item", errors.New(cause))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "fail-502", Method: http.MethodGet, Path: "/api/v2/fail-502",
+	}, func(context.Context, *struct{}) (*struct{}, error) {
+		return nil, huma.NewError(http.StatusBadGateway, "The link reader failed.", errors.New(cause))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "fail-503", Method: http.MethodGet, Path: "/api/v2/fail-503",
+	}, func(context.Context, *struct{}) (*struct{}, error) {
+		return nil, huma.Error503ServiceUnavailable("database unavailable", errors.New(cause))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "wait", Method: http.MethodGet, Path: "/api/v2/wait",
+	}, func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+		close(waiting)
+		<-ctx.Done()
+		// As a store call fails when its context is canceled.
+		return nil, fmt.Errorf("load the list: %w", ctx.Err())
 	})
 	huma.Register(api, huma.Operation{
 		OperationID: "panic", Method: http.MethodGet, Path: "/api/v2/panic/{id}",
@@ -73,7 +110,7 @@ func failingEnv(t *testing.T) (*env, *lockedBuffer) {
 	}) (*struct{}, error) {
 		return nil, nil
 	})
-	return e, log
+	return e, log, waiting
 }
 
 // requirePlain500 checks that an answer is a 500 with only the four fields of
@@ -162,4 +199,104 @@ func findLogLine(t *testing.T, log, want string) map[string]any {
 	}
 	require.Failf(t, "no log line", "the log has no line with %q:\n%s", want, log)
 	return nil
+}
+
+func TestA500MadeBeforeTheRequestLogsThroughTheServersLogger(t *testing.T) {
+	e, log := failingEnv(t)
+
+	e.do(request{path: "/fail-500"})
+
+	line := findLogLine(t, log.String(), cause)
+	require.Equal(t, "ERROR", line["level"])
+	require.Equal(t, "/api/v2/fail-500", line["path"])
+	require.NotEmpty(t, line["request_id"])
+}
+
+func TestTheCauseGivenToErrorIsLogged(t *testing.T) {
+	e, log := failingEnv(t)
+
+	requirePlain500(t, e.do(request{path: "/fail-500-cause"}))
+
+	line := findLogLine(t, log.String(), cause)
+	require.Equal(t, "ERROR", line["level"])
+	require.Equal(t, "save the item", line["detail"])
+	require.Equal(t, 1, strings.Count(log.String(), cause), "the cause is logged once")
+}
+
+func TestAnother5xxAnswersWithNoErrorsAndLogsItsCause(t *testing.T) {
+	for _, tc := range []struct {
+		path   string
+		status int
+		code   string
+	}{
+		{"/fail-502", http.StatusBadGateway, "internal_error"},
+		{"/fail-503", http.StatusServiceUnavailable, "service_unavailable"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			e, log := failingEnv(t)
+
+			res := e.do(request{path: tc.path})
+
+			require.Equal(t, tc.status, res.StatusCode)
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(res.Body).Decode(&body))
+			delete(body, "$schema")
+			require.ElementsMatch(t, []string{"status", "title", "code", "detail"}, keys(body))
+			require.Equal(t, tc.code, body["code"])
+			require.NotContains(t, body["detail"], "constraint")
+			line := findLogLine(t, log.String(), cause)
+			require.Equal(t, "ERROR", line["level"])
+			require.Equal(t, float64(tc.status), line["status"])
+		})
+	}
+}
+
+func TestAClientThatDropsARequestWritesNoErrorLine(t *testing.T) {
+	e, log, waiting := failingEnvWaiting(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, e.ts.URL+"/api/v2/wait", nil)
+	require.NoError(t, err)
+	go func() {
+		<-waiting
+		cancel()
+	}()
+
+	_, err = http.DefaultClient.Do(req)
+	require.ErrorIs(t, err, context.Canceled)
+
+	requireClientWentAway(t, log, "load the list")
+}
+
+func TestACutOffBodyWritesNoErrorLine(t *testing.T) {
+	e, log := failingEnv(t)
+	conn, err := net.Dial("tcp", strings.TrimPrefix(e.ts.URL, "http://"))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	_, err = fmt.Fprint(conn, "POST /api/v2/named HTTP/1.1\r\nHost: wishbone\r\n"+
+		"Content-Type: application/json\r\nContent-Length: 100\r\n\r\n{\"na")
+	require.NoError(t, err)
+	require.NoError(t, conn.(*net.TCPConn).CloseWrite())
+
+	requireClientWentAway(t, log, bodyReadFailed)
+}
+
+// requireClientWentAway waits for the INFO line of a client that went away,
+// with want in it, and checks that the log has no ERROR line.
+func requireClientWentAway(t *testing.T, log *lockedBuffer, want string) {
+	t.Helper()
+	require.Eventually(t, func() bool { return strings.Contains(log.String(), "client went away") },
+		5*time.Second, 10*time.Millisecond, "no line for the client that went away:\n%s", log)
+	line := findLogLine(t, log.String(), "client went away")
+	require.Equal(t, "INFO", line["level"])
+	require.Contains(t, fmt.Sprint(line["error"], line["detail"]), want)
+	require.NotContains(t, log.String(), `"level":"ERROR"`)
+}
+
+func keys(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

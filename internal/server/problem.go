@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -26,6 +27,11 @@ type Problem struct {
 	Detail string `json:"detail" example:"Someone else just claimed the last one." doc:"A sentence in plain English. Its words can change."`
 	// Errors lists the problems with each field of the input.
 	Errors []*huma.ErrorDetail `json:"errors,omitempty" doc:"The problems with each field of the input."`
+
+	// msg and cause are what a 5xx was made with. They go to the log (see
+	// logServerError), never to the answer.
+	msg   string
+	cause error
 }
 
 // Error returns the problem's detail, so a Problem is a Go error.
@@ -50,13 +56,18 @@ const internalErrorDetail = "Something went wrong on our side. Try again."
 // Error returns a Problem with its own code. A handler returns it when the
 // code is more specific than the one its status gets by default.
 //
-// A 500 is always internal_error with internalErrorDetail and no errors: the
-// caller can't act on the server's own words, and they can name tables,
-// columns and the steps of the server's work. Its cause goes to the log (see
-// logInternalError), not to the answer.
+// A 5xx has no errors: the caller can't act on the server's own words, and
+// they can name tables, columns and the steps of the server's work. Its
+// detail and errors go to the log (see logServerError), not to the answer. A
+// 500 is always internal_error with internalErrorDetail. Another 5xx keeps
+// its code and detail, so its detail must be a fixed sentence.
 func Error(status int, code, detail string, errs ...error) *Problem {
-	if status == http.StatusInternalServerError {
-		return &Problem{Status: status, Title: http.StatusText(status), Code: "internal_error", Detail: internalErrorDetail}
+	if status >= 500 {
+		p := &Problem{Status: status, Title: http.StatusText(status), Code: code, Detail: detail, msg: detail, cause: errors.Join(errs...)}
+		if status == http.StatusInternalServerError {
+			p.Code, p.Detail = "internal_error", internalErrorDetail
+		}
+		return p
 	}
 	p := &Problem{Status: status, Title: http.StatusText(status), Code: code, Detail: detail}
 	for _, err := range errs {
@@ -100,6 +111,10 @@ func defaultCode(status int) string {
 	return "bad_request"
 }
 
+// bodyReadFailed is huma's message for a request body it could not read to
+// the end. It writes it when the client cut the body off or went away.
+const bodyReadFailed = "cannot read request body"
+
 func init() {
 	// Every error that huma writes itself (input that fails validation, a
 	// missing header) goes through here, so it gets a code too.
@@ -112,21 +127,11 @@ func init() {
 			// keep the match true.
 			return Error(status, "image_too_large", fmt.Sprintf("Use an image smaller than %d MB.", imagestore.MaxBytes>>20))
 		}
-		if status == http.StatusInternalServerError {
-			// huma.Error500InternalServerError, made with no request at hand.
-			logInternalError(nil, msg, errs)
-		}
 		return Error(status, defaultCode(status), msg, errs...)
 	}
 	// huma calls this for a handler's error that is not a StatusError, with
-	// that error in errs, and for the errors it writes itself in a request. A
-	// 500's cause is logged here, with the request, because Error leaves it
-	// out of the answer.
-	huma.NewErrorWithContext = func(ctx huma.Context, status int, msg string, errs ...error) huma.StatusError {
-		if status == http.StatusInternalServerError {
-			logInternalError(ctx, msg, errs)
-			return Error(status, "internal_error", msg)
-		}
+	// that error in errs, and for the errors it writes itself in a request.
+	huma.NewErrorWithContext = func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
 		return huma.NewError(status, msg, errs...)
 	}
 }
@@ -134,7 +139,7 @@ func init() {
 type loggerKey struct{}
 
 // withLogger puts the server's logger in each request's context, for the
-// errors that huma makes outside any one server (see logInternalError).
+// errors that huma makes outside any one server (see logServerError).
 func withLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -150,24 +155,55 @@ func loggerFrom(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
-// logInternalError logs the cause of a 500 that huma makes, with the
-// operation's method and path template. The template has no ids in it.
-func logInternalError(ctx huma.Context, msg string, errs []error) {
-	attrs := []any{slog.String("detail", msg)}
-	if err := errors.Join(errs...); err != nil {
-		attrs = append(attrs, slog.Any("error", err))
+// logServerErrors is a huma transformer. It logs each 5xx problem as huma
+// writes it, with the request at hand. huma makes some of them, such as
+// huma.Error500InternalServerError, before it has a request, so this is the
+// one place their causes go to the log.
+func logServerErrors(ctx huma.Context, _ string, v any) (any, error) {
+	if p, ok := v.(*Problem); ok {
+		logServerError(ctx, p)
 	}
-	if ctx == nil {
-		loggerFrom(context.Background()).Error("internal error", attrs...)
+	return v, nil
+}
+
+// logServerError logs the detail and cause of a 5xx, with the operation's
+// method and path template. The template has no ids in it.
+//
+// A request whose client went away (it dropped the connection, so the
+// request's context was canceled, or it cut its body off) logs at INFO, not
+// ERROR: the server did nothing wrong, and nobody reads the answer. It stays
+// at INFO, the default level, so that a run of them, which can mean the
+// server is too slow, still shows.
+func logServerError(ctx huma.Context, p *Problem) {
+	if p.Status < 500 {
 		return
+	}
+	rctx := ctx.Context()
+	attrs := []any{slog.Int("status", p.Status), slog.String("detail", p.msg)}
+	if p.cause != nil {
+		attrs = append(attrs, slog.Any("error", p.cause))
 	}
 	attrs = append(attrs, slog.String("method", ctx.Method()))
 	if op := ctx.Operation(); op != nil {
 		attrs = append(attrs, slog.String("path", op.Path))
 	}
-	rctx := ctx.Context()
 	attrs = append(attrs, slog.String("request_id", middleware.GetReqID(rctx)))
-	loggerFrom(rctx).ErrorContext(rctx, "internal error", attrs...)
+	logger := loggerFrom(rctx)
+	if clientWentAway(rctx, p) {
+		logger.InfoContext(rctx, "client went away", attrs...)
+		return
+	}
+	logger.ErrorContext(rctx, "internal error", attrs...)
+}
+
+// clientWentAway says whether a 5xx comes from a client that left before its
+// answer. net/http cancels a request's context when its client closes the
+// connection.
+func clientWentAway(ctx context.Context, p *Problem) bool {
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return true
+	}
+	return p.Status == http.StatusInternalServerError && p.msg == bodyReadFailed && errors.Is(p.cause, io.ErrUnexpectedEOF)
 }
 
 // writeProblem answers outside huma, for a path no operation matches.
