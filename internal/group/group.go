@@ -235,26 +235,114 @@ func (s *Service) List(ctx context.Context, viewer user.User, includesMe bool, r
 	if !viewer.IsAdmin || includesMe {
 		where = "g.id IN (SELECT id FROM up)"
 	}
-	return s.collect(ctx, viewer, req, where, nil)
+	return collect(ctx, s.db, viewer, req, where, nil)
 }
 
-// Inside returns one page of the groups directly inside a group, as the viewer
-// sees them. The group is not checked: the caller must have shown that the
-// viewer may see it.
-func (s *Service) Inside(ctx context.Context, viewer user.User, id int64, req page.Request) (groups []Entry, total int, next *string, err error) {
-	return s.collect(ctx, viewer, req, "g.id IN (SELECT child_id FROM group_groups WHERE group_id = ?)", []any{id})
+// The two collections of groups that are a membership: the groups directly
+// inside a group, and the groups attached to a shared occasion. Each is a
+// condition on a group g, with the ID of the outer group or of the occasion as
+// its one argument.
+const (
+	insideGroup        = "g.id IN (SELECT child_id FROM group_groups WHERE group_id = ?)"
+	attachedToOccasion = "g.id IN (SELECT group_id FROM occasion_groups WHERE occasion_id = ?)"
+)
+
+// InsideWithIDs returns one page of the groups directly inside a group, as the
+// viewer sees them, and the IDs of them all, as [Service.IDsInside] returns
+// them. The group is not checked: the caller must have shown that the viewer
+// may see it.
+//
+// The page and the IDs come from one snapshot of the database. So the IDs are
+// those of the collection that the page is a part of, also when a write commits
+// while the request runs, and the version that the answer carries is the version
+// of what the answer holds (docs/routes.md, Versions).
+func (s *Service) InsideWithIDs(ctx context.Context, viewer user.User, id int64, req page.Request) (groups []Entry, total int, next *string, ids []int64, err error) {
+	return s.membership(ctx, viewer, req, insideGroup, id)
 }
 
-// AttachedTo returns one page of the groups attached to a shared occasion, as
-// the viewer sees them. The occasion is not checked: the caller must have shown
-// that the viewer may read its groups (only the admin does).
-func (s *Service) AttachedTo(ctx context.Context, viewer user.User, occasionID int64, req page.Request) (groups []Entry, total int, next *string, err error) {
-	return s.collect(ctx, viewer, req, "g.id IN (SELECT group_id FROM occasion_groups WHERE occasion_id = ?)", []any{occasionID})
+// IDsInside returns the IDs of every group directly inside a group, as the
+// viewer sees them, in the default order of a collection of groups. The group
+// is not checked, as in [Service.InsideWithIDs].
+func (s *Service) IDsInside(ctx context.Context, viewer user.User, id int64) ([]int64, error) {
+	return idsOf(ctx, s.db, viewer, insideGroup, id)
+}
+
+// AttachedToWithIDs returns one page of the groups attached to a shared
+// occasion, as the viewer sees them, and the IDs of them all, as
+// [Service.IDsAttachedTo] returns them, from one snapshot of the database (see
+// [Service.InsideWithIDs]). The occasion is not checked: the caller must have
+// shown that the viewer may read its groups (only the admin does).
+func (s *Service) AttachedToWithIDs(ctx context.Context, viewer user.User, occasionID int64, req page.Request) (groups []Entry, total int, next *string, ids []int64, err error) {
+	return s.membership(ctx, viewer, req, attachedToOccasion, occasionID)
+}
+
+// IDsAttachedTo returns the IDs of every group attached to a shared occasion,
+// as the viewer sees them, in the default order of a collection of groups. The
+// occasion is not checked, as in [Service.AttachedToWithIDs].
+func (s *Service) IDsAttachedTo(ctx context.Context, viewer user.User, occasionID int64) ([]int64, error) {
+	return idsOf(ctx, s.db, viewer, attachedToOccasion, occasionID)
+}
+
+// membership reads one page of the groups that where selects for the owner, and
+// the IDs of them all, in one snapshot of the database.
+func (s *Service) membership(ctx context.Context, viewer user.User, req page.Request, where string, owner int64) (groups []Entry, total int, next *string, ids []int64, err error) {
+	err = s.snapshot(ctx, func(q sqlx.QueryerContext) (err error) {
+		if groups, total, next, err = collect(ctx, q, viewer, req, where, []any{owner}); err != nil {
+			return err
+		}
+		ids, err = idsOf(ctx, q, viewer, where, owner)
+		return err
+	})
+	if err != nil {
+		return nil, 0, nil, nil, err
+	}
+	return groups, total, next, ids, nil
+}
+
+// idsOf returns the IDs of every group that where selects for the owner, as the
+// viewer sees them, in the default order of a collection of groups. It is the
+// read of a page ([collect]) for every row, so the IDs are the ones that the
+// pages give, in the order that they give them.
+func idsOf(ctx context.Context, q sqlx.QueryerContext, viewer user.User, where string, owner int64) ([]int64, error) {
+	// A request for every row makes no cursor, so its name is never used.
+	every, err := page.All("groups", SortKeys)
+	if err != nil {
+		return nil, err
+	}
+	groups, _, _, err := collect(ctx, q, viewer, every, where, []any{owner})
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, len(groups))
+	for i, g := range groups {
+		ids[i] = g.ID
+	}
+	return ids, nil
+}
+
+// snapshot runs fn with a read-only transaction, so every read that fn makes
+// through q sees the database as it was at the first of them.
+//
+// fn must read through q only. The server's pool has one connection
+// (internal/store), and the transaction holds it: a read through the service's
+// own handle would wait for it, and never get it.
+//
+// A read-only transaction begins as a plain BEGIN, not as the BEGIN IMMEDIATE
+// of the pool's other transactions, so it takes no write lock and waits for no
+// writer in another process.
+func (s *Service) snapshot(ctx context.Context, fn func(q sqlx.QueryerContext) error) error {
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	// The transaction wrote nothing, so there is nothing to commit.
+	defer func() { _ = tx.Rollback() }()
+	return fn(tx)
 }
 
 // collect runs the keyset query of a page of groups. where selects the groups,
-// and may use `up` (see [viewerGroups]).
-func (s *Service) collect(ctx context.Context, viewer user.User, req page.Request, where string, whereArgs []any) (groups []Entry, total int, next *string, err error) {
+// and may use `up` (see [viewerGroups]). q is a database or a transaction.
+func collect(ctx context.Context, q sqlx.QueryerContext, viewer user.User, req page.Request, where string, whereArgs []any) (groups []Entry, total int, next *string, err error) {
 	if req.Key != "name" {
 		return nil, 0, nil, fmt.Errorf("list groups: no sort key %q", req.Key)
 	}
@@ -264,7 +352,7 @@ func (s *Service) collect(ctx context.Context, viewer user.User, req page.Reques
 	// The WITH clause comes first, so the viewer's ID is the first argument.
 	base := append(entryArgs(viewer), whereArgs...)
 
-	if err := s.db.GetContext(ctx, &total, viewerGroups+` SELECT count(*) FROM groups g WHERE `+where, append([]any{viewer.ID}, whereArgs...)...); err != nil {
+	if err := sqlx.GetContext(ctx, q, &total, viewerGroups+` SELECT count(*) FROM groups g WHERE `+where, append([]any{viewer.ID}, whereArgs...)...); err != nil {
 		return nil, 0, nil, fmt.Errorf("count groups: %w", err)
 	}
 	dir, cmp := "ASC", ">"
@@ -281,7 +369,7 @@ func (s *Service) collect(ctx context.Context, viewer user.User, req page.Reques
 	args = append(args, req.Limit+1)
 
 	var rows []row
-	if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+	if err := sqlx.SelectContext(ctx, q, &rows, query, args...); err != nil {
 		return nil, 0, nil, fmt.Errorf("list groups: %w", err)
 	}
 	all := make([]Entry, len(rows))

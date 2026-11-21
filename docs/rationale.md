@@ -168,6 +168,18 @@ It is fast enough without a cache. On an instance with 41 users, 307 lists and 5
 
 One statement can't hold everything, though. The users of every group and every occasion are read 10 filters to a statement (`matchingChunk` in `internal/user`), because SQLite refuses a statement with too many subqueries in it, and each filter brings the rule of who sees a user. A statement with all 85 of the benchmark's occasions worked, and one with 85 groups did not.
 
+### A membership's page and its `ETag` are read in one transaction
+
+A membership's collection answers with the membership's version as its `ETag`, so a client saves its copy with the version of what it fetched. That holds only when the `ETag` and the page are of one state of the membership. Read in two calls, a write can commit between them. The client then saves a page of the old state with the version of the new one, `GET /versions` gives that same version from then on, and the copy stays wrong with nothing to show it. That is worse than no `ETag`.
+
+So the route reads the page and the IDs of the whole collection in one read-only transaction (`MatchingWithIDs` in `internal/user`, `InsideWithIDs` and `AttachedToWithIDs` in `internal/group`). Three other ways were weighed:
+
+- **Hash the IDs of the page.** It is the version only when the page is the whole collection in its default order. A second page, or another sort, would need another rule.
+- **Read the version before and after the page, and read again when they differ.** It needs no transaction, but a membership that changes and changes back between the two reads still passes, and the route needs an answer for a membership that never holds still.
+- **Read the version first, then the page.** A write between them gives a page that is newer than its version, which the next `GET /versions` corrects, unless the membership changes back first. That is the gap that the `ETag` is there to close.
+
+The transaction costs one more read of the IDs for each request. It begins as a plain `BEGIN`, so it takes no write lock. The other reads of a request are not in a transaction, and don't need one: a resource's `ETag` is a hash of the body in the same answer.
+
 ### The OpenAPI document: open responses, open enums, and `x-error-codes`
 
 The spec lets the server add response fields, enum values, and error codes within an API version, and tells a client to accept them (see [Versions of the API](spec.md#versions-of-the-api)). The document is what a client is generated from and checked against, so it must not be stricter than that rule. How it is done is in [architecture.md](architecture.md#the-openapi-document). The choices:

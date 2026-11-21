@@ -52,11 +52,12 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/occasions/{id}/groups",
 		Summary:     "The groups attached to a shared occasion",
-		Description: "Only the admin. The groups that the occasion is attached to directly. An occasion marked everyone has none. An occasion that isn't shared is a 404.",
-		Tags:        []string{"Occasions"},
+		Description: "Only the admin. The groups that the occasion is attached to directly. An occasion marked everyone has none. An occasion that isn't shared is a 404. " +
+			"The `ETag` is the version of this membership: the `occasion_groups` entry of the occasion in `GET /versions`.",
+		Tags: []string{"Occasions"},
 	}, "forbidden", "not_found")
 	occasionGroupsRules.apply(&listOp)
-	huma.Register(api, listOp, listing(func(ctx context.Context, in *occasionGroupsInput) (*collectionOutput[groupRow], error) {
+	huma.Register(api, listOp, listing(func(ctx context.Context, in *occasionGroupsInput) (*membershipOutput[groupRow], error) {
 		caller, _ := CallerFrom(ctx)
 		id, err := s.managedSharedOccasion(ctx, in.ID)
 		if err != nil {
@@ -66,17 +67,15 @@ func (s *Server) registerOccasionGroups(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		groups, total, next, err := s.opts.Groups.AttachedTo(ctx, caller.User, id, req)
+		groups, total, next, members, err := s.opts.Groups.AttachedToWithIDs(ctx, caller.User, id, req)
 		if err != nil {
 			return nil, err
 		}
-		out := &collectionOutput[groupRow]{}
-		if out.Body.Data, err = newGroupRows(groups, caller.User); err != nil {
+		rows, err := newGroupRows(groups, caller.User)
+		if err != nil {
 			return nil, err
 		}
-		out.Body.NextCursor = next
-		out.Body.TotalCount = total
-		return out, nil
+		return membershipOf(rows, total, next, members)
 	}))
 
 	huma.Register(api, withCodes(huma.Operation{

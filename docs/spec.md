@@ -817,6 +817,7 @@ Every route follows these rules. The route table applies them to each resource.
 
 - `GET /versions` returns the kind, the ID, and the version of every resource that the caller can see, and of every membership that the caller can read. It is for a client that keeps a copy of them, such as a native app that works offline. With one request, the client learns what changed and what went away.
 - The client compares the answer with its copy. It gets each resource that is new or that has a different version, and it drops each resource that is absent. When a membership has a different version, the client gets that membership's collection again.
+- The answer of a membership's collection has an `ETag`, which is the membership's version in `GET /versions` for the same caller. The client saves the membership with that `ETag`, so its copy has the version of what it fetched, also when the membership changed after `GET /versions`.
 - **What the answer covers:**
   - These resources: users, lists, list recipients, items, store links, gifts, occasions, groups, and invitations.
   - These memberships, which are in no resource's body: the users directly in a group, the groups directly in a group, the groups that an occasion is attached to, the users in a group with nesting (`GET /users?group_id=`), and the users that an occasion applies to (`GET /users?occasion_id=`).

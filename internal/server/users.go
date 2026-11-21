@@ -287,6 +287,22 @@ type listUsersInput struct {
 	OccasionID  string `query:"occasion_id" doc:"An occasion's ID: only the users that the occasion applies to, and whom the caller can see. A birthday or a custom occasion applies to its user. A shared occasion applies to every user when it is marked everyone, and otherwise to the users in the groups it is attached to, directly or through nesting. An occasion the caller can't see, or that doesn't exist, has no users here: the answer is an empty page, so the filter doesn't show whether it exists. Not a field of the user. Empty is no filter."`
 }
 
+// isMembership says whether the request asks for a membership: the users in one
+// group (`users_in_group` in GET /versions) or the users of one occasion
+// (`users_of_occasion`), and nothing else. With another filter too, or with
+// both, the answer is a part of a membership or of two, and has no version.
+func (in *listUsersInput) isMembership() bool {
+	return (in.GroupID != "") != (in.OccasionID != "") && in.InvitableTo == ""
+}
+
+// listUsersOutput is the output of GET /users: the collection, and the `ETag`
+// of a membership when the request asks for one ([listUsersInput.isMembership]).
+// huma sends no header for an empty string.
+type listUsersOutput struct {
+	ETag string `header:"ETag" doc:"Only when group_id or occasion_id is the one filter of the request, so the answer is a membership. The version of the membership as this caller sees it: a hash of the IDs of the whole collection, in its default order. It is the same on every page and with every sort, and the same value as the membership's version in GET /versions. Any other request for users has no ETag."`
+	Body Collection[userRow]
+}
+
 // userRules are the sort keys and the filters of GET /users.
 var userRules = collectionRules{Name: "users", Sorts: user.SortKeys, Filters: []string{"group_id", "invitable_to", "occasion_id"}}
 
@@ -405,19 +421,17 @@ func (s *Server) registerUsers(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/users",
 		Summary:     "The users the caller can see",
-		Description: "The caller, the users who share a group with them (directly or through nesting), their parents and children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves.",
-		Tags:        []string{"Users"},
+		Description: "The caller, the users who share a group with them (directly or through nesting), their parents and children, and for the admin every user. A deactivated user is seen only by the admin, their parents, and themselves. " +
+			"With `group_id` or `occasion_id` as its one filter, the answer is a membership, and its `ETag` is the version of that membership: the `users_in_group` entry of the group, or the `users_of_occasion` entry of the occasion, in `GET /versions`.",
+		Tags: []string{"Users"},
 	}
 	userRules.apply(&listOp)
-	huma.Register(api, listOp, listing(func(ctx context.Context, in *listUsersInput) (*collectionOutput[userRow], error) {
+	huma.Register(api, listOp, listing(func(ctx context.Context, in *listUsersInput) (*listUsersOutput, error) {
 		caller, _ := CallerFrom(ctx)
 		req, err := in.parse(userRules)
 		if err != nil {
 			return nil, err
 		}
-		var users []user.User
-		var total int
-		var next *string
 		var filter user.Filter
 		if in.GroupID != "" {
 			// An ID that can't be a group's names no group, which has no users.
@@ -443,17 +457,32 @@ func (s *Server) registerUsers(api huma.API) {
 			}
 			filter.Where, filter.WhereArgs = where, args
 		}
-		users, total, next, err = s.opts.Users.Matching(ctx, caller.User, filter, req)
+		if !in.isMembership() {
+			users, total, next, err := s.opts.Users.Matching(ctx, caller.User, filter, req)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.userRows(ctx, users, caller.User)
+			if err != nil {
+				return nil, err
+			}
+			return &listUsersOutput{Body: Collection[userRow]{Data: rows, NextCursor: next, TotalCount: total}}, nil
+		}
+		// The filter is the one that GET /versions reads the membership with, so
+		// the answer carries the membership's version.
+		users, total, next, members, err := s.opts.Users.MatchingWithIDs(ctx, caller.User, filter, req)
 		if err != nil {
 			return nil, err
 		}
-		out := &collectionOutput[userRow]{}
-		if out.Body.Data, err = s.userRows(ctx, users, caller.User); err != nil {
+		rows, err := s.userRows(ctx, users, caller.User)
+		if err != nil {
 			return nil, err
 		}
-		out.Body.NextCursor = next
-		out.Body.TotalCount = total
-		return out, nil
+		out, err := membershipOf(rows, total, next, members)
+		if err != nil {
+			return nil, err
+		}
+		return &listUsersOutput{ETag: out.ETag, Body: out.Body}, nil
 	}))
 
 	huma.Register(api, withCodes(huma.Operation{

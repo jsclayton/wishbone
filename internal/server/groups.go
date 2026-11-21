@@ -357,11 +357,12 @@ func (s *Server) registerGroups(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/groups/{id}/users",
 		Summary:     "The users directly in a group",
-		Description: "For a user in the group, directly or through nesting, and the admin. Full users: the caller shares the group with each of them.",
-		Tags:        []string{"Groups"},
+		Description: "For a user in the group, directly or through nesting, and the admin. Full users: the caller shares the group with each of them. " +
+			"The `ETag` is the version of this membership: the `group_users` entry of the group in `GET /versions`.",
+		Tags: []string{"Groups"},
 	}, "not_found")
 	groupUsersRules.apply(&usersOp)
-	huma.Register(api, usersOp, listing(func(ctx context.Context, in *groupUsersInput) (*collectionOutput[userRow], error) {
+	huma.Register(api, usersOp, listing(func(ctx context.Context, in *groupUsersInput) (*membershipOutput[userRow], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.visibleGroup(ctx, in.ID)
 		if err != nil {
@@ -371,17 +372,15 @@ func (s *Server) registerGroups(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		users, total, next, err := s.opts.Users.InGroup(ctx, caller.User, target.ID, req)
+		users, total, next, members, err := s.opts.Users.MatchingWithIDs(ctx, caller.User, user.DirectlyIn(target.ID), req)
 		if err != nil {
 			return nil, err
 		}
-		out := &collectionOutput[userRow]{}
-		if out.Body.Data, err = s.userRows(ctx, users, caller.User); err != nil {
+		rows, err := s.userRows(ctx, users, caller.User)
+		if err != nil {
 			return nil, err
 		}
-		out.Body.NextCursor = next
-		out.Body.TotalCount = total
-		return out, nil
+		return membershipOf(rows, total, next, members)
 	}))
 
 	huma.Register(api, withCodes(huma.Operation{
@@ -444,11 +443,12 @@ func (s *Server) registerGroups(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/groups/{id}/groups",
 		Summary:     "The groups directly inside a group",
-		Description: "Only the admin: a user in the outer group is not in the groups inside it.",
-		Tags:        []string{"Groups"},
+		Description: "Only the admin: a user in the outer group is not in the groups inside it. " +
+			"The `ETag` is the version of this membership: the `group_groups` entry of the group in `GET /versions`.",
+		Tags: []string{"Groups"},
 	}, "forbidden", "not_found")
 	groupGroupsRules.apply(&groupsOp)
-	huma.Register(api, groupsOp, listing(func(ctx context.Context, in *groupGroupsInput) (*collectionOutput[groupRow], error) {
+	huma.Register(api, groupsOp, listing(func(ctx context.Context, in *groupGroupsInput) (*membershipOutput[groupRow], error) {
 		caller, _ := CallerFrom(ctx)
 		target, err := s.managedGroup(ctx, in.ID, "lists the groups inside a group")
 		if err != nil {
@@ -458,17 +458,15 @@ func (s *Server) registerGroups(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		groups, total, next, err := s.opts.Groups.Inside(ctx, caller.User, target.ID, req)
+		groups, total, next, members, err := s.opts.Groups.InsideWithIDs(ctx, caller.User, target.ID, req)
 		if err != nil {
 			return nil, err
 		}
-		out := &collectionOutput[groupRow]{}
-		if out.Body.Data, err = newGroupRows(groups, caller.User); err != nil {
+		rows, err := newGroupRows(groups, caller.User)
+		if err != nil {
 			return nil, err
 		}
-		out.Body.NextCursor = next
-		out.Body.TotalCount = total
-		return out, nil
+		return membershipOf(rows, total, next, members)
 	}))
 
 	huma.Register(api, withCodes(huma.Operation{

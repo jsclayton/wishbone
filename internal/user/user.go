@@ -439,19 +439,12 @@ var sortColumn = map[string]string{
 // Visible returns one page of the users that the viewer can see, and how many
 // users they can see in all. It returns the next cursor, or nil on the last page.
 func (s *Service) Visible(ctx context.Context, viewer User, req page.Request) (users []User, total int, next *string, err error) {
-	return s.collect(ctx, viewer, req, "1 = 1", nil)
+	return collect(ctx, s.db, viewer, req, "1 = 1", nil)
 }
 
-// InGroup returns one page of the users directly in a group whom the viewer
-// can see, like [Service.Visible]. The group is not checked: the caller must
-// have shown that the viewer may see it.
-func (s *Service) InGroup(ctx context.Context, viewer User, groupID int64, req page.Request) (users []User, total int, next *string, err error) {
-	f := DirectlyIn(groupID)
-	return s.collect(ctx, viewer, req, f.Where, f.WhereArgs)
-}
-
-// DirectlyIn is the filter of [Service.InGroup]: the users directly in a group.
-// The group is not checked, as there.
+// DirectlyIn is the filter of the users directly in a group: with
+// [Service.MatchingWithIDs], the collection of a group's users. The group is
+// not checked: the caller must have shown that the viewer may see it.
 func DirectlyIn(groupID int64) Filter {
 	return Filter{Where: "users.id IN (SELECT user_id FROM group_users WHERE group_id = ?)", WhereArgs: []any{groupID}}
 }
@@ -462,7 +455,7 @@ func DirectlyIn(groupID int64) Filter {
 // answer is an empty page, and doesn't show whether the group exists.
 func (s *Service) InGroupTree(ctx context.Context, viewer User, groupID int64, req page.Request) (users []User, total int, next *string, err error) {
 	where, args := inGroupTree(viewer, groupID)
-	return s.collect(ctx, viewer, req, where, args)
+	return collect(ctx, s.db, viewer, req, where, args)
 }
 
 // Filter narrows the users a viewer sees. Every field that is set must hold: the
@@ -498,7 +491,57 @@ func (f Filter) where(viewer User) (string, []any) {
 // the filter, like [Service.Visible].
 func (s *Service) Matching(ctx context.Context, viewer User, f Filter, req page.Request) (users []User, total int, next *string, err error) {
 	where, args := f.where(viewer)
-	return s.collect(ctx, viewer, req, where, args)
+	return collect(ctx, s.db, viewer, req, where, args)
+}
+
+// MatchingWithIDs returns what [Service.Matching] returns for the request, and
+// the IDs of every user whom the viewer can see and that matches the filter, in
+// the default order of the users collection: what [Service.IDsMatchingEach]
+// returns for the filter. It is for a collection that is a membership, whose
+// answer carries the version of the whole membership (docs/routes.md,
+// Versions).
+//
+// The page and the IDs come from one snapshot of the database. So the IDs are
+// those of the collection that the page is a part of, also when a write commits
+// while the request runs, and the version that the answer carries is the version
+// of what the answer holds.
+func (s *Service) MatchingWithIDs(ctx context.Context, viewer User, f Filter, req page.Request) (users []User, total int, next *string, ids []int64, err error) {
+	err = s.snapshot(ctx, func(q sqlx.QueryerContext) (err error) {
+		where, args := f.where(viewer)
+		if users, total, next, err = collect(ctx, q, viewer, req, where, args); err != nil {
+			return err
+		}
+		each, err := idsMatchingEach(ctx, q, viewer, []Filter{f})
+		if err != nil {
+			return err
+		}
+		ids = each[0]
+		return nil
+	})
+	if err != nil {
+		return nil, 0, nil, nil, err
+	}
+	return users, total, next, ids, nil
+}
+
+// snapshot runs fn with a read-only transaction, so every read that fn makes
+// through q sees the database as it was at the first of them.
+//
+// fn must read through q only. The server's pool has one connection
+// (internal/store), and the transaction holds it: a read through the service's
+// own handle would wait for it, and never get it.
+//
+// A read-only transaction begins as a plain BEGIN, not as the BEGIN IMMEDIATE
+// of the pool's other transactions, so it takes no write lock and waits for no
+// writer in another process.
+func (s *Service) snapshot(ctx context.Context, fn func(q sqlx.QueryerContext) error) error {
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	// The transaction wrote nothing, so there is nothing to commit.
+	defer func() { _ = tx.Rollback() }()
+	return fn(tx)
 }
 
 // matchingChunk is how many filters [Service.IDsMatchingEach] reads in one
@@ -519,6 +562,11 @@ const matchingChunk = 10
 // costs too much. Each filter is read as [Service.Matching] reads it: its
 // condition, and [visibleTo].
 func (s *Service) IDsMatchingEach(ctx context.Context, viewer User, filters []Filter) ([][]int64, error) {
+	return idsMatchingEach(ctx, s.db, viewer, filters)
+}
+
+// idsMatchingEach is [Service.IDsMatchingEach] on a database or a transaction.
+func idsMatchingEach(ctx context.Context, q sqlx.QueryerContext, viewer User, filters []Filter) ([][]int64, error) {
 	out := make([][]int64, len(filters))
 	seen, seenArgs := visibleTo(viewer)
 	order := sortColumn[SortKeys[0].Name]
@@ -536,7 +584,7 @@ func (s *Service) IDsMatchingEach(ctx context.Context, viewer User, filters []Fi
 			ID int64 `db:"id"`
 		}
 		query := `SELECT n, id FROM (` + strings.Join(selects, ` UNION ALL `) + `) ORDER BY n, ` + order + `, id`
-		if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		if err := sqlx.SelectContext(ctx, q, &rows, query, args...); err != nil {
 			return nil, fmt.Errorf("list the users of each filter: %w", err)
 		}
 		for _, r := range rows {
@@ -548,12 +596,13 @@ func (s *Service) IDsMatchingEach(ctx context.Context, viewer User, filters []Fi
 }
 
 // collect runs the keyset query of a page of users: the users that match
-// where, and that the viewer can see (see [visibleTo]).
-func (s *Service) collect(ctx context.Context, viewer User, req page.Request, where string, whereArgs []any) (users []User, total int, next *string, err error) {
+// where, and that the viewer can see (see [visibleTo]). q is a database or a
+// transaction.
+func collect(ctx context.Context, q sqlx.QueryerContext, viewer User, req page.Request, where string, whereArgs []any) (users []User, total int, next *string, err error) {
 	seen, seenArgs := visibleTo(viewer)
 	where = "(" + where + ") AND " + seen
 	args := append(append([]any{}, whereArgs...), seenArgs...)
-	if err := s.db.GetContext(ctx, &total, `SELECT count(*) FROM users WHERE `+where, args...); err != nil {
+	if err := sqlx.GetContext(ctx, q, &total, `SELECT count(*) FROM users WHERE `+where, args...); err != nil {
 		return nil, 0, nil, fmt.Errorf("count users: %w", err)
 	}
 
@@ -582,14 +631,14 @@ func (s *Service) collect(ctx context.Context, viewer User, req page.Request, wh
 	args = append(args, req.Limit+1)
 
 	var rows []row
-	if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+	if err := sqlx.SelectContext(ctx, q, &rows, query, args...); err != nil {
 		return nil, 0, nil, fmt.Errorf("list users: %w", err)
 	}
 	all := make([]User, len(rows))
 	for i, r := range rows {
 		all[i] = r.user()
 	}
-	if err := loadLinks(ctx, s.db, all); err != nil {
+	if err := loadLinks(ctx, q, all); err != nil {
 		return nil, 0, nil, err
 	}
 	users, next = page.Slice(req, all, func(u User) page.Position {

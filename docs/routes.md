@@ -165,6 +165,12 @@ Each `kind` of membership. A membership is one entry for one collection. Its `id
 - A user is a `user_summary` when a resource in the answer contains their summary and `GET /users/{id}` is a 404 for the caller. Examples: a recipient of a list the caller sees through another recipient, a parent of a user the caller sees, and a user in a flag of the caller's gift. When the summary changes, the resource that contains it gets a new version too, and the client gets the new summary from that resource.
 - A membership has the users or the groups that the caller's own request for its collection returns. So `users_in_group` and `users_of_occasion` have only the users whom the caller can see. A membership with no members has an entry too. A membership's version changes when a member comes or goes, and when the members change their order, which for these collections is by name.
 - A caller who can't read a membership's collection has no entry for it. A client must not read the absence of a `group_groups` or an `occasion_groups` entry as a group with nothing in it.
+- A membership's collection answers with an `ETag`, which equals the membership's `version` here for the same caller.
+  - The `ETag` is the version of the whole collection, so it is the same on every page, and with every `?limit=` and `?sort=`. The server reads the page and the IDs of the collection at the same moment, so the `ETag` is the version of the collection that the page is a part of.
+  - A client saves a membership with the `ETag` of the answers that it got, and not with the `version` of an earlier `GET /versions`. Two pages of one collection with different `ETag`s mean that the membership changed between them: the client gets the collection again from its first page.
+  - `GET /users` has the `ETag` only when `?group_id=` or `?occasion_id=` is its one filter. With no filter, with `?invitable_to=`, or with more than one of the three, the answer is not a membership and has no `ETag`.
+  - For a group or an occasion that the caller can't see, or that doesn't exist, `GET /users` gives no users, and the `ETag` of a membership with no members.
+  - These collections don't take `If-None-Match`.
 - `If-None-Match` takes one tag or a list of tags. A weak tag (`W/`) matches the same tag without `W/`, and `*` matches any answer, as RFC 9110 says for `If-None-Match`.
 - Not in the answer: sessions, passkeys, blocked stores, and images. An image doesn't change, and the resource that contains it gets a new version when its image is replaced.
 
@@ -226,7 +232,7 @@ In both, the body has `user_id`, `name` and `initials` (the user that the link s
 
 | Method | Path | Roles | Notes |
 |---|---|---|---|
-| GET | `/users` | signed in | The users the caller can see. Filters: `?group_id=` (the users who are in that group, directly or through nesting, and whom the caller can see; not a field; a group the caller can't see, or that doesn't exist, gives an empty result, so the filter doesn't show whether it exists; Home's People needs it, because `GET /groups/{id}/users` lists only the users directly in a group), `?occasion_id=` (users that the occasion applies to, not a field), `?invitable_to=` (a list ID: the users the caller can invite to that list, not a field; see below). Sort: `name`, `created_at`. |
+| GET | `/users` | signed in | The users the caller can see. Filters: `?group_id=` (the users who are in that group, directly or through nesting, and whom the caller can see; not a field; a group the caller can't see, or that doesn't exist, gives an empty result, so the filter doesn't show whether it exists; Home's People needs it, because `GET /groups/{id}/users` lists only the users directly in a group), `?occasion_id=` (users that the occasion applies to, not a field), `?invitable_to=` (a list ID: the users the caller can invite to that list, not a field; see below). Sort: `name`, `created_at`. With `?group_id=` or `?occasion_id=` as its one filter, 200 with an `ETag`: the version of that membership (`users_in_group`, `users_of_occasion`; see [Versions](#versions)). |
 | POST | `/users` | admin | Body: `name`, `birthday`, `last_name`, `parent_ids`, `timezone` (all but `name` and `birthday` optional). Also creates the user's primary list and birthday occasion. 201. |
 | GET | `/users/{id}` | sees the user | 404 for a user whom the caller sees only as a summary. |
 | PATCH | `/users/{id}` | self, parent, admin | Fields as in the table above. Codes: 422 `birthday_required` (`birthday: null`), 422 `parent_loop`, 422 `admin_has_no_parents`, 409 `image_attached` (the image of `avatar_image_id` is attached to something else). |
@@ -280,10 +286,10 @@ Group fields: `id`, `name`, `created_at`, `through`. `through` is a group summar
 | GET | `/groups/{id}` | in the group, admin | |
 | PATCH | `/groups/{id}` | admin | Body: `name`. |
 | DELETE | `/groups/{id}` | admin | 204. |
-| GET | `/groups/{id}/users` | in the group, admin | The users directly in the group, as full users. The caller shares the group with each of them, so they can see them. A deactivated user is left out, except for the admin, their parents, and the user, as in [User routes](#user-routes). Sort: `name`. |
+| GET | `/groups/{id}/users` | in the group, admin | The users directly in the group, as full users. The caller shares the group with each of them, so they can see them. A deactivated user is left out, except for the admin, their parents, and the user, as in [User routes](#user-routes). Sort: `name`. 200 with an `ETag`: the version of this membership (`group_users`; see [Versions](#versions)). |
 | POST | `/groups/{id}/users` | admin | Body: `user_id`. 201 with the user. Codes: 403 `user_deactivated`, 409 `already_in_group`. |
 | DELETE | `/groups/{id}/users/{user_id}` | admin | 204. Code: 403 `user_deactivated`. |
-| GET | `/groups/{id}/groups` | admin | The groups directly in the group. Sort: `name`. Only the admin, because a user in the outer group isn't in the groups inside it (see [Groups](spec.md#groups)). |
+| GET | `/groups/{id}/groups` | admin | The groups directly in the group. Sort: `name`. Only the admin, because a user in the outer group isn't in the groups inside it (see [Groups](spec.md#groups)). 200 with an `ETag`: the version of this membership (`group_groups`; see [Versions](#versions)). |
 | POST | `/groups/{id}/groups` | admin | Body: `group_id`. 201 with the group. Codes: 409 `already_in_group`, 422 `group_loop`. |
 | DELETE | `/groups/{id}/groups/{group_id}` | admin | 204. |
 
@@ -474,7 +480,7 @@ Who sees an occasion: a birthday is seen by every user who sees its user. A cust
 | GET | `/occasions/{id}` | see above | |
 | PATCH | `/occasions/{id}` | see `can_edit` | Body: `name`, `rule`, and `is_everyone` for a shared occasion. Marking it everyone detaches its groups, and unmarking it leaves it attached to none. `is_everyone` is a 403 `field_not_writable` on a custom occasion. A shared occasion is a 403 `forbidden` for any caller but the admin. Code: 403 `birthday` (nobody edits a birthday occasion). |
 | DELETE | `/occasions/{id}` | see `can_delete` | 204. Code: 403 `birthday`. A shared occasion's attachments go with it. |
-| GET | `/occasions/{id}/groups` | admin | The groups a shared occasion is attached to directly. Sort: `name`. A 404 for an occasion the caller can't see and for one that isn't shared, and a 403 for a caller who sees it and isn't the admin. The same holds for `POST` and `DELETE` below. |
+| GET | `/occasions/{id}/groups` | admin | The groups a shared occasion is attached to directly. Sort: `name`. 200 with an `ETag`: the version of this membership (`occasion_groups`; see [Versions](#versions)). A 404 for an occasion the caller can't see and for one that isn't shared, and a 403 for a caller who sees it and isn't the admin. The same holds for `POST` and `DELETE` below. |
 | POST | `/occasions/{id}/groups` | admin | Body: `group_id`. 201 with the group. Codes: 409 `occasion_is_everyone`, 409 `already_attached`. |
 | DELETE | `/occasions/{id}/groups/{group_id}` | admin | 204. A group that isn't attached is a 404. The group stays. |
 
