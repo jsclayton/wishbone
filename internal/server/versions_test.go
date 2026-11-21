@@ -2,13 +2,22 @@ package server
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	gotoken "go/token"
 	"maps"
 	"net/http"
+	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"jsclayton.dev/wishbone/internal/occasion"
+	"jsclayton.dev/wishbone/internal/user"
 )
 
 // These tests cover GET /versions: the kind, the ID and the version of
@@ -79,6 +88,9 @@ func (e *env) rows(token, path string) []map[string]any {
 			return out
 		}
 		cursor = "?cursor=" + *page.NextCursor
+		if strings.Contains(path, "?") {
+			cursor = "&cursor=" + *page.NextCursor
+		}
 	}
 }
 
@@ -104,9 +116,10 @@ func userSummariesIn(v any, found func(map[string]any)) {
 }
 
 // seenThroughGets is what GET /versions must list for the caller: every row of
-// every collection they can read, with the row's version, and each user who is
-// in one of those rows only as a summary. It also requires each resource's own
-// GET to carry the row's version as its ETag.
+// every collection they can read, with the row's version, each user who is in
+// one of those rows only as a summary, and each membership they can read, with a
+// hash of the IDs that its collection gives them. It also requires each
+// resource's own GET to carry the row's version as its ETag.
 func (e *env) seenThroughGets(token string) map[versionKey]string {
 	e.t.Helper()
 	want := map[versionKey]string{}
@@ -142,6 +155,35 @@ func (e *env) seenThroughGets(token string) map[versionKey]string {
 		for _, row := range e.rows(token, path) {
 			add(versionKey{kind: kind, id: id(row)}, row, path+"/"+id(row))
 		}
+	}
+	// A membership is the IDs that the caller's own collection gives, in its order.
+	membership := func(kind, owner, collection string) {
+		ids := []string{}
+		for _, row := range e.rows(token, collection) {
+			ids = append(ids, id(row))
+		}
+		version, err := versionOf(ids)
+		require.NoError(e.t, err)
+		want[versionKey{kind: kind, id: owner}] = version
+	}
+	// adminsMembership is one that only the admin reads: anyone else has no entry.
+	adminsMembership := func(kind, owner, collection string, refused ...int) {
+		res := e.do(request{path: collection, header: cookie(token)})
+		if res.StatusCode != http.StatusOK {
+			require.Contains(e.t, refused, res.StatusCode, "get %s", collection)
+			return
+		}
+		membership(kind, owner, collection)
+	}
+	for _, g := range e.rows(token, "/groups") {
+		membership("group_users", id(g), "/groups/"+id(g)+"/users")
+		membership("users_in_group", id(g), "/users?group_id="+id(g))
+		adminsMembership("group_groups", id(g), "/groups/"+id(g)+"/groups", http.StatusForbidden)
+	}
+	for _, o := range e.rows(token, "/occasions") {
+		membership("users_of_occasion", id(o), "/users?occasion_id="+id(o))
+		// A 404 is an occasion that isn't shared: it has no groups for anyone.
+		adminsMembership("occasion_groups", id(o), "/occasions/"+id(o)+"/groups", http.StatusForbidden, http.StatusNotFound)
 	}
 	userSummariesIn(bodies, func(summary map[string]any) {
 		if _, full := want[versionKey{kind: "user", id: id(summary)}]; full {
@@ -235,8 +277,7 @@ func TestVersionsListsExactlyWhatTheCallersCollectionsAndGetsGive(t *testing.T) 
 			kinds[k.kind] = true
 		}
 	}
-	require.ElementsMatch(t, []string{"user", "user_summary", "list", "list_recipient", "item", "store_link", "gift", "occasion", "group", "invitation"},
-		slices.Collect(maps.Keys(kinds)), "the family has every kind in it")
+	require.ElementsMatch(t, versionKindOrder, slices.Collect(maps.Keys(kinds)), "the family has every kind in it")
 }
 
 func TestVersionsNeedsASignIn(t *testing.T) {
@@ -449,4 +490,308 @@ func TestAUserWhoIsOnlyInAFlagOfTheCallersGiftIsListedAsASummary(t *testing.T) {
 	got, _ := e.versions(f.sue)
 	require.Contains(t, kindsOf(got, "user_summary"), bobID)
 	require.Equal(t, e.seenThroughGets(f.sue), got)
+}
+
+// moved are the entries that differ between two answers of GET /versions: the
+// ones that are in one and not the other, and the ones whose version changed.
+func moved(before, after map[versionKey]string) []versionKey {
+	var keys []versionKey
+	for k, v := range before {
+		if after[k] != v {
+			keys = append(keys, k)
+		}
+	}
+	for k := range after {
+		if _, ok := before[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
+func notModified(tag string) http.Header { return http.Header{"If-None-Match": {tag}} }
+
+func TestVersionsRefusesAQuery(t *testing.T) {
+	e := newEnv(t)
+	_, admin := e.signUp()
+
+	// The route has no paging, no filter and no sort, so it takes no query at all.
+	for _, query := range []string{"limit=5", "cursor=abc", "sort=kind", "kind=item", "list_id=7"} {
+		res := e.do(request{path: "/versions?" + query, header: cookie(admin)})
+		requireCoded(t, res, http.StatusUnprocessableEntity, "unknown_filter")
+	}
+}
+
+func TestAUserWhoMovesToAnotherGroupMovesTheVersionsOfWhoeverReadsEitherGroup(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	gusID, _ := e.cousin("Gus", f)
+	cousins := e.cousins(f)
+	club := e.newGroup(f.admin, "Book club").ID
+	e.join(f.admin, club, f.sueID)
+	type answer struct {
+		versions map[versionKey]string
+		tag      string
+	}
+	before := map[string]answer{}
+	for name, token := range map[string]string{"Sue": f.sue, "the admin": f.admin, "Hedy": f.hedy} {
+		versions, tag := e.versions(token)
+		before[name] = answer{versions, tag}
+	}
+
+	// Gus goes from Cousins to the Book club. Sue is in both, so she sees Gus
+	// before and after: no user, group or other resource of hers changes.
+	e.join(f.admin, club, gusID)
+	e.removeFromGroup(f.admin, cousins, gusID)
+
+	groups := []versionKey{
+		{kind: "group_users", id: cousins}, {kind: "users_in_group", id: cousins},
+		{kind: "group_users", id: club}, {kind: "users_in_group", id: club},
+	}
+	for name, token := range map[string]string{"Sue": f.sue, "the admin": f.admin} {
+		after, _ := e.versions(token)
+		require.ElementsMatch(t, groups, moved(before[name].versions, after), "%s reads both groups, and only their users moved", name)
+		require.Equal(t, http.StatusOK, e.getVersions(token, notModified(before[name].tag)).StatusCode, "%s: the old ETag is not the answer any more", name)
+		require.Equal(t, e.seenThroughGets(token), after, name)
+	}
+	// Hedy is in neither group, so she reads neither, and nothing moved for her.
+	require.Equal(t, http.StatusNotModified, e.getVersions(f.hedy, notModified(before["Hedy"].tag)).StatusCode)
+}
+
+func TestAUserWhoMovesFromAnInnerGroupToTheOuterOneMovesItsDirectUsers(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	cousins := e.cousins(f)
+	inner := e.newGroup(f.admin, "Second cousins").ID
+	e.nest(f.admin, cousins, inner)
+	bobID, _ := e.otherUser("Bob")
+	e.join(f.admin, inner, bobID)
+	before, tag := e.versions(f.sue)
+
+	// Bob was in Cousins through the inner group, and is now in it directly. For
+	// Sue, the users of Cousins with nesting are the same. The users directly in it
+	// are not.
+	e.join(f.admin, cousins, bobID)
+	e.removeFromGroup(f.admin, inner, bobID)
+
+	after, _ := e.versions(f.sue)
+	require.Equal(t, []versionKey{{kind: "group_users", id: cousins}}, moved(before, after))
+	require.Equal(t, http.StatusOK, e.getVersions(f.sue, notModified(tag)).StatusCode)
+	require.Equal(t, e.seenThroughGets(f.sue), after)
+}
+
+func TestACallerWhoCannotReadAMembershipHasNoEntryForIt(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	cousins := e.cousins(f)
+	inner := e.newGroup(f.admin, "Second cousins").ID
+	e.nest(f.admin, cousins, inner)
+	reunion := e.addShared(f.admin, "Reunion", annual(7, 4), false).ID
+	e.attach(f.admin, reunion, cousins)
+	birthday := e.birthdayOf(f.sue, f.sueID)
+
+	// Sue is in Cousins and sees the Reunion. She reads their users, and not their
+	// groups: those two collections are the admin's.
+	sue, _ := e.versions(f.sue)
+	require.Contains(t, sue, versionKey{kind: "group_users", id: cousins})
+	require.Contains(t, sue, versionKey{kind: "users_in_group", id: cousins})
+	require.Contains(t, sue, versionKey{kind: "users_of_occasion", id: reunion})
+	require.Contains(t, sue, versionKey{kind: "users_of_occasion", id: birthday})
+	require.Empty(t, kindsOf(sue, "group_groups"))
+	require.Empty(t, kindsOf(sue, "occasion_groups"))
+	requireCoded(t, e.innerGroups(f.sue, cousins), http.StatusForbidden, "forbidden")
+	requireCoded(t, e.occasionGroups(f.sue, reunion, ""), http.StatusForbidden, "forbidden")
+	// She is not in the inner group, so she has nothing of it.
+	require.Equal(t, []string{cousins}, kindsOf(sue, "group_users"))
+	require.Equal(t, []string{cousins}, kindsOf(sue, "users_in_group"))
+
+	// The admin reads all four. Only a shared occasion has groups.
+	admin, _ := e.versions(f.admin)
+	for _, kind := range []string{"group_users", "users_in_group", "group_groups"} {
+		require.ElementsMatch(t, []string{cousins, inner}, kindsOf(admin, kind), kind)
+	}
+	require.Equal(t, []string{reunion}, kindsOf(admin, "occasion_groups"))
+	require.Contains(t, admin, versionKey{kind: "users_of_occasion", id: reunion})
+
+	// Hedy is in no group and sees neither occasion.
+	hedy, _ := e.versions(f.hedy)
+	require.Empty(t, kindsOf(hedy, "group_users"))
+	require.Empty(t, kindsOf(hedy, "users_in_group"))
+	require.NotContains(t, hedy, versionKey{kind: "users_of_occasion", id: reunion})
+	require.NotContains(t, hedy, versionKey{kind: "users_of_occasion", id: birthday})
+}
+
+func TestAttachingAGroupMovesTheOccasionsMembershipsAndNotTheOccasion(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	reunion := e.addShared(f.admin, "Reunion", annual(7, 4), false).ID
+	before, tag := e.versions(f.admin)
+
+	e.attach(f.admin, reunion, e.cousins(f))
+
+	after, _ := e.versions(f.admin)
+	require.ElementsMatch(t, []versionKey{{kind: "users_of_occasion", id: reunion}, {kind: "occasion_groups", id: reunion}}, moved(before, after),
+		"the occasion's own body is the same: only who it applies to, and its groups, moved")
+	require.Equal(t, http.StatusOK, e.getVersions(f.admin, notModified(tag)).StatusCode)
+	require.Equal(t, e.seenThroughGets(f.admin), after)
+}
+
+func TestAClaimOnAChildsListMovesTheParentWhoIsAGiverAndNotTheChild(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	emmaID, emma := e.otherUser("Emma")
+	e.linkParents(f.admin, emmaID, f.momID)
+	e.join(f.admin, e.cousins(f), emmaID)
+	crayons := e.addItem(emma, e.primaryListFor(emma, emmaID), "Crayons", map[string]any{"quantity": 2})
+	emmaBefore, emmaTag := e.versions(emma)
+	momBefore, momTag := e.versions(f.mom)
+
+	e.claim(f.sue, crayons.ID, nil)
+
+	// Emma is the recipient: nothing she can read says that it happened.
+	emmaAfter, _ := e.versions(emma)
+	require.Equal(t, emmaBefore, emmaAfter)
+	require.Equal(t, http.StatusNotModified, e.getVersions(emma, notModified(emmaTag)).StatusCode)
+
+	// Mom edits the list as Emma's parent, and is not a recipient of it. So she is a
+	// giver there, and the item's claim state is hers to see: it moved.
+	momAfter, _ := e.versions(f.mom)
+	require.Equal(t, []versionKey{itemKey(crayons)}, moved(momBefore, momAfter))
+	require.Equal(t, http.StatusOK, e.getVersions(f.mom, notModified(momTag)).StatusCode)
+	require.Equal(t, e.seenThroughGets(f.mom), momAfter)
+}
+
+func TestTheClockAloneMovesAGiverWhoseGiftNowNeedsAttentionAndNoRecipient(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
+	g := e.claim(f.sue, kettle.ID, nil) // not bought, for Mom's birthday: given at 2027-01-02T00:00:00Z
+	sueBefore, sueTag := e.versions(f.sue)
+	_, momTag := e.versions(f.mom)
+
+	// Eight days before the gift is given. Nobody writes anything, and the server's
+	// scheduler has nothing to do.
+	e.clock.set(time.Date(2026, time.December, 25, 0, 0, 0, 0, time.UTC))
+
+	sueAfter, _ := e.versions(f.sue)
+	require.Equal(t, []versionKey{{kind: "gift", id: g.ID}}, moved(sueBefore, sueAfter), "the gift needs attention now")
+	require.Equal(t, http.StatusOK, e.getVersions(f.sue, notModified(sueTag)).StatusCode)
+	require.Equal(t, e.seenThroughGets(f.sue), sueAfter)
+	require.Equal(t, http.StatusNotModified, e.getVersions(f.mom, notModified(momTag)).StatusCode, "a recipient reads nothing of it")
+}
+
+func TestADeactivationThatReleasesGiftsMovesNoRecipientThroughTheRelease(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	gusID, gus := e.cousin("Gus", f)
+	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
+	e.claim(gus, grill.ID, nil)
+	momBefore, _ := e.versions(f.mom)
+	_, dadTag := e.versions(f.dad)
+
+	require.Equal(t, http.StatusOK, e.deactivate(f.admin, gusID).StatusCode)
+	require.Zero(t, e.openGiftRows(gusID), "the gift was released")
+
+	// Dad is a recipient of the list and shares no group with Gus. The release is
+	// the only thing that could reach him, and it doesn't.
+	require.Equal(t, http.StatusNotModified, e.getVersions(f.dad, notModified(dadTag)).StatusCode)
+
+	// Mom is a recipient too, and she shared a group with Gus. She stops seeing
+	// Gus and his own list, as her GETs show. Nothing of "Our house" or its item
+	// moves for her.
+	momAfter, _ := e.versions(f.mom)
+	for _, k := range moved(momBefore, momAfter) {
+		require.NotEqual(t, f.house, k.listID, "moved on the list: %+v", k)
+		require.NotEqual(t, versionKey{kind: "list", id: f.house}, k)
+	}
+	require.Equal(t, momBefore[itemKey(grill)], momAfter[itemKey(grill)])
+	require.NotContains(t, momAfter, versionKey{kind: "user", id: gusID})
+	require.Equal(t, e.seenThroughGets(f.mom), momAfter)
+}
+
+// TestEveryKindOfVersionHasAPlaceInTheOrderAndInTheEnum reads the kind
+// constants from versions.go. A kind that is missing from versionKindOrder would
+// sort first with no error, and one that is missing from the enum would be
+// absent from the contract.
+func TestEveryKindOfVersionHasAPlaceInTheOrderAndInTheEnum(t *testing.T) {
+	file, err := parser.ParseFile(gotoken.NewFileSet(), "versions.go", nil, 0)
+	require.NoError(t, err)
+	var constants []string
+	ast.Inspect(file, func(n ast.Node) bool {
+		spec, ok := n.(*ast.ValueSpec)
+		if !ok {
+			return true
+		}
+		for i, name := range spec.Names {
+			if !strings.HasPrefix(name.Name, "kind") {
+				continue
+			}
+			value, err := strconv.Unquote(spec.Values[i].(*ast.BasicLit).Value)
+			require.NoError(t, err)
+			constants = append(constants, value)
+		}
+		return true
+	})
+	require.GreaterOrEqual(t, len(constants), 14, "the kind constants of versions.go")
+
+	require.ElementsMatch(t, constants, versionKindOrder, "versionKindOrder has each kind once")
+	field, _ := reflect.TypeFor[ResourceVersion]().FieldByName("Kind")
+	require.Equal(t, versionKindOrder, strings.Split(field.Tag.Get("enum"), ","), "the enum has the kinds, in the same order")
+}
+
+// A statement that reads the users of too many groups or occasions at once is
+// more than SQLite takes, so [user.Service.IDsMatchingEach] reads them in parts.
+// 120 of each kind is more than one statement can hold for a caller who is not
+// the admin, and each one must still be what the collection gives.
+func TestTheUsersOfManyGroupsAndOccasionsAreReadInParts(t *testing.T) {
+	e := newEnv(t)
+	f := e.family()
+	ctx := t.Context()
+	cousins, err := strconv.ParseInt(e.cousins(f), 10, 64)
+	require.NoError(t, err)
+	reunionID := e.addShared(f.admin, "Reunion", annual(7, 4), false).ID
+	e.attach(f.admin, reunionID, e.cousins(f))
+	sueID, err := strconv.ParseInt(f.sueID, 10, 64)
+	require.NoError(t, err)
+	sue, err := e.srv.opts.Users.Get(ctx, sueID)
+	require.NoError(t, err)
+	id, err := strconv.ParseInt(reunionID, 10, 64)
+	require.NoError(t, err)
+	reunion, err := e.srv.opts.Occasions.GetVisible(ctx, sue, id)
+	require.NoError(t, err)
+	birthday, err := strconv.ParseInt(e.birthdayOf(f.sue, f.momID), 10, 64)
+	require.NoError(t, err)
+	moms, err := e.srv.opts.Occasions.GetVisible(ctx, sue, birthday)
+	require.NoError(t, err)
+
+	kinds := map[string]user.Filter{
+		"a group with nesting": {GroupID: &cousins},
+		"a group, directly":    user.DirectlyIn(cousins),
+		"a shared occasion":    {},
+		"a birthday":           {},
+	}
+	shared, birth := kinds["a shared occasion"], kinds["a birthday"]
+	shared.Where, shared.WhereArgs = occasion.UsersOf(reunion)
+	birth.Where, birth.WhereArgs = occasion.UsersOf(moms)
+	kinds["a shared occasion"], kinds["a birthday"] = shared, birth
+
+	every, err := userRules.all()
+	require.NoError(t, err)
+	for name, filter := range kinds {
+		users, _, _, err := e.srv.opts.Users.Matching(ctx, sue, filter, every)
+		require.NoError(t, err, name)
+		want := make([]int64, len(users))
+		for i, u := range users {
+			want[i] = u.ID
+		}
+		require.NotEmpty(t, want, name)
+
+		got, err := e.srv.opts.Users.IDsMatchingEach(ctx, sue, slices.Repeat([]user.Filter{filter}, 120))
+
+		require.NoError(t, err, name)
+		require.Len(t, got, 120, name)
+		for i := range got {
+			require.Equal(t, want, got[i], "%s, filter %d", name, i)
+		}
+	}
 }

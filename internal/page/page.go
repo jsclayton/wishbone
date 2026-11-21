@@ -158,6 +158,17 @@ func Parse(collection string, keys []Key, sort, cur string, limit int) (Request,
 // every row and no cursor. It is for the server's own read of a whole
 // collection (`GET /versions`). A client's request always goes through
 // [Parse], which caps the limit at [MaxLimit].
+//
+// With no cap, a read that names every row of its page in one statement can
+// reach SQLite's limit of 32766 bound values, and the statement then fails.
+// Three reads bind one value for each row: the recipients of the lists
+// (loadRecipients in internal/list), the parents and children of the users
+// (loadLinks in internal/user), and the primary lists of the users
+// (list.PrimaryListsVisibleTo). So a caller who sees more than 32766 lists or
+// users gets an error from [All], where a page of [MaxLimit] rows never does. A
+// family is two orders of magnitude below that. If an instance can come near it,
+// read those in parts, as item.Service.VisibleOnEveryList does for the store
+// links and images of its items.
 func All(collection string, keys []Key) (Request, error) {
 	r, err := Parse(collection, keys, "", "", 0)
 	if err != nil {

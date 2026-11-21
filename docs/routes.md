@@ -122,9 +122,9 @@ The rules are in [Versions of everything a caller sees](spec.md#versions-of-ever
 
 | Method | Path | Roles | Notes |
 |---|---|---|---|
-| GET | `/versions` | signed in | Every resource the caller can see, as `{ data }` with entries of `{ kind, id, version, list_id, item_id }`. One response: no cursor, no `?limit=`, no filters, and no sort keys. 200 with an `ETag`. With `If-None-Match` (optional) that names that `ETag`, 304 with no body and the same `ETag`. |
+| GET | `/versions` | signed in | Every resource the caller can see and every membership the caller can read, as `{ data }` with entries of `{ kind, id, version, list_id, item_id }`. One response: no cursor, no `?limit=`, no filters, and no sort keys. 200 with an `ETag`. With `If-None-Match` (optional) that names that `ETag`, 304 with no body and the same `ETag`. Code: 422 `unknown_filter` (the request has a query parameter, whatever its name). |
 
-Each `kind`, and where its `version` comes from:
+Each `kind` of resource, and where its `version` comes from:
 
 | `kind` | The resource | `id` | `list_id` | `item_id` | `version` |
 |---|---|---|---|---|---|
@@ -139,13 +139,24 @@ Each `kind`, and where its `version` comes from:
 | `group` | a group | the group | `null` | `null` | the `ETag` of `GET /groups/{id}` |
 | `invitation` | a pending invitation | the invitation | `null` | `null` | the `ETag` of `GET /invitations/{id}` |
 
-- Each kind has the resources that its collection has for the caller: `GET /users`, `GET /lists`, `GET /lists/{id}/recipients` and `GET /lists/{id}/items` for each of those lists, `GET /items/{id}/store-links` for each of those items, `GET /gifts`, `GET /occasions`, `GET /groups`, and `GET /invitations`. Each entry's `version` is the `version` of that collection's row.
-- A resource is in the answer one time. The entries come in one order for one set of resources, and the order has no meaning.
+Each `kind` of membership. A membership is one entry for one collection. Its `id` is the ID of the group or the occasion, `list_id` and `item_id` are `null`, and its `version` is a hash of the IDs that the collection gives this caller, in the collection's default order:
+
+| `kind` | The collection | Who has the entry |
+|---|---|---|
+| `group_users` | `GET /groups/{id}/users`: the users directly in the group | for each group in the answer |
+| `group_groups` | `GET /groups/{id}/groups`: the groups directly in the group | the admin, for each group |
+| `occasion_groups` | `GET /occasions/{id}/groups`: the groups the occasion is attached to | the admin, for each shared occasion |
+| `users_in_group` | `GET /users?group_id={id}`: the users in the group, directly or through nesting | for each group in the answer |
+| `users_of_occasion` | `GET /users?occasion_id={id}`: the users the occasion applies to | for each occasion in the answer |
+
+- Each kind of resource has the resources that its collection has for the caller: `GET /users`, `GET /lists`, `GET /lists/{id}/recipients` and `GET /lists/{id}/items` for each of those lists, `GET /items/{id}/store-links` for each of those items, `GET /gifts`, `GET /occasions`, `GET /groups`, and `GET /invitations`. Each entry's `version` is the `version` of that collection's row.
+- A resource is in the answer one time. The entries come in one order for one set of entries, and the order has no meaning.
 - An `item` has its `list_id`, so a client can get the changed items of one list with `GET /lists/{list_id}/items`. An item that moves gets a new version, because `list_id` is one of its fields.
 - A user is a `user_summary` when a resource in the answer contains their summary and `GET /users/{id}` is a 404 for the caller. Examples: a recipient of a list the caller sees through another recipient, a parent of a user the caller sees, and a user in a flag of the caller's gift. When the summary changes, the resource that contains it gets a new version too, and the client gets the new summary from that resource.
+- A membership has the users or the groups that the caller's own request for its collection returns. So `users_in_group` and `users_of_occasion` have only the users whom the caller can see. A membership with no members has an entry too. A membership's version changes when a member comes or goes, and when the members change their order, which for these collections is by name.
+- A caller who can't read a membership's collection has no entry for it. A client must not read the absence of a `group_groups` or an `occasion_groups` entry as a group with nothing in it.
 - `If-None-Match` takes one tag or a list of tags. A weak tag (`W/`) matches the same tag without `W/`, and `*` matches any answer, as RFC 9110 says for `If-None-Match`.
 - Not in the answer: sessions, passkeys, blocked stores, and images. An image doesn't change, and the resource that contains it gets a new version when its image is replaced.
-- The answer has resources, not memberships. Who is in a group (`GET /groups/{id}/users`, `GET /users?group_id=`), which groups a group contains, and which groups an occasion is attached to have no entry. A change to one of them moves the answer only when it changes a resource that the caller can see.
 
 ## Sign-in
 

@@ -446,7 +446,14 @@ func (s *Service) Visible(ctx context.Context, viewer User, req page.Request) (u
 // can see, like [Service.Visible]. The group is not checked: the caller must
 // have shown that the viewer may see it.
 func (s *Service) InGroup(ctx context.Context, viewer User, groupID int64, req page.Request) (users []User, total int, next *string, err error) {
-	return s.collect(ctx, viewer, req, "users.id IN (SELECT user_id FROM group_users WHERE group_id = ?)", []any{groupID})
+	f := DirectlyIn(groupID)
+	return s.collect(ctx, viewer, req, f.Where, f.WhereArgs)
+}
+
+// DirectlyIn is the filter of [Service.InGroup]: the users directly in a group.
+// The group is not checked, as there.
+func DirectlyIn(groupID int64) Filter {
+	return Filter{Where: "users.id IN (SELECT user_id FROM group_users WHERE group_id = ?)", WhereArgs: []any{groupID}}
 }
 
 // InGroupTree returns one page of the users who are in a group, directly or
@@ -472,9 +479,10 @@ type Filter struct {
 	WhereArgs []any
 }
 
-// Matching returns one page of the users whom the viewer can see and that match
-// the filter, like [Service.Visible].
-func (s *Service) Matching(ctx context.Context, viewer User, f Filter, req page.Request) (users []User, total int, next *string, err error) {
+// where returns the filter as a SQL condition on a row of the `users` table, and
+// its arguments. It says nothing of whom the viewer can see: the read adds
+// [visibleTo].
+func (f Filter) where(viewer User) (string, []any) {
 	where, args := []string{"1 = 1"}, []any{}
 	if f.GroupID != nil {
 		cond, condArgs := inGroupTree(viewer, *f.GroupID)
@@ -483,7 +491,60 @@ func (s *Service) Matching(ctx context.Context, viewer User, f Filter, req page.
 	if f.Where != "" {
 		where, args = append(where, f.Where), append(args, f.WhereArgs...)
 	}
-	return s.collect(ctx, viewer, req, strings.Join(where, " AND "), args)
+	return strings.Join(where, " AND "), args
+}
+
+// Matching returns one page of the users whom the viewer can see and that match
+// the filter, like [Service.Visible].
+func (s *Service) Matching(ctx context.Context, viewer User, f Filter, req page.Request) (users []User, total int, next *string, err error) {
+	where, args := f.where(viewer)
+	return s.collect(ctx, viewer, req, where, args)
+}
+
+// matchingChunk is how many filters [Service.IDsMatchingEach] reads in one
+// statement. It is small on purpose. SQLite refuses a statement with too many
+// subqueries in it ("VIEWs and/or subqueries nested too deep"), and each filter
+// brings [visibleTo] and its own subqueries. Measured for a viewer who is not the
+// admin, a statement fails above about 50 filters by a group with nesting, 60 by
+// a shared occasion, and 90 by one user. 10 leaves room for the rules to grow.
+// TestTheUsersOfManyGroupsAndOccasionsAreReadInParts (internal/server) fails
+// when a statement holds more than SQLite takes.
+const matchingChunk = 10
+
+// IDsMatchingEach returns, for each filter, the IDs of the users whom the viewer
+// can see and that match it: the IDs of every row that [Service.Matching] gives
+// for that filter, in the default order of the users collection, with no paging.
+// It reads many filters in one statement, for a caller that wants the users of
+// every group and of every occasion (`GET /versions`), where a read for each one
+// costs too much. Each filter is read as [Service.Matching] reads it: its
+// condition, and [visibleTo].
+func (s *Service) IDsMatchingEach(ctx context.Context, viewer User, filters []Filter) ([][]int64, error) {
+	out := make([][]int64, len(filters))
+	seen, seenArgs := visibleTo(viewer)
+	order := sortColumn[SortKeys[0].Name]
+	first := 0
+	for chunk := range slices.Chunk(filters, matchingChunk) {
+		selects := make([]string, len(chunk))
+		var args []any
+		for i, f := range chunk {
+			where, whereArgs := f.where(viewer)
+			selects[i] = `SELECT ? AS n, id, name FROM users WHERE (` + where + `) AND ` + seen
+			args = slices.Concat(args, []any{first + i}, whereArgs, seenArgs)
+		}
+		var rows []struct {
+			N  int   `db:"n"`
+			ID int64 `db:"id"`
+		}
+		query := `SELECT n, id FROM (` + strings.Join(selects, ` UNION ALL `) + `) ORDER BY n, ` + order + `, id`
+		if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+			return nil, fmt.Errorf("list the users of each filter: %w", err)
+		}
+		for _, r := range rows {
+			out[r.N] = append(out[r.N], r.ID)
+		}
+		first += len(chunk)
+	}
+	return out, nil
 }
 
 // collect runs the keyset query of a page of users: the users that match

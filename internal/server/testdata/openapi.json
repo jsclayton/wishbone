@@ -4164,7 +4164,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "The resource's ID: the last part of its address. A list recipient has the ID of its user, so it is one resource only together with list_id.",
+            "description": "The resource's ID: the last part of its address. A list recipient has the ID of its user, so it is one resource only together with list_id. A membership has the ID of its group or its occasion.",
             "examples": [
               "42"
             ],
@@ -4181,7 +4181,7 @@
             ]
           },
           "kind": {
-            "description": "What the resource is. user_summary is a user whom the caller gets only as a summary inside another resource: GET /users/{id} is a 404 for them.",
+            "description": "What the entry is. user_summary is a user whom the caller gets only as a summary inside another resource: GET /users/{id} is a 404 for them. The last five are memberships, each named for its collection: group_users is GET /groups/{id}/users (the users directly in a group), group_groups is GET /groups/{id}/groups, occasion_groups is GET /occasions/{id}/groups, users_in_group is GET /users?group_id= (the users in a group, directly or through nesting), and users_of_occasion is GET /users?occasion_id= (the users an occasion applies to).",
             "enum": [
               "user",
               "user_summary",
@@ -4192,7 +4192,12 @@
               "gift",
               "occasion",
               "group",
-              "invitation"
+              "invitation",
+              "group_users",
+              "group_groups",
+              "occasion_groups",
+              "users_in_group",
+              "users_of_occasion"
             ],
             "type": "string"
           },
@@ -4207,7 +4212,7 @@
             ]
           },
           "version": {
-            "description": "The same value as the ETag of the resource's own GET for this caller, and as its version in a collection. A user summary has no address: its version is a hash of the summary.",
+            "description": "For a resource with a GET of its own, the same value as the ETag of that GET for this caller, and as its version in a collection. A list recipient has only the version of its row in GET /lists/{id}/recipients. A user summary has no address: its version is a hash of the summary. A membership's version is a hash of the IDs that its collection gives this caller, in the collection's order.",
             "type": "string"
           }
         },
@@ -5374,7 +5379,7 @@
             "type": "string"
           },
           "data": {
-            "description": "Every resource the caller can see, each one once. The order means nothing. A resource that is not here is gone for this caller: deleted, moved out of view, or hidden.",
+            "description": "Every resource the caller can see and every membership the caller can read, each one once. The order means nothing. A resource that is not here is gone for this caller: deleted, moved out of view, or hidden.",
             "items": {
               "$ref": "#/components/schemas/ResourceVersion"
             },
@@ -14595,7 +14600,7 @@
     },
     "/api/v2/versions": {
       "get": {
-        "description": "The kind, the ID and the version of every resource the caller can see: users, lists, list recipients, items, store links, gifts, occasions, groups and invitations. Not sessions, and not passkeys. A client that keeps a copy compares the answer with it, gets what differs, and drops what is absent. The answer is one response: it has no cursor and no limit, and takes no filter and no sort. Its `ETag` is the version of the whole answer. Sent back in `If-None-Match`, it gets a 304 with no body while nothing the caller can see changed. A version here moves only when the body of the caller's own `GET` of that resource moves, so the answer shows nothing that a `GET` doesn't.",
+        "description": "The kind, the ID and the version of every resource the caller can see: users, lists, list recipients, items, store links, gifts, occasions, groups and invitations. It also has the memberships that the caller can read, each as one entry: the users directly in a group, the groups in a group, the groups on an occasion, the users in a group with nesting, and the users an occasion applies to. Sessions, passkeys, blocked stores and images are not in the answer. A client that keeps a copy compares the answer with it, gets what differs, and drops what is absent. The answer is one response: it has no cursor and no limit, and takes no filter and no sort. A request with any query parameter is a 422 `unknown_filter`. Its `ETag` is the version of the whole answer. Sent back in `If-None-Match`, it gets a 304 with no body while nothing in the answer changed. A version here moves only when the caller's own `GET` of that resource, or of that membership's collection, moves, so the answer shows nothing that a `GET` doesn't.",
         "operationId": "list-versions",
         "parameters": [
           {
