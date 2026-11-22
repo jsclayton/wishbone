@@ -62,15 +62,25 @@ func Hash(token string) string {
 // nowhere else. It takes a transaction or a database, so a caller can start a
 // session in the same commit as the change that earned it.
 func Create(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int64, userAgent string) (token string, s Session, err error) {
+	return create(ctx, q, now, userID, userAgent, sql.NullInt64{})
+}
+
+// CreateFromLastingLink is [Create] for a session that a lasting login link
+// starts. The session records the link, so revoking the link ends it.
+func CreateFromLastingLink(ctx context.Context, q sqlx.ExtContext, now time.Time, userID, linkID int64, userAgent string) (token string, s Session, err error) {
+	return create(ctx, q, now, userID, userAgent, sql.NullInt64{Int64: linkID, Valid: true})
+}
+
+func create(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int64, userAgent string, lastingLinkID sql.NullInt64) (token string, s Session, err error) {
 	token, hash, err := NewToken()
 	if err != nil {
 		return "", Session{}, err
 	}
 	expires := now.Add(Lifetime)
 	res, err := q.ExecContext(ctx,
-		`INSERT INTO sessions (user_id, token_hash, user_agent, created_at, last_used_at, expires_at, cookie_sent_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		userID, hash, userAgent, now, now, expires, now)
+		`INSERT INTO sessions (user_id, token_hash, user_agent, created_at, last_used_at, expires_at, cookie_sent_at, lasting_link_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, hash, userAgent, now, now, expires, now, lastingLinkID)
 	if err != nil {
 		return "", Session{}, fmt.Errorf("insert session: %w", err)
 	}
@@ -197,6 +207,22 @@ func RevokeAll(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int
 		return fmt.Errorf("revoke sessions: %w", err)
 	}
 	return nil
+}
+
+// RevokeStartedBy revokes every live session that a lasting login link
+// started, in a transaction or on a database. It returns how many it revoked.
+func RevokeStartedBy(ctx context.Context, q sqlx.ExtContext, now time.Time, lastingLinkID int64) (int, error) {
+	res, err := q.ExecContext(ctx,
+		`UPDATE sessions SET revoked_at = ? WHERE lasting_link_id = ? AND revoked_at IS NULL AND expires_at > ?`,
+		now, lastingLinkID, now)
+	if err != nil {
+		return 0, fmt.Errorf("revoke sessions of a lasting link: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("revoke sessions of a lasting link: %w", err)
+	}
+	return int(n), nil
 }
 
 // Info is a live session as the sessions list shows it.

@@ -47,8 +47,12 @@ _Avoid_: Viewer, shopper
 ## Access
 
 **Login link**:
-A single-use, expiring URL that signs a browser in as a specific user. Shown as a link or a QR code.
+A single-use, expiring URL that signs a browser in as a specific user. Shown as a link or a QR code. A lasting login link is the exception.
 _Avoid_: Magic link (in UI copy), invite, token
+
+**Lasting login link**:
+A login link that the operator makes with the CLI, for an account such as App Review's. It works any number of times and doesn't expire, until the operator revokes it. Revoking it ends the sessions it started.
+_Avoid_: Permanent link, demo link, review link
 
 **Session**:
 A signed-in browser for one user. A browser holds at most one session. A native app's bearer token is a session too.

@@ -150,7 +150,8 @@ export async function logOut(): Promise<void> {
 export class RateLimitedError extends Error {}
 
 /** What a login link's page may know before the link is redeemed. */
-export type LinkCheck = { expires_at: string; for_current_user: boolean }
+/** `expires_at` is null for a lasting link, which works until the operator revokes it. */
+export type LinkCheck = { expires_at: string | null; lasting: boolean; for_current_user: boolean }
 
 /**
  * Checks a login link without redeeming it. Returns null for a link that doesn't

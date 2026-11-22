@@ -5,8 +5,9 @@ import { App } from './App'
 type Reply = { status: number; body?: unknown } | 'offline'
 
 const expires = '2030-11-07T15:40:00'
-const valid: Reply = { status: 200, body: { expires_at: expires, for_current_user: false } }
-const own: Reply = { status: 200, body: { expires_at: expires, for_current_user: true } }
+const valid: Reply = { status: 200, body: { expires_at: expires, lasting: false, for_current_user: false } }
+const own: Reply = { status: 200, body: { expires_at: expires, lasting: false, for_current_user: true } }
+const lasting: Reply = { status: 200, body: { expires_at: null, lasting: true, for_current_user: false } }
 const person = (id: string, name: string) => ({
   id,
   name,
@@ -72,6 +73,20 @@ test('the page shows the expiry above Sign in and redeems only on the tap', asyn
   expect(calls(fn, '/api/v2/login-links/redeem')).toBe(0)
   const init = fn.mock.calls.find(([u]) => u === '/api/v2/login-links/check')?.[1]
   expect(JSON.parse(init?.body as string)).toEqual({ token: 'abc' })
+})
+
+test('a lasting link says that it works more than once and does not expire', async () => {
+  const fn = mockFetch({ [CHECK]: lasting, [ME]: noSession })
+  open('/login/k7mq-3xtd-p9wh-r2fn')
+
+  const button = await screen.findByRole('button', { name: 'Sign in' })
+  expect(screen.getByText('Tap the button to sign in. This link works more than once.')).toBeInTheDocument()
+  const line = screen.getByText("Doesn't expire")
+  expect(line.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.queryByText(/works once/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/^Expires/)).not.toBeInTheDocument()
+  const init = fn.mock.calls.find(([u]) => u === '/api/v2/login-links/check')?.[1]
+  expect(JSON.parse(init?.body as string)).toEqual({ token: 'k7mq-3xtd-p9wh-r2fn' })
 })
 
 test('the web app redeems with the cookie, and never asks for a bearer token', async () => {

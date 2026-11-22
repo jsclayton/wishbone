@@ -45,8 +45,8 @@ Open http://localhost:3000. A new data dir has no users. The server writes a one
 ## Repo layout
 
 ```
-cmd/wishbone/       The CLI (serve, users, login-link, set-admin, delete-user, backup,
-                    healthcheck, version). It reads the config and wires the services together.
+cmd/wishbone/       The CLI (serve, users, login-link, lasting-links, revoke-lasting-link,
+                    set-admin, delete-user, backup, healthcheck, version). It reads the config and wires the services together.
 internal/
   server/           The HTTP router, the handlers, the OpenAPI document, and the embedded web app
   user/ list/ item/ gift/ occasion/ group/ image/
@@ -140,7 +140,7 @@ WISHBONE_DATA_DIR=./tmp/scratch-9234 ./bin/wishbone serve
 `internal/store/migrations/` holds goose SQL migrations. The server applies them at `serve` startup, after an [automatic snapshot](operations.md#automatic-snapshots).
 
 - Make a migration with `just migration <name>`. Its version is the real creation time, so branches in parallel don't collide. Write only the `Up` part.
-- A table whose rows have an ID declares it `id INTEGER PRIMARY KEY AUTOINCREMENT`. The spec promises that an ID is never used again. Without `AUTOINCREMENT`, SQLite gives the highest ID of a table again after that row is deleted. A test checks every table (`internal/store/ids_test.go`): add a new table with an ID to its `idTables`.
+- A table whose rows have an ID declares it `id INTEGER PRIMARY KEY AUTOINCREMENT`. The spec promises that an ID is never used again. Without `AUTOINCREMENT`, SQLite gives the highest ID of a table again after that row is deleted. A test checks every table (`internal/store/ids_test.go`): add a new table with an ID to its `laterIDTables`. (`idTables` is the schema of the migration that added `AUTOINCREMENT`, and its tests run that migration alone.)
 - SQLite can change little of a table in place. To change more, a migration rebuilds the table: copy `20261121013109_ids_never_come_back.sql`, and add the step for the counters that the next line gives. It runs with `-- +goose NO TRANSACTION`, turns foreign keys off, opens its own transaction, and checks the foreign keys before it commits. With foreign keys on, `DROP TABLE` deletes the rows that point at the table's rows. The rebuild also makes the table's indexes and triggers again.
 - A rebuild of a table that has an ID must also carry the table's counter over, which `20261121013109` does not do. The copy sets the new table's counter to the highest ID that is in the table now, and `DROP TABLE` deletes the old counter with the old table. So without this step, the ID of a deleted row comes back. No table had a counter before `20261121013109`, so it had none to carry. For each table `x`, after the copy into `new_x` and before `DROP TABLE x`, run:
 

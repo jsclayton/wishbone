@@ -40,6 +40,13 @@ var idTables = []struct{ table, insert string }{
 	{"images", `INSERT INTO images (key, width, height, created_at) VALUES ('new', 1, 1, ` + at + `)`},
 }
 
+// laterIDTables are the tables with an ID that a migration after the IDs
+// migration adds. The tests of the IDs migration don't know them, because they
+// aren't in its schema. insert adds a row to a database that has [seed] in it.
+var laterIDTables = []struct{ table, insert string }{
+	{"lasting_links", `INSERT INTO lasting_links (user_id, token_hash, created_at) VALUES (1, 'new' || random(), ` + at + `)`},
+}
+
 const at = "'2026-11-09 12:00:00'"
 
 // seed puts rows in every table of the schema, with gaps in the IDs. A test
@@ -226,8 +233,8 @@ func requireSound(t *testing.T, st *Store) {
 	require.Equal(t, 1, fk, "foreign keys are on again")
 }
 
-// idTables is every table with an ID. A table that a later migration adds
-// with an ID must never give one again either.
+// idTables and laterIDTables are every table with an ID. A table that a later
+// migration adds with an ID must never give one again either.
 func TestEveryTableWithAnIDNeverGivesItAgain(t *testing.T) {
 	st := migrated(t)
 
@@ -236,11 +243,18 @@ func TestEveryTableWithAnIDNeverGivesItAgain(t *testing.T) {
 		`SELECT m.name FROM sqlite_master m, pragma_table_info(m.name) c
 		 WHERE m.type = 'table' AND m.name <> 'goose_db_version' AND c.name = 'id' ORDER BY m.name`))
 	var listed []string
-	for _, tb := range idTables {
+	for _, tb := range slices.Concat(idTables, laterIDTables) {
 		listed = append(listed, tb.table)
 	}
 	slices.Sort(listed)
-	require.Equal(t, listed, withID, "add a new table with an ID to idTables")
+	require.Equal(t, listed, withID, "add a new table with an ID to laterIDTables")
+
+	execAll(t, st, seed...)
+	for _, tb := range laterIDTables {
+		first := insertID(t, st, tb.insert)
+		execAll(t, st, fmt.Sprintf(`DELETE FROM %s WHERE id = %d`, tb.table, first))
+		require.Greater(t, insertID(t, st, tb.insert), first, "%s: the ID of a deleted row", tb.table)
+	}
 
 	for _, table := range withID {
 		var sql string
@@ -309,7 +323,7 @@ func TestTheIDsMigrationKeepsEveryRowAndTheSchema(t *testing.T) {
 		require.Greater(t, len(r), 1, "%s has no row in the seed", table)
 	}
 
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 
 	require.Equal(t, rows, allRows(t, st))
 	require.Equal(t, objects, schemaObjects(t, st))
@@ -355,7 +369,7 @@ func TestTheIDsMigrationStartsEachTableAtItsHighestID(t *testing.T) {
 	}
 	want["blocked_stores"] = 0
 
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 
 	seqs := sequences(t, st)
 	delete(seqs, "goose_db_version")
@@ -378,7 +392,7 @@ func TestAFailedIDsMigrationChangesNothing(t *testing.T) {
 	execAll(t, st, `CREATE TABLE new_sessions (id INTEGER PRIMARY KEY)`)
 	rows, schema := allRows(t, st), schemaDump(t, st)
 
-	require.Error(t, st.Migrate(t.Context()))
+	require.Error(t, st.MigrateTo(t.Context(), idsVersion))
 
 	require.Equal(t, schema, schemaDump(t, st))
 	require.Equal(t, rows, allRows(t, st))
@@ -400,7 +414,7 @@ func TestAFailedIDsMigrationChangesNothing(t *testing.T) {
 	// With the cause gone, the same database migrates.
 	execAll(t, st, `DROP TABLE new_sessions`)
 	delete(rows, "new_sessions")
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 	require.Equal(t, rows, allRows(t, st))
 	requireSound(t, st)
 }
@@ -421,7 +435,7 @@ func TestTheIDsMigrationLeavesAReferenceThatWasAlreadyBroken(t *testing.T) {
 	require.Equal(t, []string{"group_users 4 -> users (0)", "sessions 12 -> users (0)"}, broken)
 	rows := allRows(t, st)
 
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 
 	require.Equal(t, broken, brokenReferences(t, st))
 	require.Equal(t, rows, allRows(t, st))
@@ -433,11 +447,11 @@ func TestTheIDsMigrationLeavesAReferenceThatWasAlreadyBroken(t *testing.T) {
 func TestTheIDsMigrationRunsAgainOnADatabaseThatAlreadyHasIt(t *testing.T) {
 	st := beforeIDs(t)
 	execAll(t, st, seed...)
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 	rows, schema, seqs := allRows(t, st), schemaObjects(t, st), sequences(t, st)
 	execAll(t, st, fmt.Sprintf(`DELETE FROM goose_db_version WHERE version_id = %d`, idsVersion))
 
-	require.NoError(t, st.Migrate(t.Context()))
+	require.NoError(t, st.MigrateTo(t.Context(), idsVersion))
 
 	require.Equal(t, rows, allRows(t, st))
 	require.Equal(t, schema, schemaObjects(t, st))

@@ -132,10 +132,12 @@ func (a *SetAdminCmd) Run() error {
 }
 
 // LoginLinkCmd makes a login link with the same code the server uses. It is the
-// recovery path for everyone, the admin too.
+// recovery path for everyone, the admin too. With --lasting it makes a lasting
+// link, which only the CLI can make (docs/spec.md, Access, Lasting login links).
 type LoginLinkCmd struct {
 	config.Config `embed:""`
 	User          string `arg:"" help:"The user's ID. Run 'wishbone users' to find it."`
+	Lasting       bool   `name:"lasting" help:"Make a lasting link: it works any number of times and doesn't expire, until 'wishbone revoke-lasting-link' revokes it. For an App Review account."`
 
 	out    io.Writer // stdout unless a test sets it
 	stderr io.Writer // stderr unless a test sets it
@@ -168,18 +170,33 @@ func (l *LoginLinkCmd) Run() error {
 		// reactivates them in the app first.
 		return fmt.Errorf("%s is deactivated, so a login link would not work: the admin reactivates them in the app first", displayName(target))
 	}
-	token, _, err := loginlink.NewService(st.DB(), time.Now).Create(context.Background(), id)
-	if err != nil {
-		return err
+	links := loginlink.NewService(st.DB(), time.Now)
+	var token, note string
+	if l.Lasting {
+		var link loginlink.Lasting
+		if token, link, err = links.CreateLasting(context.Background(), id); err != nil {
+			return err
+		}
+		note = fmt.Sprintf("Lasting link %d for %s. It works any number of times and doesn't expire. "+
+			"'wishbone revoke-lasting-link %d' revokes it and signs out every session it started.\n",
+			link.ID, displayName(target), link.ID)
+	} else {
+		if token, _, err = links.Create(context.Background(), id); err != nil {
+			return err
+		}
+		note = fmt.Sprintf("Expires in %d days.\n", int(loginlink.Lifetime/(24*time.Hour)))
 	}
 	if _, err := fmt.Fprintf(orStdout(l.out), "%s/login/%s\n", cfg.PublicURL, token); err != nil {
 		return err
 	}
-	// The expiry goes to stderr so stdout stays a bare URL.
-	errOut := l.stderr
-	if errOut == nil {
-		errOut = os.Stderr
-	}
-	_, err = fmt.Fprintf(errOut, "Expires in %d days.\n", int(loginlink.Lifetime/(24*time.Hour)))
+	// The note goes to stderr so stdout stays a bare URL.
+	_, err = fmt.Fprint(orStderr(l.stderr), note)
 	return err
+}
+
+func orStderr(w io.Writer) io.Writer {
+	if w == nil {
+		return os.Stderr
+	}
+	return w
 }

@@ -244,7 +244,7 @@
             "type": "string"
           },
           "token": {
-            "description": "The token from the login link's URL, after /login/.",
+            "description": "The token from the login link's URL, after /login/. A lasting link's token is accepted in any case, with or without its hyphens.",
             "type": "string"
           }
         },
@@ -265,16 +265,25 @@
             "type": "string"
           },
           "expires_at": {
+            "description": "When the link expires. null for a lasting link, which doesn't expire.",
             "format": "date-time",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "for_current_user": {
             "description": "True when the link is for the user whose session makes this request.",
+            "type": "boolean"
+          },
+          "lasting": {
+            "description": "True for a lasting link, which the operator makes with the CLI. It works any number of times and doesn't expire, until the operator revokes it. An ordinary link works once.",
             "type": "boolean"
           }
         },
         "required": [
           "expires_at",
+          "lasting",
           "for_current_user"
         ],
         "type": "object"
@@ -4133,7 +4142,7 @@
             "type": "string"
           },
           "token": {
-            "description": "The token from the login link's URL, after /login/.",
+            "description": "The token from the login link's URL, after /login/. A lasting link's token is accepted in any case, with or without its hyphens.",
             "minLength": 1,
             "type": "string"
           }
@@ -12912,7 +12921,7 @@
     },
     "/api/v2/login-links/check": {
       "post": {
-        "description": "Says when the link expires and whether it is for the user signed in on this request. It never names a user or uses up the link. Like any request with a session, it moves that session forward. It has a rate limit of its own.",
+        "description": "Says when the link expires, or that it is a lasting link, which doesn't, and whether it is for the user signed in on this request. It never names a user or uses up the link. Like any request with a session, it moves that session forward. It has a rate limit of its own.",
         "operationId": "check-login-link",
         "requestBody": {
           "content": {
@@ -13050,7 +13059,7 @@
     },
     "/api/v2/login-links/redeem": {
       "post": {
-        "description": "Uses the link and starts a session. If the caller's current session is of the same kind as the new one, the server revokes it. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
+        "description": "Uses the link and starts a session. An ordinary link works once. A lasting link works any number of times, and each redeem starts a new session. If the caller's current session is of the same kind as the new one, the server revokes it. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
         "operationId": "redeem-login-link",
         "parameters": [
           {

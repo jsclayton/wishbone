@@ -5,7 +5,8 @@ import { link } from './ui'
 
 /** What the page knows about its link. A first look decides which page it is. */
 type Look =
-  | { page: 'sign-in'; expiresAt: string }
+  /** expiresAt is null for a lasting link, which doesn't expire. */
+  | { page: 'sign-in'; expiresAt: string | null }
   | { page: 'switch'; current: string }
   | { page: 'problem' }
   | { page: 'too-many' }
@@ -144,10 +145,19 @@ export function LoginLink({ token, onDone }: { token: string; onDone: (banner: s
         <SignInFrame>
           <div className="flex flex-col gap-2">
             <BrandHeading />
-            <p className="text-xl">Tap the button to sign in. This link works once.</p>
-            <p className="font-mono text-[1.0625rem]">
-              Expires <time dateTime={look.expiresAt}>{formatExpiry(look.expiresAt)}</time>
-            </p>
+            {look.expiresAt === null ? (
+              <>
+                <p className="text-xl">Tap the button to sign in. This link works more than once.</p>
+                <p className="font-mono text-[1.0625rem]">Doesn't expire</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl">Tap the button to sign in. This link works once.</p>
+                <p className="font-mono text-[1.0625rem]">
+                  Expires <time dateTime={look.expiresAt}>{formatExpiry(look.expiresAt)}</time>
+                </p>
+              </>
+            )}
           </div>
           <button type="button" className={bandAction} onClick={signIn} disabled={busy}>
             Sign in

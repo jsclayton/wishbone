@@ -30,6 +30,7 @@ type Plan struct {
 	// GivenDeleted are the given gifts that only the user received.
 	GivenDeleted int
 	// Sessions, LoginLinks and Passkeys are the rows that go with the user.
+	// LoginLinks counts their lasting login links too.
 	Sessions, LoginLinks, Passkeys int
 }
 
@@ -69,7 +70,8 @@ func (s *Service) Plan(ctx context.Context, id int64) (Plan, error) {
 			AND EXISTS (SELECT 1 FROM gift_recipients WHERE gift_id = gifts.id AND user_id = ?)
 			AND NOT EXISTS (SELECT 1 FROM gift_recipients WHERE gift_id = gifts.id AND user_id <> ?)`, []any{id, id}},
 		{&p.Sessions, `SELECT count(*) FROM sessions WHERE user_id = ?`, []any{id}},
-		{&p.LoginLinks, `SELECT count(*) FROM login_links WHERE user_id = ?`, []any{id}},
+		{&p.LoginLinks, `SELECT (SELECT count(*) FROM login_links WHERE user_id = ?)
+			+ (SELECT count(*) FROM lasting_links WHERE user_id = ?)`, []any{id, id}},
 		{&p.Passkeys, `SELECT count(*) FROM passkeys WHERE user_id = ?`, []any{id}},
 	} {
 		if err := s.db.GetContext(ctx, c.into, c.query, c.args...); err != nil {

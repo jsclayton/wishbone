@@ -78,8 +78,9 @@ func TestADeleteThatFailsChangesNothing(t *testing.T) {
 func TestDeletingAUserRemovesWhatBelongsToThemAndNothingOfAnyoneElse(t *testing.T) {
 	e := newEnv(t)
 	f := e.family()
-	// Sue has a session, a login link, a passkey, a group, an avatar, a custom
-	// occasion, a parent and a child, and an invitation to a list.
+	// Sue has a session, a login link, a lasting link and a session it started,
+	// a passkey, a group, an avatar, a custom occasion, a parent and a child, and
+	// an invitation to a list.
 	cousins := e.cousins(f)
 	e.linkParents(f.admin, f.sueID, f.momID)
 	babyID, _ := e.otherUser("Baby")
@@ -89,6 +90,12 @@ func TestDeletingAUserRemovesWhatBelongsToThemAndNothingOfAnyoneElse(t *testing.
 	e.addOccasion(f.sue, "Sue's day", annual(3, 4), f.sueID)
 	e.registerPasskey(f.sueID, cookie(f.sue), passkeytest.New(t), "Phone")
 	loginLink := e.makeLink(f.admin, f.sueID)
+	lasting, _ := e.makeLasting(f.sueID)
+	fromLasting := bearer(decode[redeemBody](t, e.redeem(lasting, "bearer", nil)).Token)
+	plan, err := e.deleter().Plan(t.Context(), mustParse(t, f.sueID))
+	require.NoError(t, err)
+	require.Equal(t, 2, plan.LoginLinks, "the plan counts her lasting link with her login link")
+	require.Equal(t, 2, plan.Sessions)
 	e.invite(f.mom, f.house, f.sueID)
 	// What others have stays.
 	hedyOccasions := e.rowCount("occasions", `user_id = ?`, f.hedyID)
@@ -101,6 +108,9 @@ func TestDeletingAUserRemovesWhatBelongsToThemAndNothingOfAnyoneElse(t *testing.
 	requireCoded(t, e.getUser(f.admin, f.sueID), http.StatusNotFound, "not_found")
 	require.Equal(t, http.StatusUnauthorized, e.do(request{path: "/users/me", header: cookie(f.sue)}).StatusCode, "her session")
 	require.Equal(t, http.StatusUnauthorized, e.redeem(loginLink, "", nil).StatusCode, "her login link")
+	require.Equal(t, http.StatusUnauthorized, e.redeem(lasting, "", nil).StatusCode, "her lasting link")
+	require.False(t, e.signedIn(fromLasting), "the session it started")
+	require.Zero(t, e.rowCount("lasting_links", `user_id = ?`, f.sueID))
 	require.Zero(t, e.rowCount("passkeys", `user_id = ?`, f.sueID))
 	// Her group membership, parent links in both directions, and invitation.
 	require.NotContains(t, names(decode[userList](t, e.groupUsers(f.admin, cousins, ""))), "Sue")

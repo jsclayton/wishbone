@@ -76,6 +76,15 @@ The WebAuthn user handle is 32 random bytes stored on the user (`users.webauthn_
 
 Adding a passkey needs only a session. A login link from a parent or the admin, or a link that the user makes for themself (each lasts 7 days), is enough to add a permanent credential. This fits "parents manage their children's sign-in", and the user sees and removes their passkeys under "Your devices". A parent and the admin can also delete a user's passkey, which lets them remove one on a lost device.
 
+### Lasting login links: only the CLI, and a revoke ends their sessions
+
+App Review needs a demo account that "must not expire", and more than one reviewer may sign in with it, or sign out and in again. A login link works once for 7 days, so it can't be that account. A lasting login link can (see [Lasting login links](spec.md#lasting-login-links)).
+
+- Only the CLI makes one. A route or a screen would let any parent leave a link that never stops working, on a family instance that has no need of one. The operator of a review instance has the CLI.
+- A revoke also ends the sessions that the link started, because the reason to revoke a link is that it leaked. A session that lasts a year after its last use would keep the leak open. So a session records the link that started it.
+- Its token is 16 characters, not 43, because a reviewer may type it from the notes. The alphabet leaves out the characters that look like others, and the server takes the token in any case and with or without hyphens. The spec states the cost in guessing.
+- It is a table of its own, `lasting_links`, and not a kind of row in `login_links`. It has a different life (listed, revoked, used many times, no expiry), and `login_links.expires_at` is `NOT NULL`, which SQLite can change only by a rebuild of the table.
+
 ### The session cookie is sent once a day, and a request never clears it
 
 A browser applies answers in the order they arrive, and an answer to an old request can arrive after a sign-in in another tab. If every response sent the cookie, a late answer could put the old token back. If a 401 cleared the cookie, a late answer could remove the new one. Either way the user is signed out, and the login link they used is gone.

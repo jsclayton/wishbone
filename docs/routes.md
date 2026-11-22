@@ -180,8 +180,8 @@ The sign-in routes check and redeem a login link, and sign in with a passkey (se
 
 | Method | Path | Roles | Notes |
 |---|---|---|---|
-| POST | `/login-links/check` | public | Checks a login link without redeeming it. Code: 401 `login_link_invalid` (the link is unknown, used, or expired). |
-| POST | `/login-links/redeem` | public | Body: `token`, `session` (optional: `cookie`, the default, or `bearer`). Redeems a login link and starts a session. Counts against `WISHBONE_RATE_LIMIT_REDEEM`. Code: 401 `login_link_invalid`. See below. |
+| POST | `/login-links/check` | public | Body: `token`. Checks a login link without redeeming it. 200 with `{ expires_at, lasting, for_current_user }`. `expires_at` is `null` and `lasting` is `true` for a lasting login link. Code: 401 `login_link_invalid` (the link is unknown, used, expired, or revoked, or its user is deactivated). |
+| POST | `/login-links/redeem` | public | Body: `token`, `session` (optional: `cookie`, the default, or `bearer`). Redeems a login link and starts a session. An ordinary link works once, and a lasting login link any number of times. Counts against `WISHBONE_RATE_LIMIT_REDEEM`. Code: 401 `login_link_invalid`. See below. |
 | POST | `/login/passkey/options` | public | Starts a passkey sign-in. Returns the options for `navigator.credentials.get`, which name no user. Counts against `WISHBONE_RATE_LIMIT_REDEEM`. |
 | POST | `/login/passkey` | public | Body: `credential`. Finishes a passkey sign-in and starts a cookie session. 204 with the `wishbone_session` cookie. If the caller's current session is a cookie session, the server revokes it. Counts against `WISHBONE_RATE_LIMIT_REDEEM`, with the options route. Code: 401 `passkey_login_failed`, the same answer for every cause. |
 | DELETE | `/users/me/sessions/current` | signed in | Signs out. 204. |
@@ -190,6 +190,8 @@ How redeem starts the session depends on `session`:
 
 - **`cookie`** (the default): the response sets the `wishbone_session` cookie, and the body has no token. If the caller's current session is a cookie session, the server revokes it.
 - **`bearer`**, for a native app: the body also has `token`, the new session's token, and there is no `Set-Cookie`. If the caller's current session is a bearer token, the server revokes it.
+
+A lasting login link's token is taken in any case, with or without its hyphens, by check and redeem alike (see [Lasting login links](spec.md#lasting-login-links)).
 
 In both, the body has `user_id`, `name` and `initials` (the user that the link signs in, so a native app needn't read `GET /users/me` to learn who it is), `replaced_session` (`true` when the server revoked the caller's current session), and `switched_user` (`true` when that session was another user's). The token is in this response and nowhere else, because the server keeps only its hash. Setup and passkey sign-in start cookie sessions only.
 
@@ -251,6 +253,8 @@ Only the admin, the user's parents, and the user see a deactivated user. A deact
 | POST | `/users/{id}/login-links` | self, parent, admin | 201 with `{ url, expires_at }`, and no `Location` header. The link expires after 7 days. |
 
 A login link has no address. The server keeps only a hash of its token, so the URL is in the create response and nowhere else. There is no route to list or revoke login links. This is one of the [exceptions to Writes](#exceptions-to-writes). A route to revoke them can come later, as an additive change.
+
+This route makes only ordinary login links. No route makes, lists, or revokes a lasting login link: only the CLI does (see [Lasting login links](spec.md#lasting-login-links)).
 
 ### Sessions
 

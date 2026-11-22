@@ -91,7 +91,7 @@ The compose example publishes port 8080 on the host's loopback address only (`12
 
 A new instance has no users. Each start with no users writes a one-time setup code to the log (`setup_code=...`).
 
-The CLI has `serve`, `users`, `set-admin`, `login-link`, `delete-user`, `backup`, `healthcheck`, and `version`. Run it in the container: `docker compose exec wishbone /app/wishbone users` lists the user IDs, and `docker compose exec wishbone /app/wishbone login-link <user id>` prints a login link that works once and expires after 7 days. `login-link` is the way back in for anyone who lost their sign-in. [`docs/operations.md`](docs/operations.md#commands-in-the-container) lists every command.
+The CLI has `serve`, `users`, `set-admin`, `login-link`, `lasting-links`, `revoke-lasting-link`, `delete-user`, `backup`, `healthcheck`, and `version`. Run it in the container: `docker compose exec wishbone /app/wishbone users` lists the user IDs, and `docker compose exec wishbone /app/wishbone login-link <user id>` prints a login link that works once and expires after 7 days. `login-link` is the way back in for anyone who lost their sign-in. [`docs/operations.md`](docs/operations.md#commands-in-the-container) lists every command.
 
 ### Back up and restore
 

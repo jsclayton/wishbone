@@ -46,7 +46,7 @@ func TestTheCLIHasTheCommandsThatExistSoFar(t *testing.T) {
 	for _, c := range k.Model.Children {
 		names = append(names, c.Name)
 	}
-	require.ElementsMatch(t, []string{"serve", "users", "set-admin", "delete-user", "login-link", "backup", "healthcheck", "version"}, names)
+	require.ElementsMatch(t, []string{"serve", "users", "set-admin", "delete-user", "login-link", "lasting-links", "revoke-lasting-link", "backup", "healthcheck", "version"}, names)
 }
 
 func TestBackupCmd(t *testing.T) {

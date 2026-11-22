@@ -136,6 +136,9 @@ This spec says what Wishbone does, and it is the source of truth. Terms in **bol
 | `serve` | Starts the web server. Before it applies migrations, it runs the version guard and the automatic backup (see [Migration](#migration)). |
 | `users` | Prints one line for each user: the ID, the name, the last name if there is one, and `admin` or `deactivated` where it applies. It prints no other profile fields. |
 | `login-link <user>` | Prints a login link for any user, including the admin, at any time. The link expires after 7 days. This is the recovery path for everyone, including the first admin. Refuses a deactivated user. |
+| `login-link --lasting <user>` | Prints a **lasting login link** for any user, including the admin, and its ID. It works any number of times and doesn't expire (see [Lasting login links](#lasting-login-links)). Refuses a deactivated user. |
+| `lasting-links` | Prints one line for each lasting login link that isn't revoked: its ID, the user's ID and name, when it was made, when it was last used, and `deactivated` when the user is. It can't print the link: the server keeps only a hash of its token. |
+| `revoke-lasting-link <link>` | Revokes a lasting login link, and ends every session it started. The user's other sessions stay. `<link>` is the link's ID, from `lasting-links`. |
 | `set-admin <user>` | Makes the user the admin. The old admin becomes a normal user and keeps their sessions. Refuses a user who has parents, or who is deactivated. |
 | `delete-user <user>` | Hard-deletes a user. It can't be undone. Refuses to delete the admin. It prints each child left with no parent. What a delete removes and keeps is in [Deletion](#deletion). |
 | `backup <path>` | Writes a consistent snapshot (see [Backups](#backups)). |
@@ -171,12 +174,22 @@ This spec says what Wishbone does, and it is the source of truth. Terms in **bol
 
 ### Login links
 
-- A login link works once.
-- Opening a login link does not redeem it. The page shows a "Sign in" button, and only the tap redeems the link. Messaging apps load links to build previews, and a preview must not use up the link. The page shows when the link expires, as a date and time, above the button.
+- A login link works once. A lasting login link is the one exception (see [Lasting login links](#lasting-login-links)).
+- Opening a login link does not redeem it. The page shows a "Sign in" button, and only the tap redeems the link. Messaging apps load links to build previews, and a preview must not use up the link. The page shows when the link expires, as a date and time, above the button. For a lasting login link, it says that the link works more than once and doesn't expire.
 - The page checks a link before it redeems it (`POST /login-links/check`). The check has a rate limit of its own, of the same size as the redeem limit, so a check doesn't use up the attempts of a person who is signing in.
 - Redeeming a link starts a **session** that lasts 365 days after its last use. Each use moves that date forward. Redemption is rate-limited per client IP (`WISHBONE_RATE_LIMIT_REDEEM`).
 - If a browser already has a session when it opens a link for a different user, the page warns that the current user will be signed out on that browser, and offers to stay signed in. If the person goes on, the server revokes the current session, the browser signs in as the link's user, and a one-time banner says "You're now signed in as {name}."
 - A login link of a deactivated user doesn't work (see [Deactivation](#deactivation)).
+
+### Lasting login links
+
+- A **lasting login link** is a login link that works any number of times and doesn't expire. It works until the operator revokes it. It is for the account that App Review signs in with, which "must not expire", and which more than one reviewer may use, and use again after they sign out.
+- Only the operator makes one, with `wishbone login-link --lasting` (see [CLI](#cli)). No route makes one, and no screen offers one, so an instance has one only when its operator made it. Any user can have one, including the admin.
+- It has the URL of any login link, `<WISHBONE_PUBLIC_URL>/login/<token>`, and a client redeems it in the same way (`POST /login-links/redeem`). Each redeem starts a new session, a cookie or a bearer token, as any login link does, and counts against `WISHBONE_RATE_LIMIT_REDEEM`. `POST /login-links/check` says `lasting: true`, and its `expires_at` is `null`. Only a lasting link has a `null` `expires_at`, so a client that never meets one gets the same check as before, and an ordinary link works as it did.
+- Each session that it starts records it. When the operator revokes the link (`wishbone revoke-lasting-link`), those sessions end in the same commit, so a link that leaked stops working at once. The user's other sessions stay.
+- The usual rules hold. While its user is deactivated, it doesn't work, and it works again when the user is reactivated. Deleting the user deletes it, with the sessions it started.
+- Its token is short enough to type from the App Review notes: 16 characters from an alphabet of 32, the digits and the lower-case letters without `0`, `1`, `l` and `o`. The CLI shows it as four groups of four with hyphens, for example `k7mq-3xtd-p9wh-r2fn`, and the URL has the hyphens. The hyphens are only shown: they are not part of the token. Check and redeem take the token in any case, with or without the hyphens. The server keeps only a SHA-256 hash of the token's canonical form, its 16 characters in lower case with no hyphens, as it does for every other token.
+- Accepted trade-off: the token has 80 bits, not the 256 bits of an ordinary login link's, so it is easier to guess. Through the API, it still can't be guessed: redeem and check are rate-limited per client IP, and at the default limit a million client IPs would need about 100 billion years, on average, to find one lasting link. A person with a copy of the database can test guesses against the hash with no limit, but 80 bits still takes one GPU millions of years, and that copy already holds what a session would read. Only the operator makes a lasting link, and can revoke it, so a family instance has none unless its operator chose to.
 
 ### Sessions and passkeys
 
@@ -614,7 +627,7 @@ These events change an open gift:
 - Only the admin deactivates and reactivates a user. Nobody can deactivate the admin (see [The admin](#the-admin)). To deactivate a user who is already deactivated, or to reactivate an active user, changes nothing and returns 200.
 - **Deactivation** is a pause. It changes no list, recipient, parent link, group membership, occasion, or invitation. Reactivation brings the user back as they were, with the exceptions in [Reactivation](#reactivation).
 - When a user is deactivated:
-  - Their sessions are revoked. They can't sign in, and their login links don't work while they are deactivated.
+  - Their sessions are revoked. They can't sign in, and their login links, lasting login links too, don't work while they are deactivated.
   - Their open gifts are released. Each one is deleted, and its quantity goes back on the item for all givers. The gifts that they already gave stay in their recipients' Received.
 - While a user is deactivated, only the admin, their parents, and the user see them (see [Who can see a user](#who-can-see-a-user)). Their children don't see them.
 
@@ -644,7 +657,7 @@ These events change an open gift:
 
 ### Reactivation
 
-- When the admin reactivates a user, everything that deactivation kept is as it was. Login links for them that haven't expired work again.
+- When the admin reactivates a user, everything that deactivation kept is as it was. Login links for them that haven't expired work again, and so do their lasting login links that the operator didn't revoke.
 - These don't come back: the sessions that were revoked, and the open gifts that were released.
 - An open gift that moved to another occasion, or was flagged, while the user was deactivated stays as it is.
 
@@ -660,7 +673,7 @@ These events change an open gift:
   - A given gift for them and other recipients stays for the other recipients. The user is removed from its recipients. This includes a given gift on a list that the delete removes, when its other recipients left the list after the reveal.
   - A given gift for them alone is deleted. So it also leaves its giver's Given. Its quantity doesn't go back on the item, so a recipient who joins the list later can't tell that it was given.
   - A gift that they gave stays in its recipients' Received, with their name as it was (see [Reveal](#reveal)).
-- These also go: their sessions, login links, and passkeys, their parent links in both directions, their group memberships, their avatar, their birthday and custom occasions, and the pending invitations to them.
+- These also go: their sessions, login links, lasting login links, and passkeys, their parent links in both directions, their group memberships, their avatar, their birthday and custom occasions, and the pending invitations to them.
 - Every answer that the server keeps for an `Idempotency-Key` goes too, on the whole instance (see **Retries** in [Writes](#writes)). An answer kept for another user's session can be a copy of something of theirs. So for the next 24 hours, a repeat of a write from before the delete can do the work again.
 - An open gift for one of their occasions on a list that stays moves to the next occasion of another recipient, and is flagged (see [Changes while a gift is open](#changes-while-a-gift-is-open)).
 - A reference to them becomes `null`, or leaves a list of users:
@@ -872,7 +885,7 @@ Every route follows these rules. The route table applies them to each resource.
 - The OpenAPI document has two security schemes, `cookieAuth` and `bearerAuth`. They apply to every route except health, setup, and the sign-in routes for a caller who isn't signed in.
 - The web app signs in with the cookie. A native app signs in with a bearer token. No native app is part of this repo: a native app is a separate project, and the API supports one. See [ADR 0013](adr/0013-native-apps-redeem-a-login-link-for-a-bearer-session.md).
 - A native app gets its token from a login link, by redeeming it with `"session": "bearer"` (see [Sign-in](routes.md#sign-in) in the route table). The answer has the token and `user_id`, the ID of the user the link signs in, so the app saves its whole session at once and needn't first read `GET /users/me`. The app gets the link from its QR code or from a paste. A user who is signed in on the web and has no link can make one for themselves on their sign-in screen.
-- The link gives the app its instance: the instance's address is the part of the link's URL before `/login/`. So one build of an app works with every instance, and needs no domain association. A client that shows a confirm step before it signs in, as the web page does, can call check first, to show whether the link works and when it expires. Check is not required: redeem alone refuses a bad link with the same code.
+- The link gives the app its instance: the instance's address is the part of the link's URL before `/login/`. So one build of an app works with every instance, and needs no domain association. A client that shows a confirm step before it signs in, as the web page does, can call check first, to show whether the link works and when it expires, or that it is a lasting login link, which doesn't. Check is not required: redeem alone refuses a bad link with the same code.
 - A bearer token lasts as a cookie session does: it expires 365 days after its last use, and each request moves that date forward. There is no refresh token, and nothing to renew.
 - A native app keeps its token in the platform's secure storage (the Keychain on iOS, Keystore-backed storage on Android), and leaves it out of device backups.
 - A native app sends a `User-Agent` that names it, for example `Wishbone iOS/1.0`, because the sessions list shows the user agent.

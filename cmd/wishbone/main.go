@@ -53,14 +53,16 @@ var (
 )
 
 type CLI struct {
-	Serve       ServeCmd       `cmd:"" help:"Start the web server."`
-	Users       UsersCmd       `cmd:"" help:"List the users: ID, name, last name, and admin or deactivated."`
-	SetAdmin    SetAdminCmd    `cmd:"" name:"set-admin" help:"Make a user the admin. The old admin keeps their sessions."`
-	DeleteUser  DeleteUserCmd  `cmd:"" name:"delete-user" help:"Delete a user for good. It can't be undone. Refuses the admin."`
-	LoginLink   LoginLinkCmd   `cmd:"" name:"login-link" help:"Print a login link for a user. It works once and expires after 7 days."`
-	Backup      BackupCmd      `cmd:"" help:"Write a snapshot of the database and images to a new directory."`
-	Healthcheck HealthcheckCmd `cmd:"" help:"Exit 0 if the local server is healthy. For container health checks."`
-	Version     VersionCmd     `cmd:"" help:"Show version information."`
+	Serve             ServeCmd             `cmd:"" help:"Start the web server."`
+	Users             UsersCmd             `cmd:"" help:"List the users: ID, name, last name, and admin or deactivated."`
+	SetAdmin          SetAdminCmd          `cmd:"" name:"set-admin" help:"Make a user the admin. The old admin keeps their sessions."`
+	DeleteUser        DeleteUserCmd        `cmd:"" name:"delete-user" help:"Delete a user for good. It can't be undone. Refuses the admin."`
+	LoginLink         LoginLinkCmd         `cmd:"" name:"login-link" help:"Print a login link for a user. It works once and expires after 7 days. With --lasting, it works until it is revoked."`
+	LastingLinks      LastingLinksCmd      `cmd:"" name:"lasting-links" help:"List the lasting login links: ID, user ID, name, when made, and when last used."`
+	RevokeLastingLink RevokeLastingLinkCmd `cmd:"" name:"revoke-lasting-link" help:"Revoke a lasting login link, and sign out every session it started."`
+	Backup            BackupCmd            `cmd:"" help:"Write a snapshot of the database and images to a new directory."`
+	Healthcheck       HealthcheckCmd       `cmd:"" help:"Exit 0 if the local server is healthy. For container health checks."`
+	Version           VersionCmd           `cmd:"" help:"Show version information."`
 }
 
 // BackupCmd snapshots a live data dir. It needs only the data dir, so it
