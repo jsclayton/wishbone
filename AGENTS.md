@@ -17,7 +17,7 @@ Private, self-hosted family wish lists. Members claim gifts for each other witho
 just install                 # JS dependencies and git hooks; add `just install-playwright` once for e2e
 just dev-backend             # Go server on :8080; pair with `just dev-frontend` on :3000
 just lint                    # every linter and the type checker; `just fmt` formats Go
-just test                    # Go with -race, then Vitest. Slow: internal/server alone takes 6 to 11 minutes under -race
+just test                    # Go with -race, then Vitest. internal/server is the slow package: its budget is 5 minutes under -race on CI (docs/development.md)
 go test ./internal/server -run TestName                          # one Go test
 pnpm --filter web exec vitest run src/Claim.test.tsx             # one web test file
 WISHBONE_PORT=9234 just test-e2e                                 # all e2e specs, on a random port

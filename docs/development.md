@@ -110,7 +110,15 @@ Write a test that fails for the behavior you want, then make it pass. Test at th
 | All the e2e specs | `just test-e2e` |
 | One e2e spec | `just build-e2e && pnpm --filter web test:e2e e2e/gifts.spec.ts` |
 
-`internal/server` is the slow package: with `-race` it takes about 7 minutes on a 10-core laptop and about 11 in CI. Go's default test timeout is 10 minutes, so `just test-backend` sets 25. For a quick loop, run one package without `-race`.
+`internal/server` is the slow package. Its budget is **5 minutes under `-race` on CI**. `go test` runs with `-timeout 10m` (in `just test-backend` and in CI's Go job), and the Go job's `timeout-minutes` is 20, so a package that grows past its budget fails on its own clock with room to spare. Before #43 the package ran one test at a time and took 18 to 25 minutes on CI. To keep under the budget:
+
+- Start every test with `t.Parallel()`. `TestEveryTestRunsInParallel` (`internal/server/parallel_test.go`) fails a test that doesn't. A test that can't run in parallel goes in that test's `notParallel`, with the reason.
+- Give a test its own server and database with `newEnv` or `testOptions`, and share nothing that a test changes. Each one starts from a copy of a database that is migrated once for the test binary (`migrated` in `internal/server/env_test.go`), so don't migrate in a test.
+- Don't wait on the wall clock. Move the test's clock (`e.clock.advance`), or use a hook that runs at the right moment (`internal/server/race_hook_test.go`).
+- A test that runs for a long time on its own sets the package's lowest time. `go test -race -json ./internal/server` gives each test's `Elapsed`. Split a test that is far above the others.
+- `server.New` runs once in production and many times at once in the tests. Never let it change a package-level value, including one that a library gives it (`huma.DefaultConfig`'s `Formats` is `huma.DefaultFormats` itself). The race detector finds such a change only when tests build servers at once.
+
+For a quick loop, run one package or one test without `-race`.
 
 Go needs a frontend in `internal/server/web/dist/` to compile. `just` writes a placeholder when there is none.
 

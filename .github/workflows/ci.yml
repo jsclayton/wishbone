@@ -117,9 +117,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
-    # internal/server takes about 11 minutes under -race, over Go's default test
-    # timeout of 10, so Test sets its own (25m) and the job leaves room for it.
-    timeout-minutes: 30
+    # internal/server's budget under -race is 5 minutes (docs/development.md,
+    # Tests). Test fails at 10, and the job leaves room for the steps before it.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -147,7 +147,7 @@ jobs:
           args: --build-tags e2e ./cmd/...
       - name: Test
         run: |
-          go test -race -timeout 25m ./...
+          go test -race -timeout 10m ./...
           go test -tags e2e ./cmd/wishbone
 
   web:
