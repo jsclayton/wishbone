@@ -54,6 +54,7 @@ func (p *pricedShop) fail(url string) {
 }
 
 func TestARefreshChangesTheStoreLinksPricesAndNeverTheItemPrice(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://a.example/k", "30")
 	shop.set("https://b.example/k", "40")
@@ -85,6 +86,7 @@ func TestARefreshChangesTheStoreLinksPricesAndNeverTheItemPrice(t *testing.T) {
 }
 
 func TestARefreshNeverGivesAnItemWithoutAPriceThePriceOfAStoreLink(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	e := newEnv(t, withSearch(shop.fakeShop, nil))
 	e.signUp()
@@ -101,6 +103,7 @@ func TestARefreshNeverGivesAnItemWithoutAPriceThePriceOfAStoreLink(t *testing.T)
 }
 
 func TestARefreshReadsEachPageAgainAndCountsEachReadAgainstTheHourlyLimit(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://a.example/k", "30")
 	shop.set("https://b.example/k", "40")
@@ -131,6 +134,7 @@ func TestARefreshReadsEachPageAgainAndCountsEachReadAgainstTheHourlyLimit(t *tes
 }
 
 func TestARefreshThatReadSomethingBeforeTheLimitStoppedItIsNotA429(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://b.example/k", "40")
 	e := newEnv(t, withSearch(shop.fakeShop, nil))
@@ -152,6 +156,7 @@ func TestARefreshThatReadSomethingBeforeTheLimitStoppedItIsNotA429(t *testing.T)
 }
 
 func TestARefreshDoesNotSaveALinkThatNowRedirectsToABlockedStore(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		if url == "https://short.example/k" {
 			// The link now ends at another store.
@@ -174,6 +179,7 @@ func TestARefreshDoesNotSaveALinkThatNowRedirectsToABlockedStore(t *testing.T) {
 }
 
 func TestAnHourlyLimitThatStopsARefreshHalfwayKeepsThePricesAlreadyRead(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	for _, h := range []string{"a", "b", "c"} {
 		shop.set("https://"+h+".example/k", "30")
@@ -200,6 +206,7 @@ func TestAnHourlyLimitThatStopsARefreshHalfwayKeepsThePricesAlreadyRead(t *testi
 }
 
 func TestALinkThatCantBeReadOrHasNoPriceKeepsItsPriceAndDate(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://a.example/k", "30")
 	shop.set("https://b.example/k", "40")
@@ -225,6 +232,7 @@ func TestALinkThatCantBeReadOrHasNoPriceKeepsItsPriceAndDate(t *testing.T) {
 }
 
 func TestARefreshDoesNotReadALinkInAStoreBlockedSinceItWasAdded(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://a.example/k", "30")
 	shop.set("https://b.example/k", "40")
@@ -244,6 +252,7 @@ func TestARefreshDoesNotReadALinkInAStoreBlockedSinceItWasAdded(t *testing.T) {
 }
 
 func TestOnlyAnEditorRefreshesPrices(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	e := newEnv(t, withSearch(shop.fakeShop, nil))
 	f := e.family()
@@ -257,6 +266,7 @@ func TestOnlyAnEditorRefreshesPrices(t *testing.T) {
 }
 
 func TestARefreshOfAnItemWithoutStoreLinksOrWithoutAPipelineChangesNothing(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	e := newEnv(t, withSearch(shop.fakeShop, nil))
 	e.signUp()

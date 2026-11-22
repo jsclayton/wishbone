@@ -12,6 +12,7 @@ import (
 )
 
 func TestACollectionWithNoNameIsRefusedWhenItsRouteIsRegistered(t *testing.T) {
+	t.Parallel()
 	// A cursor carries the name, so without one two collections could share cursors.
 	require.Panics(t, func() {
 		collectionRules{Sorts: passkeyRules.Sorts}.apply(&huma.Operation{})
@@ -29,6 +30,7 @@ func forge(t *testing.T, collection, sort, value string) string {
 // A cursor that decodes but holds a value the server cannot read is the
 // client's mistake, in every collection: a 422, never a 500.
 func TestACursorWithAValueThatCannotBeReadIsA422InEveryCollection(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, admin := e.signUp()
 
@@ -44,6 +46,7 @@ func TestACursorWithAValueThatCannotBeReadIsA422InEveryCollection(t *testing.T) 
 }
 
 func TestAWellFormedForgedCursorStillWorks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 

@@ -162,12 +162,18 @@ func requireSignedIn(api huma.API) func(huma.Context, func(huma.Context)) {
 }
 
 // signedInSecurity is the security requirement of a route that needs a caller.
-// Either scheme will do.
-var signedInSecurity = []map[string][]string{{"cookieAuth": {}}, {"bearerAuth": {}}}
+// Either scheme will do. Like the other parts of the document, it is new for
+// each server: huma changes what a document holds, so two servers must share
+// none of it.
+func signedInSecurity() []map[string][]string {
+	return []map[string][]string{{"cookieAuth": {}}, {"bearerAuth": {}}}
+}
 
-var securitySchemes = map[string]*huma.SecurityScheme{
-	"cookieAuth": {Type: "apiKey", In: "cookie", Name: sessionCookieName, Description: "The session cookie. The web app signs in with it."},
-	"bearerAuth": {Type: "http", Scheme: "bearer", Description: "A session token in the Authorization header. A native app signs in with it. It wins over the cookie."},
+func securitySchemes() map[string]*huma.SecurityScheme {
+	return map[string]*huma.SecurityScheme{
+		"cookieAuth": {Type: "apiKey", In: "cookie", Name: sessionCookieName, Description: "The session cookie. The web app signs in with it."},
+		"bearerAuth": {Type: "http", Scheme: "bearer", Description: "A session token in the Authorization header. A native app signs in with it. It wins over the cookie."},
+	}
 }
 
 // newSessionCookie builds the session cookie. Every use of a session moves its

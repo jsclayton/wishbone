@@ -102,7 +102,7 @@ dev-frontend: install
 # Run Go tests with race detector and coverage
 test-backend: embed-placeholder
     mkdir -p coverage
-    go test -race -timeout 25m -coverprofile=coverage/backend.out ./...
+    go test -race -timeout 10m -coverprofile=coverage/backend.out ./...
     go test -tags e2e ./cmd/wishbone
 
 # Run frontend unit tests with coverage

@@ -25,6 +25,7 @@ func (e *env) addAgain(token, listID, giftID string, more ...map[string]any) *ht
 }
 
 func TestAddAgainCopiesTheTitleThePriceAndTheImageOfAGivenGiftAsANewImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -70,6 +71,7 @@ func TestAddAgainCopiesTheTitleThePriceAndTheImageOfAGivenGiftAsANewImage(t *tes
 }
 
 func TestFieldsInTheBodyWinOverWhatAddAgainCopies(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo, other := e.uploaded(f.mom), e.uploaded(f.mom)
@@ -99,6 +101,7 @@ func TestFieldsInTheBodyWinOverWhatAddAgainCopies(t *testing.T) {
 }
 
 func TestAnEmptyImageIDsAddsTheItemAgainWithNoImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -118,6 +121,7 @@ func TestAnEmptyImageIDsAddsTheItemAgainWithNoImage(t *testing.T) {
 }
 
 func TestAddAgainAnswersTheSameWhateverHasHappenedToTheGiftsItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	tess := e.giver("Tess", f)
@@ -152,6 +156,7 @@ func TestAddAgainAnswersTheSameWhateverHasHappenedToTheGiftsItem(t *testing.T) {
 }
 
 func TestAddAgainRefusesAGiftTheCallerDoesNotReceiveWithoutSayingWhetherItExists(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
@@ -188,6 +193,7 @@ func TestAddAgainRefusesAGiftTheCallerDoesNotReceiveWithoutSayingWhetherItExists
 }
 
 func TestAddAgainNeedsAListTheCallerEditsAndATitleFromSomewhere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")

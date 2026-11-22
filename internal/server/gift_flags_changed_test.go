@@ -37,6 +37,7 @@ func price(minor int, top any, currency string) map[string]any {
 }
 
 func TestEditingAClaimedItemFlagsTheGiftChangedWithWhatChanged(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2, "notes": "Gas"})
@@ -76,6 +77,7 @@ func TestEditingAClaimedItemFlagsTheGiftChangedWithWhatChanged(t *testing.T) {
 }
 
 func TestAFieldThatChangesAgainKeepsItsFirstOldValueAndChangingBackRemovesTheLine(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"notes": "Gas"})
@@ -98,6 +100,7 @@ func TestAFieldThatChangesAgainKeepsItsFirstOldValueAndChangingBackRemovesTheLin
 }
 
 func TestThePriceFlagsWhenItChangesOrClearsButNotWhenItIsSetForTheFirstTime(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -123,6 +126,7 @@ func TestThePriceFlagsWhenItChangesOrClearsButNotWhenItIsSetForTheFirstTime(t *t
 }
 
 func TestAChangeOfTheMainImageFlagsAndAChangeOfAnotherImageDoesNot(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -142,6 +146,7 @@ func TestAChangeOfTheMainImageFlagsAndAChangeOfAnotherImageDoesNot(t *testing.T)
 }
 
 func TestStoreLinkChangesFlagTheGiftAndAddingOneDoesNot(t *testing.T) {
+	t.Parallel()
 	shop := newPricedShop()
 	shop.set("https://a.example/k", "30")
 	shop.set("https://b.example/k", "40")
@@ -175,6 +180,7 @@ func TestStoreLinkChangesFlagTheGiftAndAddingOneDoesNot(t *testing.T) {
 }
 
 func TestAGivenGiftIsNeverFlagged(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})

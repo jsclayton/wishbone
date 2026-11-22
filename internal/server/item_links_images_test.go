@@ -57,6 +57,7 @@ func (it itemView) imageIDs() []string {
 }
 
 func TestAnItemWithoutStoreLinksOrImagesHasEmptyOnes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -75,6 +76,7 @@ func TestAnItemWithoutStoreLinksOrImagesHasEmptyOnes(t *testing.T) {
 }
 
 func TestAnItemIsAddedWithItsStoreLinksInTheOrderGiven(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -112,6 +114,7 @@ func TestAnItemIsAddedWithItsStoreLinksInTheOrderGiven(t *testing.T) {
 }
 
 func TestTheItemTakesThePriceOfItsFirstPricedStoreLinkWhenItHasNone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -138,6 +141,7 @@ func TestTheItemTakesThePriceOfItsFirstPricedStoreLinkWhenItHasNone(t *testing.T
 }
 
 func TestAnItemTakesAtMostTenStoreLinks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -159,6 +163,7 @@ func TestAnItemTakesAtMostTenStoreLinks(t *testing.T) {
 }
 
 func TestAStoreLinkFromABlockedStoreRefusesTheWholeItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.blockStore(admin, "temu.com")
@@ -178,6 +183,7 @@ func TestAStoreLinkFromABlockedStoreRefusesTheWholeItem(t *testing.T) {
 }
 
 func TestAStoreLinkThatIsNotAWebAddressIsRefusedAndNeverPassedAsNotBlocked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.blockStore(admin, "temu.com")
@@ -202,6 +208,7 @@ func TestAStoreLinkThatIsNotAWebAddressIsRefusedAndNeverPassedAsNotBlocked(t *te
 }
 
 func TestAStoreLinkKeepsOnlyAnImageAddressThatIsAWebAddress(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -216,6 +223,7 @@ func TestAStoreLinkKeepsOnlyAnImageAddressThatIsAWebAddress(t *testing.T) {
 }
 
 func TestAnItemTakesUploadedImagesAndTheFirstIsThePrimaryImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -235,6 +243,7 @@ func TestAnItemTakesUploadedImagesAndTheFirstIsThePrimaryImage(t *testing.T) {
 }
 
 func TestThePrimaryImageIsTheOneNamedAndTheOrderStaysAsGiven(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -247,6 +256,7 @@ func TestThePrimaryImageIsTheOneNamedAndTheOrderStaysAsGiven(t *testing.T) {
 }
 
 func TestThePrimaryImageMustBeOneOfTheItemsImages(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -262,6 +272,7 @@ func TestThePrimaryImageMustBeOneOfTheItemsImages(t *testing.T) {
 }
 
 func TestAnItemTakesAtMostFiveImagesAndEachOnlyOnce(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -284,6 +295,7 @@ func TestAnItemTakesAtMostFiveImagesAndEachOnlyOnce(t *testing.T) {
 }
 
 func TestAnImageThatAnotherResourceHoldsIsA409AndOneTheCallerCantSeeIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -309,6 +321,7 @@ func TestAnImageThatAnotherResourceHoldsIsA409AndOneTheCallerCantSeeIsA422(t *te
 }
 
 func TestARefusedItemLeavesItsImagesFreeToUseAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.blockStore(admin, "temu.com")
@@ -323,6 +336,7 @@ func TestARefusedItemLeavesItsImagesFreeToUseAgain(t *testing.T) {
 }
 
 func TestAnItemsImagesFollowTheVisibilityOfItsList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	img := e.uploaded(f.mom)
@@ -337,6 +351,7 @@ func TestAnItemsImagesFollowTheVisibilityOfItsList(t *testing.T) {
 }
 
 func TestDeletingAnItemFreesItsImagesForTheSweep(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -354,6 +369,7 @@ func TestDeletingAnItemFreesItsImagesForTheSweep(t *testing.T) {
 }
 
 func TestAnItemsStoreLinksAreInTheOrderAddedForAnEditorAndByPriceForEveryoneElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	it := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"store_links": []map[string]any{

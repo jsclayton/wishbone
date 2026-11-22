@@ -33,6 +33,7 @@ func (e *env) removeGroupGroup(token, outerID, innerID string) *http.Response {
 }
 
 func TestTheAdminAddsAUserToAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -50,6 +51,7 @@ func TestTheAdminAddsAUserToAGroup(t *testing.T) {
 }
 
 func TestAddingAUserWhoIsAlreadyInTheGroupIsA409(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -63,6 +65,7 @@ func TestAddingAUserWhoIsAlreadyInTheGroupIsA409(t *testing.T) {
 }
 
 func TestAUserWhoIsInTheGroupOnlyThroughNestingCanStillBeAddedDirectly(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -75,6 +78,7 @@ func TestAUserWhoIsInTheGroupOnlyThroughNestingCanStillBeAddedDirectly(t *testin
 }
 
 func TestAddingAUserNeedsTheAdminAndAUserAndAGroupThatExist(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -97,6 +101,7 @@ func TestAddingAUserNeedsTheAdminAndAUserAndAGroupThatExist(t *testing.T) {
 }
 
 func TestAGroupsUsersAreListedByNameForThoseInTheGroupAndTheAdmin(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("grace")
@@ -132,6 +137,7 @@ func TestAGroupsUsersAreListedByNameForThoseInTheGroupAndTheAdmin(t *testing.T) 
 }
 
 func TestAGroupsUsersAreOnlyTheOnesDirectlyInItNotThoseInTheGroupsInsideIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -147,6 +153,7 @@ func TestAGroupsUsersAreOnlyTheOnesDirectlyInItNotThoseInTheGroupsInsideIt(t *te
 }
 
 func TestTheAdminTakesAUserOutOfAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -169,6 +176,7 @@ func TestTheAdminTakesAUserOutOfAGroup(t *testing.T) {
 }
 
 func TestTheAdminNestsAGroupInAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	outer := e.newGroup(admin, "Outer")
@@ -187,6 +195,7 @@ func TestTheAdminNestsAGroupInAGroup(t *testing.T) {
 }
 
 func TestNestingAGroupThatIsAlreadyInsideIsA409(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	outer := e.newGroup(admin, "Outer")
@@ -200,6 +209,7 @@ func TestNestingAGroupThatIsAlreadyInsideIsA409(t *testing.T) {
 }
 
 func TestNestingThatWouldMakeALoopIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	a := e.newGroup(admin, "A")
@@ -227,6 +237,7 @@ func TestNestingThatWouldMakeALoopIsA422(t *testing.T) {
 }
 
 func TestNestingNeedsTheAdminAndGroupsThatExist(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -246,6 +257,7 @@ func TestNestingNeedsTheAdminAndGroupsThatExist(t *testing.T) {
 }
 
 func TestOnlyTheAdminListsTheGroupsInsideAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -261,6 +273,7 @@ func TestOnlyTheAdminListsTheGroupsInsideAGroup(t *testing.T) {
 }
 
 func TestTheAdminTakesAGroupOutOfAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")

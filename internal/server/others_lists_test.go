@@ -38,6 +38,7 @@ func (e *env) family() family {
 }
 
 func TestAUserSeesTheListsOfTheUsersTheySeeAndNotTheAdminsAccess(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -82,6 +83,7 @@ func TestAUserSeesTheListsOfTheUsersTheySeeAndNotTheAdminsAccess(t *testing.T) {
 }
 
 func TestAUsersPrimaryListShowsOnTheUserOnlyToWhoSeesTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -107,6 +109,7 @@ func TestAUsersPrimaryListShowsOnTheUserOnlyToWhoSeesTheList(t *testing.T) {
 }
 
 func TestAListWithSeveralRecipientsIsSeenThroughAnyOneOfThemAndTheOtherIsASummary(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	img := e.uploaded(f.dad)
@@ -124,6 +127,7 @@ func TestAListWithSeveralRecipientsIsSeenThroughAnyOneOfThemAndTheOtherIsASummar
 }
 
 func TestTheAvatarOfWhoAddedAnItemLoadsForWhoSeesTheItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	// Sue sees "Our house" through Mom. Grandma is Dad's parent: Sue can't see
@@ -142,6 +146,7 @@ func TestTheAvatarOfWhoAddedAnItemLoadsForWhoSeesTheItem(t *testing.T) {
 }
 
 func TestAParentSeesAndEditsEveryListOfTheirChildAndAddedByNamesThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -176,6 +181,7 @@ func TestAParentSeesAndEditsEveryListOfTheirChildAndAddedByNamesThem(t *testing.
 }
 
 func TestAParentMovesAnItemBetweenListsTheyCanEditAndNotToOneTheyOnlySee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -196,6 +202,7 @@ func TestAParentMovesAnItemBetweenListsTheyCanEditAndNotToOneTheyOnlySee(t *test
 }
 
 func TestAChildSeesTheirParentsListsAndCannotEditThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -211,6 +218,7 @@ func TestAChildSeesTheirParentsListsAndCannotEditThem(t *testing.T) {
 }
 
 func TestAGiverWhoCanSeeAListButNotEditItGets403OnEveryWrite(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -227,6 +235,7 @@ func TestAGiverWhoCanSeeAListButNotEditItGets403OnEveryWrite(t *testing.T) {
 }
 
 func TestAGiverGetsTheClaimStateAndARecipientGetsNoKeyOfIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -243,6 +252,7 @@ func TestAGiverGetsTheClaimStateAndARecipientGetsNoKeyOfIt(t *testing.T) {
 }
 
 func TestItemCountCountsTheItemsOnTheListForEveryoneWhoSeesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addItem(f.mom, f.momList, "A")
@@ -255,6 +265,7 @@ func TestItemCountCountsTheItemsOnTheListForEveryoneWhoSeesIt(t *testing.T) {
 }
 
 func TestTheAdminSeesAndEditsAChildsListsOnlyAsTheirParent(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -270,6 +281,7 @@ func TestTheAdminSeesAndEditsAChildsListsOnlyAsTheirParent(t *testing.T) {
 }
 
 func TestADeactivatedRecipientKeepsTheirParentsSightAndLosesTheGroupsSight(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	graceID, grace := e.otherUser("Grace")

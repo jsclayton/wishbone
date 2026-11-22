@@ -12,6 +12,7 @@ import (
 )
 
 func TestMetricsEndpoint(t *testing.T) {
+	t.Parallel()
 	reg := prometheus.NewRegistry()
 	c := prometheus.NewCounter(prometheus.CounterOpts{Name: "wishbone_test_total", Help: "test"})
 	reg.MustRegister(c)
@@ -29,6 +30,7 @@ func TestMetricsEndpoint(t *testing.T) {
 }
 
 func TestNoMetricsHandlerLeavesRouteUnregistered(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 	require.Equal(t, http.StatusOK, get(t, ts.URL+"/metrics").StatusCode, "falls through to the SPA")
 }

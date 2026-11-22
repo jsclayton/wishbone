@@ -38,6 +38,7 @@ func (e *env) rowCount(table, where string, args ...any) int {
 }
 
 func TestDeletingAUserRefusesTheAdminAndAUserWhoIsNotThere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -51,6 +52,7 @@ func TestDeletingAUserRefusesTheAdminAndAUserWhoIsNotThere(t *testing.T) {
 }
 
 func TestADeleteThatFailsChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -76,6 +78,7 @@ func TestADeleteThatFailsChangesNothing(t *testing.T) {
 }
 
 func TestDeletingAUserRemovesWhatBelongsToThemAndNothingOfAnyoneElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	// Sue has a session, a login link, a lasting link and a session it started,
@@ -127,6 +130,7 @@ func TestDeletingAUserRemovesWhatBelongsToThemAndNothingOfAnyoneElse(t *testing.
 }
 
 func TestDeletingAUserWhoIsOnlyAParentPrintsTheChildrenLeftWithNoParent(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")

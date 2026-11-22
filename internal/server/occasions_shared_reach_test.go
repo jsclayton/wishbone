@@ -57,6 +57,7 @@ func userNames(l userList) []string {
 }
 
 func TestASharedOccasionAppliesToTheUsersInItsGroupsWithNesting(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 
@@ -85,6 +86,7 @@ func TestASharedOccasionAppliesToTheUsersInItsGroupsWithNesting(t *testing.T) {
 }
 
 func TestASharedOccasionReachesGroupsToAnyDepth(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 	// Cousins > Kids > Tots > Mites, so Mites is three levels below Cousins.
@@ -105,6 +107,7 @@ func TestASharedOccasionReachesGroupsToAnyDepth(t *testing.T) {
 }
 
 func TestASharedOccasionIsSeenByTheUsersWhoSeeAUserItAppliesTo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 
@@ -118,6 +121,7 @@ func TestASharedOccasionIsSeenByTheUsersWhoSeeAUserItAppliesTo(t *testing.T) {
 }
 
 func TestChangingTheGroupsOrTheNestingChangesWhoSeesASharedOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 
@@ -132,6 +136,7 @@ func TestChangingTheGroupsOrTheNestingChangesWhoSeesASharedOccasion(t *testing.T
 }
 
 func TestASharedOccasionMarkedEveryoneAppliesToEveryUserIncludingLaterOnes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 	newYear := e.addShared(r.admin, "New Year", annual(1, 1), true)
@@ -151,6 +156,7 @@ func TestASharedOccasionMarkedEveryoneAppliesToEveryUserIncludingLaterOnes(t *te
 }
 
 func TestSharedOccasionsAreInAUsersOccasions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 	e.addShared(r.admin, "New Year", annual(1, 1), true)
@@ -174,6 +180,7 @@ func TestSharedOccasionsAreInAUsersOccasions(t *testing.T) {
 }
 
 func TestTheUsersAnOccasionAppliesTo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 
@@ -195,6 +202,7 @@ func TestTheUsersAnOccasionAppliesTo(t *testing.T) {
 }
 
 func TestTheUsersABirthdayOrCustomOccasionAppliesToIsItsUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 	custom := e.addOccasion(r.mom, "Wedding day", annual(5, 4), "")
@@ -208,6 +216,7 @@ func TestTheUsersABirthdayOrCustomOccasionAppliesToIsItsUser(t *testing.T) {
 }
 
 func TestTheAdminSeesTheDeactivatedUsersASharedOccasionAppliesTo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	r := e.reunion()
 	e.deactivated(r.admin, r.sueID)

@@ -28,6 +28,7 @@ func summaryNames(list []summaryView) []string {
 }
 
 func TestTheAdminLinksAParentAndParentAndChildSeeEachOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")

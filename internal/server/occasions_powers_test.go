@@ -12,6 +12,7 @@ import (
 // Screens, and The admin).
 
 func TestAUserSeesTheOccasionsOfTheUsersTheySeeAndNoOthers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	wedding := e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -32,6 +33,7 @@ func TestAUserSeesTheOccasionsOfTheUsersTheySeeAndNoOthers(t *testing.T) {
 }
 
 func TestTheAdminSeesEveryBirthdayAndNoCustomOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	wedding := e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -55,6 +57,7 @@ func TestTheAdminSeesEveryBirthdayAndNoCustomOccasion(t *testing.T) {
 }
 
 func TestAParentManagesTheirChildsCustomOccasions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -79,6 +82,7 @@ func TestAParentManagesTheirChildsCustomOccasions(t *testing.T) {
 }
 
 func TestACustomOccasionIsAddedOnlyForYourselfOrYourChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -105,6 +109,7 @@ func TestACustomOccasionIsAddedOnlyForYourselfOrYourChild(t *testing.T) {
 }
 
 func TestNobodyChangesABirthdayOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -127,6 +132,7 @@ func TestNobodyChangesABirthdayOccasion(t *testing.T) {
 }
 
 func TestACustomOccasionIsChangedOnlyByItsUserOrTheirParent(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	wedding := e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -144,6 +150,7 @@ func TestACustomOccasionIsChangedOnlyByItsUserOrTheirParent(t *testing.T) {
 }
 
 func TestAPatchChangesTheNameAndTheRuleAndNothingElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	o := e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -187,6 +194,7 @@ func TestAPatchChangesTheNameAndTheRuleAndNothingElse(t *testing.T) {
 }
 
 func TestAnIfMatchThatNoLongerFitsIsA412AndChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	o := e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -210,6 +218,7 @@ func TestAnIfMatchThatNoLongerFitsIsA412AndChangesNothing(t *testing.T) {
 }
 
 func TestAParentOfADeactivatedChildReadsTheirOccasionsAndChangesNone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -233,6 +242,7 @@ func TestAParentOfADeactivatedChildReadsTheirOccasionsAndChangesNone(t *testing.
 }
 
 func TestADeactivatedUsersBirthdayIsSeenOnlyByThoseWhoSeeThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.deactivated(f.admin, f.momID)
@@ -244,6 +254,7 @@ func TestADeactivatedUsersBirthdayIsSeenOnlyByThoseWhoSeeThem(t *testing.T) {
 }
 
 func TestUsersHaveCanAddOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -263,6 +274,7 @@ func TestUsersHaveCanAddOccasion(t *testing.T) {
 }
 
 func TestDeletingAUserDeletesTheirOccasions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addOccasion(f.hedy, "Name day", annual(8, 8), "")

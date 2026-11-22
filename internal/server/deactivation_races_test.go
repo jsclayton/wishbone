@@ -48,6 +48,7 @@ func (e *env) emmasSession(admin, emmaID string) string {
 }
 
 func TestARevokeThatRacesAnUnlinkIsRefusedAndTheSessionStaysLive(t *testing.T) {
+	t.Parallel()
 	e, armed := racingServices(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -63,6 +64,7 @@ func TestARevokeThatRacesAnUnlinkIsRefusedAndTheSessionStaysLive(t *testing.T) {
 }
 
 func TestARevokeThatRacesADeactivationIsRefusedAndTheSessionStaysLive(t *testing.T) {
+	t.Parallel()
 	e, armed := racingServices(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -94,6 +96,7 @@ func (e *env) emmaWithAPasskey(admin, momID string) (emmaID, passkeyID string) {
 }
 
 func TestAPasskeyDeleteThatRacesAnUnlinkIsRefusedAndThePasskeyStays(t *testing.T) {
+	t.Parallel()
 	e, armed := racingServices(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -107,6 +110,7 @@ func TestAPasskeyDeleteThatRacesAnUnlinkIsRefusedAndThePasskeyStays(t *testing.T
 }
 
 func TestAPasskeyDeleteThatRacesADeactivationIsRefusedAndThePasskeyStays(t *testing.T) {
+	t.Parallel()
 	e, armed := racingServices(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")

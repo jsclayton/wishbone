@@ -14,6 +14,7 @@ import (
 // occasion keep the zone of their user.
 
 func TestASharedOccasionsNextDateFollowsTheCallersTimezone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -44,6 +45,7 @@ func TestASharedOccasionsNextDateFollowsTheCallersTimezone(t *testing.T) {
 }
 
 func TestABirthdayAndACustomOccasionKeepTheirUsersTimezone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")

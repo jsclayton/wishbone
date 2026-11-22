@@ -28,6 +28,7 @@ func recipientsFlag(t *testing.T, g giftView) (oldIDs, newIDs []string) {
 }
 
 func TestAJoiningOrLeavingRecipientFlagsEachOpenGiftWithTheOldAndNewRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 3})
@@ -63,6 +64,7 @@ func TestAJoiningOrLeavingRecipientFlagsEachOpenGiftWithTheOldAndNewRecipients(t
 }
 
 func TestARecipientWhoJoinsAndLeavesAgainLeavesNoFlag(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -77,6 +79,7 @@ func TestARecipientWhoJoinsAndLeavesAgainLeavesNoFlag(t *testing.T) {
 }
 
 func TestTheRecipientsChangedFlagHasNullRecipientsForAGiverWhoCannotSeeTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -93,6 +96,7 @@ func TestTheRecipientsChangedFlagHasNullRecipientsForAGiverWhoCannotSeeTheList(t
 }
 
 func TestAGiverWhoBecomesTheOnlyRecipientHasTheirGiftsReleased(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
@@ -111,6 +115,7 @@ func TestAGiverWhoBecomesTheOnlyRecipientHasTheirGiftsReleased(t *testing.T) {
 }
 
 func TestMovingAnItemToAListWhereTheGiverIsTheOnlyRecipientReleasesTheirGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.linkParents(f.admin, f.sueID, f.momID)
@@ -128,6 +133,7 @@ func TestMovingAnItemToAListWhereTheGiverIsTheOnlyRecipientReleasesTheirGift(t *
 }
 
 func TestAGiftMovesToTheOtherRecipientsNextOccasionWhenItsRecipientLeaves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID) // the cousins now see Dad too
@@ -152,6 +158,7 @@ func TestAGiftMovesToTheOtherRecipientsNextOccasionWhenItsRecipientLeaves(t *tes
 }
 
 func TestTheGiftThatMovesMergesIntoTheGiversGiftThatIsAlreadyThere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -170,6 +177,7 @@ func TestTheGiftThatMovesMergesIntoTheGiversGiftThatIsAlreadyThere(t *testing.T)
 }
 
 func TestDeletingACustomOccasionMovesItsGiftsToTheRecipientsNextOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -187,6 +195,7 @@ func TestDeletingACustomOccasionMovesItsGiftsToTheRecipientsNextOccasion(t *test
 }
 
 func TestDetachingOrUnmarkingASharedOccasionMovesTheGiftsThatItNoLongerReaches(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	reunion := e.addShared(f.admin, "Reunion", annual(12, 10), false)
@@ -211,6 +220,7 @@ func TestDetachingOrUnmarkingASharedOccasionMovesTheGiftsThatItNoLongerReaches(t
 }
 
 func TestAGiftKeepsItsOccasionWhenAnotherRouteStillReachesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	reunion := e.addShared(f.admin, "Reunion", annual(12, 10), false)
@@ -228,6 +238,7 @@ func TestAGiftKeepsItsOccasionWhenAnotherRouteStillReachesIt(t *testing.T) {
 }
 
 func TestChangingABirthdayMovesTheGiftsForItToTheNewDate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -245,6 +256,7 @@ func TestChangingABirthdayMovesTheGiftsForItToTheNewDate(t *testing.T) {
 }
 
 func TestARenamedOccasionAndAnEditedTimezoneMoveNoGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -259,6 +271,7 @@ func TestARenamedOccasionAndAnEditedTimezoneMoveNoGift(t *testing.T) {
 }
 
 func TestMovingTheDateOfACustomOccasionMovesItsGifts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -274,6 +287,7 @@ func TestMovingTheDateOfACustomOccasionMovesItsGifts(t *testing.T) {
 }
 
 func TestAGiverWhoSeesNoRecipientAnyMoreIsFlaggedAndTheServerPicksTheOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -301,6 +315,7 @@ func TestAGiverWhoSeesNoRecipientAnyMoreIsFlaggedAndTheServerPicksTheOccasion(t 
 }
 
 func TestAGiverWhoIsARecipientSeesThemselvesSoTheirGiftIsNotFlaggedNoLongerShared(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -316,6 +331,7 @@ func TestAGiverWhoIsARecipientSeesThemselvesSoTheirGiftIsNotFlaggedNoLongerShare
 }
 
 func TestMovingAnItemToAListTheGiverCannotSeeFlagsItMovedAndNoLongerShared(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -329,6 +345,7 @@ func TestMovingAnItemToAListTheGiverCannotSeeFlagsItMovedAndNoLongerShared(t *te
 }
 
 func TestAGiftPastItsDateWaitsForItsRevealAndIsNotMovedWhenItsOccasionGoes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")

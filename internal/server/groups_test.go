@@ -91,6 +91,7 @@ func (e *env) nest(admin, outerID, innerID string) {
 }
 
 func TestTheAdminCreatesAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -115,6 +116,7 @@ func withVersion(g groupView, v string) groupView {
 }
 
 func TestOnlyTheAdminCreatesGroups(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -128,6 +130,7 @@ func TestOnlyTheAdminCreatesGroups(t *testing.T) {
 }
 
 func TestAGroupNameIsRequiredAndShort(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -147,6 +150,7 @@ func TestAGroupNameIsRequiredAndShort(t *testing.T) {
 }
 
 func TestAUserListsTheGroupsTheyAreInDirectlyOrThroughNesting(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -169,6 +173,7 @@ func TestAUserListsTheGroupsTheyAreInDirectlyOrThroughNesting(t *testing.T) {
 }
 
 func TestThroughIsTheFirstGroupByNameWhenSeveralPutTheCallerInOne(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -187,6 +192,7 @@ func TestThroughIsTheFirstGroupByNameWhenSeveralPutTheCallerInOne(t *testing.T) 
 }
 
 func TestTheAdminListsEveryGroupAndIncludesMeLimitsThemToTheirOwn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	family := e.newGroup(admin, "My family")
@@ -209,6 +215,7 @@ func TestTheAdminListsEveryGroupAndIncludesMeLimitsThemToTheirOwn(t *testing.T) 
 }
 
 func TestIncludesMeChangesNothingForAUserWhoIsNotTheAdmin(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -220,6 +227,7 @@ func TestIncludesMeChangesNothingForAUserWhoIsNotTheAdmin(t *testing.T) {
 }
 
 func TestTheGroupsCollectionPagesSortsAndRejectsWhatItDoesNotKnow(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	for _, name := range []string{"Cy", "Ada", "Bea"} {
@@ -243,6 +251,7 @@ func TestTheGroupsCollectionPagesSortsAndRejectsWhatItDoesNotKnow(t *testing.T) 
 }
 
 func TestAGroupIsSeenByTheUsersInItAndTheAdminAndIsA404ToEveryoneElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -265,6 +274,7 @@ func TestAGroupIsSeenByTheUsersInItAndTheAdminAndIsA404ToEveryoneElse(t *testing
 }
 
 func TestAUserInAnInnerGroupIsInTheOuterGroupButNotTheOtherWayRound(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -280,6 +290,7 @@ func TestAUserInAnInnerGroupIsInTheOuterGroupButNotTheOtherWayRound(t *testing.T
 }
 
 func TestTheAdminRenamesAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	g := e.newGroup(admin, "Famly")
@@ -294,6 +305,7 @@ func TestTheAdminRenamesAGroup(t *testing.T) {
 }
 
 func TestARenameChecksTheNameTheVersionAndWhoAsks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -331,6 +343,7 @@ func TestARenameChecksTheNameTheVersionAndWhoAsks(t *testing.T) {
 }
 
 func TestTheAdminDeletesAGroupAndItsPlaceInTheNestingButNotItsUsersOrGroups(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -351,6 +364,7 @@ func TestTheAdminDeletesAGroupAndItsPlaceInTheNestingButNotItsUsersOrGroups(t *t
 }
 
 func TestDeletingAGroupDoesNotDeleteTheGroupsInsideIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	outer := e.newGroup(admin, "Outer")
@@ -363,6 +377,7 @@ func TestDeletingAGroupDoesNotDeleteTheGroupsInsideIt(t *testing.T) {
 }
 
 func TestADeleteChecksTheVersionAndWhoAsks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -389,6 +404,7 @@ func TestADeleteChecksTheVersionAndWhoAsks(t *testing.T) {
 }
 
 func TestAGroupHasEachRowsVersionEqualToItsETag(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	g := e.newGroup(admin, "Family")

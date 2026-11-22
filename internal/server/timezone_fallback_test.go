@@ -11,6 +11,7 @@ import (
 // injects that zone. The dates are tested in internal/occasion.
 
 func TestARecipientWithNoTimezoneIsRevealedAtMidnightInTheFallbackZone(t *testing.T) {
+	t.Parallel()
 	la, err := time.LoadLocation("America/Los_Angeles")
 	require.NoError(t, err)
 	e := newEnvIn(t, la)

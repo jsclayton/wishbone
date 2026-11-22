@@ -16,6 +16,7 @@ import (
 // the service with the parent as the route first loaded them, after the change.
 
 func TestAnUnlinkBetweenTheCheckAndTheWriteStopsTheWrite(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -36,6 +37,7 @@ func TestAnUnlinkBetweenTheCheckAndTheWriteStopsTheWrite(t *testing.T) {
 }
 
 func TestADeactivationBetweenTheCheckAndTheWriteStopsTheWrite(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")

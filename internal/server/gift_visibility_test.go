@@ -20,6 +20,7 @@ func (e *env) removeGroup(admin, outerID, innerID string) {
 }
 
 func TestAGiverRemovedFromTheOnlyGroupTheySharedWithTheRecipientIsFlaggedAtOnce(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -39,6 +40,7 @@ func TestAGiverRemovedFromTheOnlyGroupTheySharedWithTheRecipientIsFlaggedAtOnce(
 }
 
 func TestAGiverWhoSeesTheRecipientAgainAndLosesThemAgainIsFlaggedAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -59,6 +61,7 @@ func TestAGiverWhoSeesTheRecipientAgainAndLosesThemAgainIsFlaggedAgain(t *testin
 }
 
 func TestAParentLinkRemovedThatWasTheGiversOnlyWayToSeeTheListFlagsTheGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	// Hedy shares no group with anyone, and sees Mom only as her parent.
@@ -77,6 +80,7 @@ func TestAParentLinkRemovedThatWasTheGiversOnlyWayToSeeTheListFlagsTheGift(t *te
 }
 
 func TestAParentLinkAddedLeavesTheGiftsOfOtherUsersAlone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -88,6 +92,7 @@ func TestAParentLinkAddedLeavesTheGiftsOfOtherUsersAlone(t *testing.T) {
 }
 
 func TestUnnestingTheGroupThatCarriedTheGiverFlagsTheGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -109,6 +114,7 @@ func TestUnnestingTheGroupThatCarriedTheGiverFlagsTheGift(t *testing.T) {
 }
 
 func TestNestingGroupsDoesNotFlagAGiftTheGiverCanStillSee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -121,6 +127,7 @@ func TestNestingGroupsDoesNotFlagAGiftTheGiverCanStillSee(t *testing.T) {
 }
 
 func TestDeletingTheGroupThatCarriedTheGiverFlagsTheGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -133,6 +140,7 @@ func TestDeletingTheGroupThatCarriedTheGiverFlagsTheGift(t *testing.T) {
 }
 
 func TestAGiftKeptOnADeletedListMovesToTheLastRecipientsNextOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -158,6 +166,7 @@ func TestAGiftKeptOnADeletedListMovesToTheLastRecipientsNextOccasion(t *testing.
 }
 
 func TestMovingTheAdminRoleSettlesTheGiftsOfTheOldAndTheNewAdmin(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	// Ada sees Mom through "Cousins", and Dad only as the admin.
@@ -176,6 +185,7 @@ func TestMovingTheAdminRoleSettlesTheGiftsOfTheOldAndTheNewAdmin(t *testing.T) {
 }
 
 func TestARecipientLeavingTheGroupThatReachesASharedOccasionMovesTheGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	reunion := e.addShared(f.admin, "Reunion", annual(12, 10), false)

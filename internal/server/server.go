@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -145,8 +146,11 @@ func New(opts Options) *Server {
 	humaCfg.OpenAPIPath = apiPrefix + "/openapi"
 	humaCfg.DocsPath = apiPrefix + "/docs"
 	humaCfg.SchemasPath = apiPrefix + "/schemas"
-	humaCfg.Components.SecuritySchemes = securitySchemes
+	humaCfg.Components.SecuritySchemes = securitySchemes()
 	// A PATCH body is JSON Merge Patch. It is JSON, so it uses the JSON format.
+	// DefaultConfig's map is huma.DefaultFormats itself, so the server adds to
+	// a copy, and leaves the package's map as it is for every other server.
+	humaCfg.Formats = maps.Clone(humaCfg.Formats)
 	humaCfg.Formats[mergePatchContentType] = huma.DefaultJSONFormat
 	humaCfg.Transformers = append(humaCfg.Transformers, logServerErrors)
 	api := humachi.New(r, humaCfg)
@@ -167,7 +171,7 @@ func New(opts Options) *Server {
 	public := huma.NewGroup(api, apiPrefix)
 	signedIn := huma.NewGroup(api, apiPrefix)
 	signedIn.UseSimpleModifier(func(op *huma.Operation) {
-		op.Security = signedInSecurity
+		op.Security = signedInSecurity()
 		declareCodes(op, "unauthorized")
 	})
 	signedIn.UseSimpleModifier(documentIdempotencyKey())

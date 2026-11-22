@@ -12,6 +12,7 @@ import (
 // (docs/spec.md, Gifts; docs/routes.md, Gift routes).
 
 func TestAGiverChangesTheFieldsOfAnOpenGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 4})
@@ -37,6 +38,7 @@ func TestAGiverChangesTheFieldsOfAnOpenGift(t *testing.T) {
 }
 
 func TestAGiverClearsALabelAndANoteWithNullAndLowersTheQuantity(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 4})
@@ -55,6 +57,7 @@ func TestAGiverClearsALabelAndANoteWithNullAndLowersTheQuantity(t *testing.T) {
 }
 
 func TestARaiseNeedsThatMoreAreStillWanted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -68,6 +71,7 @@ func TestARaiseNeedsThatMoreAreStillWanted(t *testing.T) {
 }
 
 func TestAGiftsFieldsAreChecked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 3})
@@ -99,6 +103,7 @@ func TestAGiftsFieldsAreChecked(t *testing.T) {
 }
 
 func TestAGiftsETagGuardsItsEditsAndItsUnclaim(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -114,6 +119,7 @@ func TestAGiftsETagGuardsItsEditsAndItsUnclaim(t *testing.T) {
 }
 
 func TestAGiftThatMovesToAnOccasionThatHoldsAGiftMergesIntoIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 6})
@@ -138,6 +144,7 @@ func TestAGiftThatMovesToAnOccasionThatHoldsAGiftMergesIntoIt(t *testing.T) {
 }
 
 func TestTheStayingGiftKeepsItsOwnFromLabelOnAMerge(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 6})
@@ -154,6 +161,7 @@ func TestTheStayingGiftKeepsItsOwnFromLabelOnAMerge(t *testing.T) {
 }
 
 func TestAGiverUnclaimsAnOpenGiftAndTheQuantityGoesBack(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -172,6 +180,7 @@ func TestAGiverUnclaimsAnOpenGiftAndTheQuantityGoesBack(t *testing.T) {
 }
 
 func TestAGivenGiftCannotBeChangedOrUnclaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -188,6 +197,7 @@ func TestAGivenGiftCannotBeChangedOrUnclaimed(t *testing.T) {
 }
 
 func TestAGiverWhoBecomesARecipientKeepsTheGiftAndNeverRaisesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.dad, f.house, "Grill", map[string]any{"quantity": 5})
@@ -208,6 +218,7 @@ func TestAGiverWhoBecomesARecipientKeepsTheGiftAndNeverRaisesIt(t *testing.T) {
 }
 
 func TestDeletingAnItemWithOpenGiftsIsSoft(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2, "price_minor": 4500})
@@ -257,6 +268,7 @@ func (e *env) imageRowsHeld() int {
 }
 
 func TestDeletingAnItemWithNoGiftsStaysAHardDelete(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -269,6 +281,7 @@ func TestDeletingAnItemWithNoGiftsStaysAHardDelete(t *testing.T) {
 }
 
 func TestMovingAndAddingItemsIgnoresTheItemsDeletedSoftly(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	a := e.addItem(f.mom, f.momList, "A")
@@ -285,6 +298,7 @@ func TestMovingAndAddingItemsIgnoresTheItemsDeletedSoftly(t *testing.T) {
 }
 
 func TestADeletedItemsImageIsAGoneForItsRecipientWhetherOrNotItWasClaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	claimed := e.addItem(f.mom, f.momList, "Claimed")
@@ -305,6 +319,7 @@ func TestADeletedItemsImageIsAGoneForItsRecipientWhetherOrNotItWasClaimed(t *tes
 }
 
 func TestAttachingADeletedItemsImageIsRefusedTheSameWhetherOrNotItWasClaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	claimed := e.addItem(f.mom, f.momList, "Claimed")

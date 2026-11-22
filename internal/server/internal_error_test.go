@@ -132,21 +132,25 @@ func requirePlain500(t *testing.T, res *http.Response) {
 }
 
 func TestAnUnexpectedErrorAnswersAPlain500(t *testing.T) {
+	t.Parallel()
 	e, _ := failingEnv(t)
 	requirePlain500(t, e.do(request{method: http.MethodPost, path: "/fail/1"}))
 }
 
 func TestAn500ErrorFromAHandlerAnswersAPlain500(t *testing.T) {
+	t.Parallel()
 	e, _ := failingEnv(t)
 	requirePlain500(t, e.do(request{path: "/fail-500"}))
 }
 
 func TestAPanicAnswersAPlain500(t *testing.T) {
+	t.Parallel()
 	e, _ := failingEnv(t)
 	requirePlain500(t, e.do(request{path: "/panic/1"}))
 }
 
 func TestTheCauseOfA500IsLogged(t *testing.T) {
+	t.Parallel()
 	e, log := failingEnv(t)
 
 	e.do(request{method: http.MethodPost, path: "/fail/secret-id"})
@@ -159,6 +163,7 @@ func TestTheCauseOfA500IsLogged(t *testing.T) {
 }
 
 func TestTheCauseOfAPanicIsLogged(t *testing.T) {
+	t.Parallel()
 	e, log := failingEnv(t)
 
 	e.do(request{path: "/panic/secret-id"})
@@ -170,6 +175,7 @@ func TestTheCauseOfAPanicIsLogged(t *testing.T) {
 }
 
 func TestA422KeepsItsFieldErrors(t *testing.T) {
+	t.Parallel()
 	e, _ := failingEnv(t)
 
 	res := e.do(request{method: http.MethodPost, path: "/named", body: map[string]any{"name": ""}})
@@ -203,6 +209,7 @@ func findLogLine(t *testing.T, log, want string) map[string]any {
 }
 
 func TestA500MadeBeforeTheRequestLogsThroughTheServersLogger(t *testing.T) {
+	t.Parallel()
 	e, log := failingEnv(t)
 
 	e.do(request{path: "/fail-500"})
@@ -214,6 +221,7 @@ func TestA500MadeBeforeTheRequestLogsThroughTheServersLogger(t *testing.T) {
 }
 
 func TestTheCauseGivenToErrorIsLogged(t *testing.T) {
+	t.Parallel()
 	e, log := failingEnv(t)
 
 	requirePlain500(t, e.do(request{path: "/fail-500-cause"}))
@@ -225,6 +233,7 @@ func TestTheCauseGivenToErrorIsLogged(t *testing.T) {
 }
 
 func TestAnother5xxAnswersWithNoErrorsAndLogsItsCause(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		path   string
 		status int
@@ -253,6 +262,7 @@ func TestAnother5xxAnswersWithNoErrorsAndLogsItsCause(t *testing.T) {
 }
 
 func TestAClientThatDropsARequestWritesNoErrorLine(t *testing.T) {
+	t.Parallel()
 	e, log, waiting := failingEnvWaiting(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, e.ts.URL+"/api/v2/wait", nil)
@@ -269,6 +279,7 @@ func TestAClientThatDropsARequestWritesNoErrorLine(t *testing.T) {
 }
 
 func TestACutOffBodyWritesNoErrorLine(t *testing.T) {
+	t.Parallel()
 	e, log := failingEnv(t)
 	conn, err := net.Dial("tcp", strings.TrimPrefix(e.ts.URL, "http://"))
 	require.NoError(t, err)
@@ -313,6 +324,7 @@ func loggedEnv(t *testing.T, change ...func(*Options)) (*env, *lockedBuffer) {
 // The one test of the log on the API that New builds: every other one uses
 // failingEnv's own API.
 func TestA503OnTheServersOwnAPIIsLoggedOnce(t *testing.T) {
+	t.Parallel()
 	e, log := loggedEnv(t, func(o *Options) { o.Store = fakePinger{err: errors.New(cause)} })
 
 	res := e.do(request{path: "/health"})
@@ -326,6 +338,7 @@ func TestA503OnTheServersOwnAPIIsLoggedOnce(t *testing.T) {
 }
 
 func TestAFailedIdempotencyKeyLookupIsLoggedOnce(t *testing.T) {
+	t.Parallel()
 	e, log := loggedEnv(t)
 	_, token := e.signUp()
 	_, err := e.db.Exec("DROP TABLE idempotency_keys")
@@ -341,6 +354,7 @@ func TestAFailedIdempotencyKeyLookupIsLoggedOnce(t *testing.T) {
 }
 
 func TestAClientGoneWhenTheCallerIsFoundWritesNoErrorLine(t *testing.T) {
+	t.Parallel()
 	e, log := loggedEnv(t)
 	_, token := e.signUp()
 	req := httptest.NewRequest(http.MethodGet, "/api/v2/users/me", nil)

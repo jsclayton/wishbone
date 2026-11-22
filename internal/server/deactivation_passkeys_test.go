@@ -8,6 +8,7 @@ import (
 )
 
 func TestTheAdminOrAParentWhoAddsOrRenamesADeactivatedUsersPasskeyGetsForbidden(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")

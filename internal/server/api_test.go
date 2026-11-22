@@ -47,6 +47,7 @@ func do(t *testing.T, method, url string) *http.Response {
 }
 
 func TestHealthIsServedUnderTheAPIPrefix(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/api/v2/health")
@@ -59,6 +60,7 @@ func TestHealthIsServedUnderTheAPIPrefix(t *testing.T) {
 }
 
 func TestHealthWithTheDatabaseDownIsACodedProblem(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{err: errors.New("boom")})
 
 	res := get(t, ts.URL+"/api/v2/health")
@@ -67,6 +69,7 @@ func TestHealthWithTheDatabaseDownIsACodedProblem(t *testing.T) {
 }
 
 func TestRetiredAPIVersionsAnswer410(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, tc := range []struct{ method, path string }{
@@ -94,6 +97,7 @@ func TestRetiredAPIVersionsAnswer410(t *testing.T) {
 }
 
 func TestRetiredAPIVersionAnswerNamesTheVersionAndTheActiveOne(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/api/v1/me")
@@ -102,6 +106,7 @@ func TestRetiredAPIVersionAnswerNamesTheVersionAndTheActiveOne(t *testing.T) {
 }
 
 func TestTheActiveAPIVersionIsNotRetired(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/api/v2/health")
@@ -109,6 +114,7 @@ func TestTheActiveAPIVersionIsNotRetired(t *testing.T) {
 }
 
 func TestAPIVersionsAboveTheActiveOnesAnswerAsUnknownPaths(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/api/v3/x", "/api/v3", "/api/v10/health", "/api/v99999999999999999999/x"} {
@@ -121,6 +127,7 @@ func TestAPIVersionsAboveTheActiveOnesAnswerAsUnknownPaths(t *testing.T) {
 }
 
 func TestMalformedAPIVersionsAnswerAsUnknownPaths(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/api/vx/", "/api/vx/me", "/api/v01/me", "/api/v-1/me", "/api/v/me", "/api/1/me", "/api/V1/me", "/api/v1x/me", "/api/v+1/me"} {
@@ -133,6 +140,7 @@ func TestMalformedAPIVersionsAnswerAsUnknownPaths(t *testing.T) {
 }
 
 func TestRetiredVersionsAreEveryWholeNumberBelowTheLowestActiveOne(t *testing.T) {
+	t.Parallel()
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
 	h := retiredAPIVersions([]int{3, 4}, next)
 
@@ -160,10 +168,12 @@ func TestRetiredVersionsAreEveryWholeNumberBelowTheLowestActiveOne(t *testing.T)
 }
 
 func TestTheAPIPrefixIsTheNewestActiveVersion(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "/api/v"+strconv.Itoa(slices.Max(activeAPIVersions)), apiPrefix)
 }
 
 func TestUnknownAPIPathsAre404WithACode(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/api/v2/nope", "/api/v2", "/api/nope", "/api/v3/health"} {
@@ -177,6 +187,7 @@ func TestUnknownAPIPathsAre404WithACode(t *testing.T) {
 }
 
 func TestWrongMethodIsA405WithACode(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := do(t, http.MethodPost, ts.URL+"/api/v2/health")
@@ -187,6 +198,7 @@ func TestWrongMethodIsA405WithACode(t *testing.T) {
 // Huma writes its own errors (a body that fails validation, for one) with
 // huma.NewError, so every one of them carries a code too.
 func TestHumaErrorsCarryACodeFromTheirStatus(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		err  huma.StatusError
 		code string
@@ -222,12 +234,14 @@ func TestHumaErrorsCarryACodeFromTheirStatus(t *testing.T) {
 }
 
 func TestAProblemWithItsOwnCode(t *testing.T) {
+	t.Parallel()
 	raw, err := json.Marshal(Error(http.StatusConflict, "item_fully_claimed", "Someone else just claimed the last one."))
 	require.NoError(t, err)
 	require.JSONEq(t, `{"status":409,"title":"Conflict","code":"item_fully_claimed","detail":"Someone else just claimed the last one."}`, string(raw))
 }
 
 func TestOpenAPIAndDocsAreServedUnderV2(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/api/v2/openapi", "/api/v2/openapi.json", "/api/v2/openapi.yaml", "/api/v2/docs"} {
@@ -245,6 +259,7 @@ func TestOpenAPIAndDocsAreServedUnderV2(t *testing.T) {
 }
 
 func TestSchemasTheOpenAPIDocumentRefersToAreServed(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	raw, err := io.ReadAll(get(t, ts.URL+"/api/v2/openapi.json").Body)
@@ -278,6 +293,7 @@ var update = flag.Bool("update", false, "rewrite testdata/openapi.json from the 
 // in the PR diff. After an intended change, run
 // `go test ./internal/server -run OpenAPIDocument -update` and commit the copy.
 func TestOpenAPIDocumentMatchesTheCopyInTheRepo(t *testing.T) {
+	t.Parallel()
 	const snapshot = "testdata/openapi.json"
 	rec := httptest.NewRecorder()
 	opts, _, _ := testOptions(t)

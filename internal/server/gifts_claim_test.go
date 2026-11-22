@@ -19,6 +19,7 @@ func requireCoded(t *testing.T, res *http.Response, status int, code string) {
 }
 
 func TestARecipientNeverClaimsOnTheirOwnList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.dad, f.house, "Grill")
@@ -30,6 +31,7 @@ func TestARecipientNeverClaimsOnTheirOwnList(t *testing.T) {
 }
 
 func TestAnItemTheCallerCannotSeeCannotBeClaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -43,6 +45,7 @@ func TestAnItemTheCallerCannotSeeCannotBeClaimed(t *testing.T) {
 }
 
 func TestAClaimIsCheckedAgainstWhatIsStillWanted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -57,6 +60,7 @@ func TestAClaimIsCheckedAgainstWhatIsStillWanted(t *testing.T) {
 }
 
 func TestAGiverClaimsAnItemOnceForAnOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 5})
@@ -71,6 +75,7 @@ func TestAGiverClaimsAnItemOnceForAnOccasion(t *testing.T) {
 }
 
 func TestAGiverCannotPickAnOccasionOfARecipientTheyCannotSee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -87,6 +92,7 @@ func TestAGiverCannotPickAnOccasionOfARecipientTheyCannotSee(t *testing.T) {
 }
 
 func TestAClaimsFieldsAreChecked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -105,6 +111,7 @@ func TestAClaimsFieldsAreChecked(t *testing.T) {
 }
 
 func TestAGiverWhoSeesTheListOnlyThroughADeactivatedRecipientCannotClaim(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -121,6 +128,7 @@ func TestAGiverWhoSeesTheListOnlyThroughADeactivatedRecipientCannotClaim(t *test
 }
 
 func TestAGiverDoesNotSeeAFullyClaimedItemUnlessTheyHoldAGiftOnIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -149,6 +157,7 @@ func TestAGiverDoesNotSeeAFullyClaimedItemUnlessTheyHoldAGiftOnIt(t *testing.T) 
 }
 
 func TestTwoGiversWhoClaimTheLastOneAtOnceHaveOneWinner(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")

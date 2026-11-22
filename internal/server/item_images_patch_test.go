@@ -16,6 +16,7 @@ func (e *env) patchImages(token, itemID string, body map[string]any) *http.Respo
 }
 
 func TestImageIDsReplacesTheWholeArrayAndTheServerDeletesTheImagesLeftOut(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -39,6 +40,7 @@ func TestImageIDsReplacesTheWholeArrayAndTheServerDeletesTheImagesLeftOut(t *tes
 }
 
 func TestImageIDsCanAddTheFirstImagesAndRemoveEveryImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -57,6 +59,7 @@ func TestImageIDsCanAddTheFirstImagesAndRemoveEveryImage(t *testing.T) {
 }
 
 func TestPrimaryImageIDPicksThePrimaryImageAndDoesNotChangeTheOrder(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -79,6 +82,7 @@ func TestPrimaryImageIDPicksThePrimaryImageAndDoesNotChangeTheOrder(t *testing.T
 }
 
 func TestWhenThePrimaryImageIsRemovedTheFirstRemainingImageTakesItsPlace(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -92,6 +96,7 @@ func TestWhenThePrimaryImageIsRemovedTheFirstRemainingImageTakesItsPlace(t *test
 }
 
 func TestAPatchOfImagesIsRefusedForABadPrimaryTooManyImagesAndDuplicates(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -126,6 +131,7 @@ func TestAPatchOfImagesIsRefusedForABadPrimaryTooManyImagesAndDuplicates(t *test
 }
 
 func TestAnImageAnotherResourceHoldsIsA409AndOneTheCallerCantSeeIsA422OnAPatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -146,6 +152,7 @@ func TestAnImageAnotherResourceHoldsIsA409AndOneTheCallerCantSeeIsA422OnAPatch(t
 }
 
 func TestAnImageRemovedFromAnItemCanNotBeAttachedAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -160,6 +167,7 @@ func TestAnImageRemovedFromAnItemCanNotBeAttachedAgain(t *testing.T) {
 }
 
 func TestOnlyAnEditorChangesAnItemsImages(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	a := e.uploaded(f.sue)
@@ -171,6 +179,7 @@ func TestOnlyAnEditorChangesAnItemsImages(t *testing.T) {
 }
 
 func TestItemImagesAreChangedOnlyThroughImageIDs(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -184,6 +193,7 @@ func TestItemImagesAreChangedOnlyThroughImageIDs(t *testing.T) {
 }
 
 func TestTheIfMatchOfAnItemGuardsItsImages(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()

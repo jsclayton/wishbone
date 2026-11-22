@@ -12,6 +12,7 @@ import (
 // and Gift routes).
 
 func TestMovingAnItemTakesItsGiftsAlongFlaggedMovedWithTheNewListWhenTheGiverSeesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
@@ -41,6 +42,7 @@ func TestMovingAnItemTakesItsGiftsAlongFlaggedMovedWithTheNewListWhenTheGiverSee
 }
 
 func TestTheMovedFlagHasANullListWhenTheGiverCannotSeeTheNewList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -56,6 +58,7 @@ func TestTheMovedFlagHasANullListWhenTheGiverCannotSeeTheNewList(t *testing.T) {
 }
 
 func TestAMoveAndAnEditTogetherFlagBothAndAMoveOfAnUnclaimedItemFlagsNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -80,6 +83,7 @@ func (e *env) flagRows() int {
 }
 
 func TestTheFlagsOfTwoGiftsThatMergeAreAddedTogether(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 3})
@@ -103,6 +107,7 @@ func TestTheFlagsOfTwoGiftsThatMergeAreAddedTogether(t *testing.T) {
 }
 
 func TestNeedsAttentionFollowsV1sRuleWithTheFlagsAndTheFilterUsesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	soon := e.addOccasion(f.mom, "Soon", annual(11, 12), "")

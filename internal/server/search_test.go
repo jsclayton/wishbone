@@ -157,6 +157,7 @@ func only(t *testing.T, res *http.Response) searchResult {
 }
 
 func TestSearchNeedsASignInAndExactlyOneOfTextOrImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, &fakeEyes{}))
 	_, admin := e.signUp()
 
@@ -189,6 +190,7 @@ func TestSearchNeedsASignInAndExactlyOneOfTextOrImage(t *testing.T) {
 }
 
 func TestFreeTextIsTheTitleAndTheNotesAsTypedAndNeverFoundOrCounted(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, &fakeEyes{}))
 	_, admin := e.signUp()
@@ -220,6 +222,7 @@ func TestFreeTextIsTheTitleAndTheNotesAsTypedAndNeverFoundOrCounted(t *testing.T
 }
 
 func TestLongFreeTextIsCutForTheTitleAndTheNotes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, nil))
 	_, admin := e.signUp()
 
@@ -234,6 +237,7 @@ func TestLongFreeTextIsCutForTheTitleAndTheNotes(t *testing.T) {
 }
 
 func TestALinkIsReadIntoATitleOneStoreLinkImagesAndOptions(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		return product("https://www.shop.example/kettle?color=red", extract.Product{
 			Title:    "Copper kettle",
@@ -278,6 +282,7 @@ func TestALinkIsReadIntoATitleOneStoreLinkImagesAndOptions(t *testing.T) {
 }
 
 func TestALinkWithAPriceAndNoCurrencyIsInUSDAndOneWithNoPriceHasNone(t *testing.T) {
+	t.Parallel()
 	prices := map[string]extract.Product{
 		"https://shop.example/a": {Title: "A", Price: "10"},
 		"https://shop.example/b": {Title: "B"},
@@ -296,6 +301,7 @@ func TestALinkWithAPriceAndNoCurrencyIsInUSDAndOneWithNoPriceHasNone(t *testing.
 }
 
 func TestALinkThatYieldsNothingIsNotFoundAndKeepsTheLinkAsAStoreLink(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		return extract.Result{URL: url, Store: extract.StoreFromURL(url), Status: extract.StatusNoData}, nil
 	}}
@@ -314,6 +320,7 @@ func TestALinkThatYieldsNothingIsNotFoundAndKeepsTheLinkAsAStoreLink(t *testing.
 }
 
 func TestALinkOnTheInstancesOwnNetworkIsNotFoundAndGoesNowhereElse(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(string) (extract.Result, error) {
 		return extract.Result{}, fmt.Errorf("fetch: %w 10.0.0.5", netguard.ErrPrivateAddress)
 	}}
@@ -328,6 +335,7 @@ func TestALinkOnTheInstancesOwnNetworkIsNotFoundAndGoesNowhereElse(t *testing.T)
 }
 
 func TestAnAddressThatCantBeParsedIs422AndFetchesNothing(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, nil))
 	_, admin := e.signUp()
@@ -340,6 +348,7 @@ func TestAnAddressThatCantBeParsedIs422AndFetchesNothing(t *testing.T) {
 }
 
 func TestALinkReadAgainWithin24HoursComesFromTheCacheAndIsNotCounted(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, nil))
 	_, admin := e.signUp()
@@ -358,6 +367,7 @@ func TestALinkReadAgainWithin24HoursComesFromTheCacheAndIsNotCounted(t *testing.
 }
 
 func TestAPastedLinkFromABlockedStoreIs422BeforeAnyFetchAndIsNotCounted(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, nil))
 	_, admin := e.signUp()
@@ -381,6 +391,7 @@ func TestAPastedLinkFromABlockedStoreIs422BeforeAnyFetchAndIsNotCounted(t *testi
 }
 
 func TestALinkThatRedirectsToABlockedStoreIs422AfterTheFetchAndIsCounted(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		if url == "https://bit.example/x" {
 			return product("https://www.temu.com/p/1?utm_source=x", extract.Product{Title: "Gadget"}), nil
@@ -404,6 +415,7 @@ func TestALinkThatRedirectsToABlockedStoreIs422AfterTheFetchAndIsCounted(t *test
 }
 
 func TestAShortLinkWhoseReadingEndedAtAStoreBlockedLaterIsRefusedWithNoFetch(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		return product("https://www.temu.com/p/1", extract.Product{Title: "Gadget"}), nil
 	}}
@@ -420,6 +432,7 @@ func TestAShortLinkWhoseReadingEndedAtAStoreBlockedLaterIsRefusedWithNoFetch(t *
 }
 
 func TestEachUserCanSearch30LinksInAnyRollingHourAndThenGetsA429(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, nil))
 	_, admin := e.signUp()
@@ -448,6 +461,7 @@ func TestEachUserCanSearch30LinksInAnyRollingHourAndThenGetsA429(t *testing.T) {
 }
 
 func TestAPhotoGetsATitleAndAPriceOnlyWhenItShowsOneAndIsKeptNowhere(t *testing.T) {
+	t.Parallel()
 	eyes := &fakeEyes{guess: llm.PhotoGuess{Title: "Blue enamel mug", Price: "12.50", Currency: "EUR"}}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))
 	_, admin := e.signUp()
@@ -480,6 +494,7 @@ func TestAPhotoGetsATitleAndAPriceOnlyWhenItShowsOneAndIsKeptNowhere(t *testing.
 }
 
 func TestAPhotoTheModelCantReadIsNotFoundAndStillCounts(t *testing.T) {
+	t.Parallel()
 	eyes := &fakeEyes{err: errors.New("model is down")}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))
 	_, admin := e.signUp()
@@ -496,6 +511,7 @@ func TestAPhotoTheModelCantReadIsNotFoundAndStillCounts(t *testing.T) {
 }
 
 func TestWithTheLLMOffAPhotoIsNotFoundAndNotCounted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, nil))
 	_, admin := e.signUp()
 
@@ -508,6 +524,7 @@ func TestWithTheLLMOffAPhotoIsNotFoundAndNotCounted(t *testing.T) {
 }
 
 func TestPhotosAndLinksShareTheHourlyLimitAndAPhotoOverItIs429BeforeTheModelIsAsked(t *testing.T) {
+	t.Parallel()
 	eyes := &fakeEyes{guess: llm.PhotoGuess{Title: "Mug"}}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))
 	_, admin := e.signUp()
@@ -528,6 +545,7 @@ func TestPhotosAndLinksShareTheHourlyLimitAndAPhotoOverItIs429BeforeTheModelIsAs
 }
 
 func TestAFileThatIsNotAnImageIs422AndIsNotCounted(t *testing.T) {
+	t.Parallel()
 	eyes := &fakeEyes{guess: llm.PhotoGuess{Title: "Mug"}}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))
 	_, admin := e.signUp()
@@ -542,6 +560,7 @@ func TestAFileThatIsNotAnImageIs422AndIsNotCounted(t *testing.T) {
 }
 
 func TestAPhotoOverTheImageLimitIsA413(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, &fakeEyes{}))
 	_, admin := e.signUp()
 
@@ -562,6 +581,7 @@ func TestAPhotoOverTheImageLimitIsA413(t *testing.T) {
 }
 
 func TestADownloadOfAnImageIsNotCountedAgainstTheHourlyLimit(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: anyProduct}
 	e := newEnv(t, withSearch(shop, nil), privateImages(t))
 	_, admin := e.signUp()
@@ -577,6 +597,7 @@ func TestADownloadOfAnImageIsNotCountedAgainstTheHourlyLimit(t *testing.T) {
 }
 
 func TestSearchWithNoPipelineFindsNothingButStillAnswers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 

@@ -11,6 +11,7 @@ import (
 // a gift on a list (docs/spec.md, Gifts, Occasions for a gift).
 
 func TestAGiverPicksFromTheOccasionsOfTheRecipientsTheySee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addOccasion(f.mom, "Anniversary", annual(11, 20), "")
@@ -36,6 +37,7 @@ func TestAGiverPicksFromTheOccasionsOfTheRecipientsTheySee(t *testing.T) {
 }
 
 func TestASharedOccasionThatReachesSeveralRecipientsIsListedOnce(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.newGroup(f.admin, "Neighbors").ID, f.dadID, f.sueID)
@@ -48,6 +50,7 @@ func TestASharedOccasionThatReachesSeveralRecipientsIsListedOnce(t *testing.T) {
 }
 
 func TestTheOccasionsOfAListLeaveOutADeactivatedRecipientAndOnesWithNoNextDate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addOccasion(f.mom, "Old news", once(2020, 5, 5), "")

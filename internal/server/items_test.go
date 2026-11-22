@@ -117,6 +117,7 @@ func (e *env) grace() (token, listID string) {
 }
 
 func TestARecipientAddsAnItemToTheirListWithTheServersDefaults(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -147,6 +148,7 @@ func TestARecipientAddsAnItemToTheirListWithTheServersDefaults(t *testing.T) {
 }
 
 func TestAnItemRemembersWhoAddedIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -167,6 +169,7 @@ func TestAnItemRemembersWhoAddedIt(t *testing.T) {
 }
 
 func TestAnItemKeepsOnWithNoAdderOnceThatUserIsDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -186,6 +189,7 @@ func TestAnItemKeepsOnWithNoAdderOnceThatUserIsDeleted(t *testing.T) {
 }
 
 func TestARecipientNeverGetsStillWantedOrTheirClaimedQuantity(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -204,6 +208,7 @@ func TestARecipientNeverGetsStillWantedOrTheirClaimedQuantity(t *testing.T) {
 }
 
 func TestItemsGoAtTheEndOfTheListInTheOrderTheyWereAdded(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -218,6 +223,7 @@ func TestItemsGoAtTheEndOfTheListInTheOrderTheyWereAdded(t *testing.T) {
 }
 
 func TestAnItemTakesNotesAPriceARangeAQuantityAndUnlimited(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -235,6 +241,7 @@ func TestAnItemTakesNotesAPriceARangeAQuantityAndUnlimited(t *testing.T) {
 }
 
 func TestAPriceWithNoCurrencyIsInDollarsAndNoPriceHasNoCurrency(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -248,6 +255,7 @@ func TestAPriceWithNoCurrencyIsInDollarsAndNoPriceHasNoCurrency(t *testing.T) {
 }
 
 func TestAnItemThatBreaksARuleIs422InvalidInputAndAddsNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -276,6 +284,7 @@ func TestAnItemThatBreaksARuleIs422InvalidInputAndAddsNothing(t *testing.T) {
 }
 
 func TestOnlyARecipientAddsToAListAndAHiddenListIs404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	token, listID := e.grace()
@@ -306,6 +315,7 @@ func cookieOrNone(token string) http.Header {
 }
 
 func TestAnItemOnAnotherUsersListIs404ToTheAdminAndToStrangers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	token, listID := e.grace()
@@ -325,6 +335,7 @@ func TestAnItemOnAnotherUsersListIs404ToTheAdminAndToStrangers(t *testing.T) {
 }
 
 func TestARecipientEditsAnItemWithAMergePatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -353,6 +364,7 @@ func TestARecipientEditsAnItemWithAMergePatch(t *testing.T) {
 }
 
 func TestAnEditThatBreaksARuleChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -383,6 +395,7 @@ func TestAnEditThatBreaksARuleChangesNothing(t *testing.T) {
 }
 
 func TestAnItemsETagGuardsItsEditsAndItsDelete(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -404,6 +417,7 @@ func TestAnItemsETagGuardsItsEditsAndItsDelete(t *testing.T) {
 }
 
 func TestMovingAnItemToAPositionShiftsTheOthers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -432,6 +446,7 @@ func TestMovingAnItemToAPositionShiftsTheOthers(t *testing.T) {
 }
 
 func TestDeletingAnItemClosesTheGapAndTheNextItemAddedGoesLast(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -451,6 +466,7 @@ func TestDeletingAnItemClosesTheGapAndTheNextItemAddedGoesLast(t *testing.T) {
 }
 
 func TestAnItemMovesToAnotherListTheCallerCanEdit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, token := e.otherUser("Grace")
@@ -477,6 +493,7 @@ func TestAnItemMovesToAnotherListTheCallerCanEdit(t *testing.T) {
 }
 
 func TestAnItemCannotMoveToAListTheCallerCannotSee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	token, listID := e.grace()
@@ -499,6 +516,7 @@ func (e *env) priceOrder(token, listID, sort string) []string {
 }
 
 func TestItemsSortByPriceByTheLowEndAndByCurrencyThenAmountWithNoPriceLast(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -516,6 +534,7 @@ func TestItemsSortByPriceByTheLowEndAndByCurrencyThenAmountWithNoPriceLast(t *te
 }
 
 func TestEverySortPagesToTheSameOrderAsOnePage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -558,6 +577,7 @@ func TestEverySortPagesToTheSameOrderAsOnePage(t *testing.T) {
 }
 
 func TestItemsRefuseFiltersSortsAndCursorsTheyDoNotKnow(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -579,6 +599,7 @@ func TestItemsRefuseFiltersSortsAndCursorsTheyDoNotKnow(t *testing.T) {
 }
 
 func TestACursorOfOneListsItemsDoesNotFitAnotherCollection(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -593,6 +614,7 @@ func TestACursorOfOneListsItemsDoesNotFitAnotherCollection(t *testing.T) {
 }
 
 func TestTheItemsOfAListDoNotMixWithTheItemsOfAnother(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, token := e.otherUser("Grace")

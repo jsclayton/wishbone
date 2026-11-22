@@ -13,6 +13,7 @@ import (
 )
 
 func TestTheAdminSeesAndDeletesAnotherUsersPasskeysButCannotAddOrRenameThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -43,6 +44,7 @@ func TestTheAdminSeesAndDeletesAnotherUsersPasskeysButCannotAddOrRenameThem(t *t
 }
 
 func TestAUserWhoIsNotTheUserOrTheAdminFindsNoPasskeys(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -65,6 +67,7 @@ func TestAUserWhoIsNotTheUserOrTheAdminFindsNoPasskeys(t *testing.T) {
 }
 
 func TestPasskeyRoutesNeedASignIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, _ := e.signUp()
 	for _, r := range []request{
@@ -80,6 +83,7 @@ func TestPasskeyRoutesNeedASignIn(t *testing.T) {
 }
 
 func TestABearerCallerAndACookieCallerGetTheSamePasskeys(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, cookieToken := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(cookieToken, id), "bearer", nil)).Token
@@ -93,6 +97,7 @@ func TestABearerCallerAndACookieCallerGetTheSamePasskeys(t *testing.T) {
 }
 
 func TestRenamingAPasskeyReturnsItAndChangesItsVersion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	made := decode[passkeyView](t, e.registerPasskey(id, cookie(token), passkeytest.New(t), "Laptop"))
@@ -113,6 +118,7 @@ func TestRenamingAPasskeyReturnsItAndChangesItsVersion(t *testing.T) {
 }
 
 func TestARenameWithABadBodyIsRefused(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	made := decode[passkeyView](t, e.registerPasskey(id, cookie(token), passkeytest.New(t), "Laptop"))
@@ -139,6 +145,7 @@ func TestARenameWithABadBodyIsRefused(t *testing.T) {
 }
 
 func TestARenameOrADeleteWithAStaleVersionIs412AndChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	made := decode[passkeyView](t, e.registerPasskey(id, cookie(token), passkeytest.New(t), "Laptop"))
@@ -159,6 +166,7 @@ func TestARenameOrADeleteWithAStaleVersionIs412AndChangesNothing(t *testing.T) {
 }
 
 func TestDeletingAPasskeyIs204AndAGoneOrForeignPasskeyIs404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -178,6 +186,7 @@ func TestDeletingAPasskeyIs204AndAGoneOrForeignPasskeyIs404(t *testing.T) {
 }
 
 func TestRegistrationProblemsHaveACodeEach(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	a := passkeytest.New(t)
@@ -211,6 +220,7 @@ func TestRegistrationProblemsHaveACodeEach(t *testing.T) {
 }
 
 func TestAPasskeyAddedWithNoNameIsCalledPasskey(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 
@@ -220,6 +230,7 @@ func TestAPasskeyAddedWithNoNameIsCalledPasskey(t *testing.T) {
 }
 
 func TestThePasskeysPageAndSortLikeAnyCollection(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	for _, name := range []string{"First", "Second", "Third"} {

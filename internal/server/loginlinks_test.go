@@ -46,6 +46,7 @@ type redeemBody struct {
 }
 
 func TestAUserMakesALoginLinkForThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 
@@ -65,6 +66,7 @@ func TestAUserMakesALoginLinkForThemselves(t *testing.T) {
 }
 
 func TestMeMakesALoginLinkToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 
@@ -74,6 +76,7 @@ func TestMeMakesALoginLinkToo(t *testing.T) {
 }
 
 func TestTheAdminMakesALoginLinkForAnyUserButAUserOnlyForThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	otherID, otherToken := e.otherUser("Grace")
@@ -95,6 +98,7 @@ func TestTheAdminMakesALoginLinkForAnyUserButAUserOnlyForThemselves(t *testing.T
 }
 
 func TestMakingALoginLinkNeedsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, _ := e.signUp()
 
@@ -105,6 +109,7 @@ func TestMakingALoginLinkNeedsASession(t *testing.T) {
 }
 
 func TestRedeemingALoginLinkStartsACookieSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -128,6 +133,7 @@ func TestRedeemingALoginLinkStartsACookieSession(t *testing.T) {
 }
 
 func TestRedeemingALoginLinkWithABearerSessionGivesATokenAndNoCookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -154,6 +160,7 @@ type userBody struct {
 }
 
 func TestABearerRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, adminToken := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -170,6 +177,7 @@ func TestABearerRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
 }
 
 func TestACookieRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, adminToken := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -188,6 +196,7 @@ func TestACookieRedeemAnswersWithTheIDOfTheUserTheLinkIsFor(t *testing.T) {
 }
 
 func TestARedeemThatFailsNamesNoUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	used := e.makeLink(token, id)
@@ -208,6 +217,7 @@ func TestARedeemThatFailsNamesNoUser(t *testing.T) {
 }
 
 func TestARedeemWithAnUnknownSessionKindIs422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -221,6 +231,7 @@ func TestARedeemWithAnUnknownSessionKindIs422(t *testing.T) {
 }
 
 func TestALoginLinkWorksOnce(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -234,6 +245,7 @@ func TestALoginLinkWorksOnce(t *testing.T) {
 }
 
 func TestALoginLinkExpiresAfterSevenDays(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -246,6 +258,7 @@ func TestALoginLinkExpiresAfterSevenDays(t *testing.T) {
 }
 
 func TestAnUnknownLinkGetsTheSameAnswerAsAUsedOne(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -257,6 +270,7 @@ func TestAnUnknownLinkGetsTheSameAnswerAsAUsedOne(t *testing.T) {
 }
 
 func TestRedeemingReplacesTheCallersCurrentSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, adminToken := e.signUp()
 	otherID, otherToken := e.otherUser("Grace")
@@ -283,6 +297,7 @@ func TestRedeemingReplacesTheCallersCurrentSession(t *testing.T) {
 }
 
 func TestRedeemingRevokesOnlyACurrentSessionOfTheSameKind(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, cookieToken := e.signUp()
 	link := func() string { return e.makeLink(cookieToken, id) }
@@ -307,6 +322,7 @@ func TestRedeemingRevokesOnlyACurrentSessionOfTheSameKind(t *testing.T) {
 }
 
 func TestARedeemThatFailsKeepsTheCallersSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 
@@ -317,6 +333,7 @@ func TestARedeemThatFailsKeepsTheCallersSession(t *testing.T) {
 }
 
 func TestRedeemAttemptsCountAgainstTheRedeemLimit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 2 })
 	e.signUp() // setup is not counted here: it used one attempt of the minute
 
@@ -342,6 +359,7 @@ func (e *env) check(token string, header http.Header) *http.Response {
 }
 
 func TestCheckingALoginLinkDoesNotUseItUp(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	link := e.makeLink(token, id)
@@ -364,6 +382,7 @@ func TestCheckingALoginLinkDoesNotUseItUp(t *testing.T) {
 }
 
 func TestCheckingABadLinkIs401WithACode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	used := e.makeLink(token, id)
@@ -380,6 +399,7 @@ func TestCheckingABadLinkIs401WithACode(t *testing.T) {
 }
 
 func TestLinkChecksHaveALimitOfTheirOwn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 2 })
 
 	for range 2 {
@@ -394,6 +414,7 @@ func TestLinkChecksHaveALimitOfTheirOwn(t *testing.T) {
 }
 
 func TestABearerSessionLastsAYearAfterItsLastUse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	b := decode[redeemBody](t, e.redeem(e.makeLink(token, id), "bearer", nil))

@@ -55,6 +55,7 @@ func (e *env) recipientOf(token, listID, userID string) recipientView {
 }
 
 func TestARecipientsRowsAreInTheOrderTheyJoinedAndAnyoneWhoSeesTheListReadsThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -77,6 +78,7 @@ func TestARecipientsRowsAreInTheOrderTheyJoinedAndAnyoneWhoSeesTheListReadsThem(
 }
 
 func TestRecipientsPageAndSortByWhenTheyJoined(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.clock.advance(1_000_000_000)
@@ -95,6 +97,7 @@ func TestRecipientsPageAndSortByWhenTheyJoined(t *testing.T) {
 }
 
 func TestSeesListAfterLeavingIsForThatUserAndTheirParentsAndFollowsWhoTheyCanSee(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -130,6 +133,7 @@ func TestSeesListAfterLeavingIsForThatUserAndTheirParentsAndFollowsWhoTheyCanSee
 }
 
 func TestSeesListAfterLeavingDoesNotCountTheAdminsAccess(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	adminList := decode[listView](t, e.postList(f.admin, map[string]any{"name": "Ada's"})).ID
@@ -148,6 +152,7 @@ func TestSeesListAfterLeavingDoesNotCountTheAdminsAccess(t *testing.T) {
 }
 
 func TestACanDeleteOnARecipientSaysWhoLeavesAndWhoMakesWhoLeave(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -171,6 +176,7 @@ func TestACanDeleteOnARecipientSaysWhoLeavesAndWhoMakesWhoLeave(t *testing.T) {
 }
 
 func TestARecipientLeavesAListWhileAnotherRecipientRemains(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addItem(f.dad, f.house, "Grill")
@@ -189,6 +195,7 @@ func TestARecipientLeavesAListWhileAnotherRecipientRemains(t *testing.T) {
 }
 
 func TestAUserWhoLeavesAndCanStillSeeTheListSeesItAsAGiver(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.acceptInvitation(f.sue, e.invite(f.mom, f.house, f.sueID).ID)
@@ -203,6 +210,7 @@ func TestAUserWhoLeavesAndCanStillSeeTheListSeesItAsAGiver(t *testing.T) {
 }
 
 func TestTheLastRecipientAndAPrimaryListCannotBeLeft(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	solo := e.extraList("Solo", f.momID)
@@ -220,6 +228,7 @@ func TestTheLastRecipientAndAPrimaryListCannotBeLeft(t *testing.T) {
 }
 
 func TestOnlyTheUserOrTheirParentLeaves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.acceptInvitation(f.sue, e.invite(f.mom, f.house, f.sueID).ID)
@@ -245,6 +254,7 @@ func TestOnlyTheUserOrTheirParentLeaves(t *testing.T) {
 }
 
 func TestAParentMakesTheirChildLeave(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -261,6 +271,7 @@ func TestAParentMakesTheirChildLeave(t *testing.T) {
 }
 
 func TestALeaveHonorsIfMatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	row := e.recipientOf(f.mom, f.house, f.momID)

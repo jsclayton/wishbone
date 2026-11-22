@@ -98,6 +98,7 @@ func (e *env) memberships(token string) (versions, tags map[versionKey]string) {
 }
 
 func TestAMembershipsCollectionAnswersWithTheVersionThatVersionsGivesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	h := e.household()
 
@@ -122,6 +123,7 @@ func TestAMembershipsCollectionAnswersWithTheVersionThatVersionsGivesIt(t *testi
 }
 
 func TestTheETagOfAMembershipsCollectionMovesExactlyWhenItsVersionDoes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -194,6 +196,7 @@ func TestTheETagOfAMembershipsCollectionMovesExactlyWhenItsVersionDoes(t *testin
 }
 
 func TestAMembershipsETagIsTheSameOnEveryPageAndInEverySort(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -238,6 +241,7 @@ func TestAMembershipsETagIsTheSameOnEveryPageAndInEverySort(t *testing.T) {
 }
 
 func TestOnlyAMembershipFilterGivesTheUsersCollectionAnETag(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -274,6 +278,7 @@ func TestOnlyAMembershipFilterGivesTheUsersCollectionAnETag(t *testing.T) {
 }
 
 func TestAMembershipTheCallerCannotReadAnswersAsOneThatDoesNotExist(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -293,6 +298,7 @@ func TestAMembershipTheCallerCannotReadAnswersAsOneThatDoesNotExist(t *testing.T
 }
 
 func TestAMembershipsPageAndItsETagComeFromOneStateOfTheMembership(t *testing.T) {
+	t.Parallel()
 	e, race := racingReads(t)
 	_, admin := e.signUp()
 	group := e.newGroup(admin, "Cousins").ID
@@ -344,6 +350,7 @@ func TestAMembershipsPageAndItsETagComeFromOneStateOfTheMembership(t *testing.T)
 }
 
 func TestTheOpenAPIDocumentDeclaresTheETagOfAMembershipsCollection(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	doc := decode[struct {
 		Paths map[string]map[string]struct {

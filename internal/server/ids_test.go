@@ -13,6 +13,7 @@ import (
 // kept the old ID never reaches a different resource through it.
 
 func TestAnItemsIDIsNotGivenToTheNextItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -28,6 +29,7 @@ func TestAnItemsIDIsNotGivenToTheNextItem(t *testing.T) {
 }
 
 func TestAListsIDIsNotGivenToTheNextList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, _ := e.grace()
@@ -44,6 +46,7 @@ func TestAListsIDIsNotGivenToTheNextList(t *testing.T) {
 // A user's delete takes their sessions with it. The next user doesn't get the
 // user's ID, and the next session doesn't get the ID of one of theirs.
 func TestADeletedUsersIDAndTheirSessionsIDAreNotGivenAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -61,6 +64,7 @@ func TestADeletedUsersIDAndTheirSessionsIDAreNotGivenAgain(t *testing.T) {
 }
 
 func TestAGiftsIDIsNotGivenToTheNextGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -75,6 +79,7 @@ func TestAGiftsIDIsNotGivenToTheNextGift(t *testing.T) {
 }
 
 func TestAnOccasionsIDIsNotGivenToTheNextOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, _ := e.grace()
@@ -88,6 +93,7 @@ func TestAnOccasionsIDIsNotGivenToTheNextOccasion(t *testing.T) {
 }
 
 func TestAGroupsIDIsNotGivenToTheNextGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	cousins := e.newGroup(admin, "Cousins")

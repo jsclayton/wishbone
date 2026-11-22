@@ -11,6 +11,7 @@ import (
 // become null (docs/spec.md, Deactivation and deletion, Deletion).
 
 func TestAReferenceToADeletedUserBecomesNullOrLeavesTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID, f.hedyID)
@@ -56,6 +57,7 @@ func TestAReferenceToADeletedUserBecomesNullOrLeavesTheList(t *testing.T) {
 }
 
 func TestAnAvatarThatTheDeletedUserUploadedForAnotherUserStaysWithThatUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")

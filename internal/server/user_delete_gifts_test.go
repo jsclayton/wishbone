@@ -12,6 +12,7 @@ import (
 // open). The clock starts on 2026-11-08, and every birthday is on Jan 1.
 
 func TestDeletingAGiverReleasesTheirOpenGiftsAndKeepsTheOnesTheyGaveWithTheirName(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 3})
@@ -41,6 +42,7 @@ func TestDeletingAGiverReleasesTheirOpenGiftsAndKeepsTheOnesTheyGaveWithTheirNam
 }
 
 func TestAGiftTheDeletedGiverGaveStaysInTheReceivedOfTheRecipientsParentsToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -65,6 +67,7 @@ func TestAGiftTheDeletedGiverGaveStaysInTheReceivedOfTheRecipientsParentsToo(t *
 }
 
 func TestAGiftGivenToTheUserAndOthersStaysForTheOthersAndOneGivenToThemAloneIsDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -95,6 +98,7 @@ func TestAGiftGivenToTheUserAndOthersStaysForTheOthersAndOneGivenToThemAloneIsDe
 }
 
 func TestAGiftGivenOnAListTheDeleteRemovesStaysForTheRecipientsWhoLeftBeforeIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -114,6 +118,7 @@ func TestAGiftGivenOnAListTheDeleteRemovesStaysForTheRecipientsWhoLeftBeforeIt(t
 }
 
 func TestDeletingAUserMovesAnOpenGiftForTheirOccasionOnAListThatStays(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)

@@ -268,6 +268,7 @@ func (a errorAnswer) String() string { return strconv.Itoa(a.status) + " `" + a.
 // of `/api/v{N}/*` is the codes at the top of the document, which belong to no
 // operation.
 func TestErrorCodesMatchTheRouteTable(t *testing.T) {
+	t.Parallel()
 	opts, _, _ := testOptions(t)
 	doc := documentOf(New(opts))
 	table := readRouteTable(t)
@@ -324,6 +325,7 @@ func TestErrorCodesMatchTheRouteTable(t *testing.T) {
 // operation has a `default` response in place of them. Every one can answer
 // 500, and every code in the server's list is one that some operation names.
 func TestEveryErrorResponseHasItsCodes(t *testing.T) {
+	t.Parallel()
 	opts, _, _ := testOptions(t)
 	srv := New(opts)
 	named := map[string]bool{}
@@ -418,6 +420,7 @@ func eachOperation(doc map[string]any, f func(name string, op map[string]any)) {
 // closed enum: each enum is `anyOf` its values and any string, which a
 // generated client reads as an enum with an unknown case.
 func TestResponseSchemasAllowWhatTheSpecAllows(t *testing.T) {
+	t.Parallel()
 	doc := documentJSON(t)
 	seen := map[string]bool{}
 	objects, enums := 0, 0
@@ -469,6 +472,7 @@ func mapOf(v any) map[string]any {
 // takes. Loosening a request is allowed within an API version, and is no part
 // of opening the responses.
 func TestRequestSchemasStayStrict(t *testing.T) {
+	t.Parallel()
 	doc := documentJSON(t)
 	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
 	for _, name := range []string{"CreateGiftInputBody", "CreateItemInputBody", "CreateUserInputBody", "SetupInputBody", "RuleInput", "PartialDateInput"} {
@@ -492,6 +496,7 @@ func TestRequestSchemasStayStrict(t *testing.T) {
 // The server still refuses what the document says a request refuses, and
 // answers with the codes that the document gives the route for it.
 func TestRequestsAreRefusedAsTheDocumentSays(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 	admin := cookie(token)
@@ -525,6 +530,7 @@ func TestRequestsAreRefusedAsTheDocumentSays(t *testing.T) {
 // document says for every route that takes a body. The test takes those 5
 // seconds, because the time is huma's default for an operation.
 func TestABodyThatDoesNotArriveInTimeIsA408(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 	conn, err := net.Dial("tcp", strings.TrimPrefix(e.ts.URL, "http://"))
@@ -543,6 +549,7 @@ func TestABodyThatDoesNotArriveInTimeIsA408(t *testing.T) {
 
 // POST /search takes a form and nothing else, and the document says so.
 func TestSearchTakesOnlyAForm(t *testing.T) {
+	t.Parallel()
 	doc := documentJSON(t)
 	search := mapOf(mapOf(mapOf(doc["paths"])["/api/v2/search"])["post"])
 	content := mapOf(mapOf(search["requestBody"])["content"])
@@ -553,6 +560,7 @@ func TestSearchTakesOnlyAForm(t *testing.T) {
 // The document says in words what a client must accept, and lists the codes of
 // an address that has no operation.
 func TestTheDocumentSaysWhatAClientMustAccept(t *testing.T) {
+	t.Parallel()
 	doc := documentJSON(t)
 	description := mapOf(doc["info"])["description"].(string)
 	for _, part := range []string{"ignore a response field", "accept an enum value", "`detail`", "`next_cursor`", errorCodesExtension} {
@@ -568,6 +576,7 @@ func TestTheDocumentSaysWhatAClientMustAccept(t *testing.T) {
 // A schema that a request and a response share can't be opened for one and
 // kept strict for the other, so building the server refuses it.
 func TestARequestAndAResponseCannotShareAClosedSchema(t *testing.T) {
+	t.Parallel()
 	type Shared struct {
 		Kind string `json:"kind" enum:"a,b"`
 	}

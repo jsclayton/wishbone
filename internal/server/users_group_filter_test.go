@@ -12,6 +12,7 @@ import (
 // directly or through nesting (docs/routes.md, User routes).
 
 func TestTheGroupFilterListsTheUsersDirectlyAndThroughNestingInTheGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -40,6 +41,7 @@ func TestTheGroupFilterListsTheUsersDirectlyAndThroughNestingInTheGroup(t *testi
 }
 
 func TestTheGroupFilterAnswersEmptyForAGroupTheCallerCannotSeeOrThatDoesNotExist(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -61,6 +63,7 @@ func TestTheGroupFilterAnswersEmptyForAGroupTheCallerCannotSeeOrThatDoesNotExist
 }
 
 func TestTheGroupFilterOnlyLeavesOutAndNeverAddsUsers(t *testing.T) {
+	t.Parallel()
 	// Without the filter the caller sees the same users they saw before, and the
 	// filter is a subset of them.
 	e := newEnv(t)
@@ -79,6 +82,7 @@ func TestTheGroupFilterOnlyLeavesOutAndNeverAddsUsers(t *testing.T) {
 }
 
 func TestTheGroupFilterPagesAndSorts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	ids := e.addUsers("Bea", "Cy", "Di")

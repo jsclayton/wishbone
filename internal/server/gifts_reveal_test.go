@@ -50,6 +50,7 @@ func (e *env) rawGift(token, id string) map[string]any {
 }
 
 func TestAGiftIsGivenAtTheLatestMidnightAmongItsRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.setZone(f.mom, f.momID, "America/New_York")
@@ -73,6 +74,7 @@ func TestAGiftIsGivenAtTheLatestMidnightAmongItsRecipients(t *testing.T) {
 
 // The test server's fallback zone is UTC.
 func TestARecipientWithNoKnownTimezoneCountsAsTheFallbackZone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.setZone(f.mom, f.momID, "Pacific/Auckland")
@@ -86,6 +88,7 @@ func TestARecipientWithNoKnownTimezoneCountsAsTheFallbackZone(t *testing.T) {
 }
 
 func TestTheServerGivesEveryGiftWhoseMomentPassedWhileItWasDown(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -102,6 +105,7 @@ func TestTheServerGivesEveryGiftWhoseMomentPassedWhileItWasDown(t *testing.T) {
 }
 
 func TestRevealCopiesWhatWasGivenAndLaterChangesDoNotTouchIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -150,6 +154,7 @@ func TestRevealCopiesWhatWasGivenAndLaterChangesDoNotTouchIt(t *testing.T) {
 }
 
 func TestAGivenGiftHasTheSameBytesAsTheImageItCopied(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -174,6 +179,7 @@ func TestAGivenGiftHasTheSameBytesAsTheImageItCopied(t *testing.T) {
 }
 
 func TestWhatARecipientAndAParentSeeOfAGivenGiftNeverHoldsTheGiversFields(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -230,6 +236,7 @@ func TestWhatARecipientAndAParentSeeOfAGivenGiftNeverHoldsTheGiversFields(t *tes
 func anyIDs(v []summaryView) []any { return anySlice(v) }
 
 func TestAGiftIsNeverForItsGiver(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -245,6 +252,7 @@ func TestAGiftIsNeverForItsGiver(t *testing.T) {
 }
 
 func TestTheRecipientsAreFixedAtRevealAndStayAfterARecipientLeaves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -261,6 +269,7 @@ func TestTheRecipientsAreFixedAtRevealAndStayAfterARecipientLeaves(t *testing.T)
 }
 
 func TestAGiftOnAListThatWasDeletedIsForItsLastRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -282,6 +291,7 @@ func TestAGiftOnAListThatWasDeletedIsForItsLastRecipients(t *testing.T) {
 }
 
 func TestTheGivenQuantityLeavesTheItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 5})
@@ -315,6 +325,7 @@ func TestTheGivenQuantityLeavesTheItem(t *testing.T) {
 }
 
 func TestAGivenGiftCanNotBeUnclaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
@@ -329,6 +340,7 @@ func TestAGivenGiftCanNotBeUnclaimed(t *testing.T) {
 }
 
 func TestReceivedAndGivenAreFilteredViewsOfTheSameGifts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -362,6 +374,7 @@ func TestReceivedAndGivenAreFilteredViewsOfTheSameGifts(t *testing.T) {
 }
 
 func TestTheSchedulerGivesWhatPassedWhileTheServerWasDownWhenItStarts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -381,6 +394,7 @@ func TestTheSchedulerGivesWhatPassedWhileTheServerWasDownWhenItStarts(t *testing
 }
 
 func TestAGiverWhoCouldNotSeeTheListAtRevealSeesNeitherItsRecipientsNorItsOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -403,6 +417,7 @@ func TestAGiverWhoCouldNotSeeTheListAtRevealSeesNeitherItsRecipientsNorItsOccasi
 }
 
 func TestAGiftKeptAfterItsItemWasDeletedIsGivenWithItsCopyAndWithoutFlags(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2, "price_minor": 3000, "currency": "EUR"})
@@ -425,6 +440,7 @@ func TestAGiftKeptAfterItsItemWasDeletedIsGivenWithItsCopyAndWithoutFlags(t *tes
 }
 
 func TestTheRevealOfOneRecipientLeavesOtherGiftsAlone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -444,6 +460,7 @@ func TestTheRevealOfOneRecipientLeavesOtherGiftsAlone(t *testing.T) {
 }
 
 func TestAGiverWhoCouldNotSeeTheListAtRevealLoadsNoAvatarOfItsRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	momAvatar, dadAvatar, sueAvatar := e.uploaded(f.mom), e.uploaded(f.dad), e.uploaded(f.sue)
@@ -465,6 +482,7 @@ func TestAGiverWhoCouldNotSeeTheListAtRevealLoadsNoAvatarOfItsRecipients(t *test
 }
 
 func TestAGiverWhoSawTheListAtRevealLoadsTheAvatarsOfItsRecipientsAfterLosingIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	momAvatar, dadAvatar := e.uploaded(f.mom), e.uploaded(f.dad)
@@ -491,6 +509,7 @@ func (e *env) changeAfterFind(fn func()) {
 }
 
 func TestRevealGivesTheQuantityTheGiftHasWhenItIsGivenNotWhenItWasFound(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -506,6 +525,7 @@ func TestRevealGivesTheQuantityTheGiftHasWhenItIsGivenNotWhenItWasFound(t *testi
 }
 
 func TestRevealLeavesAGiftOpenWhoseOccasionMovedPastNowWhileItWasBeingFound(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -523,6 +543,7 @@ func TestRevealLeavesAGiftOpenWhoseOccasionMovedPastNowWhileItWasBeingFound(t *t
 }
 
 func TestRevealGivesAGiftToTheRecipientsOfTheListItMovedToWhileItWasBeingFound(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
@@ -547,6 +568,7 @@ func (e *env) breakGift(id string) {
 }
 
 func TestAGiftThatFailsDoesNotStopTheRunFromGivingTheRest(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -594,6 +616,7 @@ func (b *syncBuffer) String() string {
 }
 
 func TestTheSchedulerLogsAGiftThatFailsByItsIDAndGivesTheRest(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})

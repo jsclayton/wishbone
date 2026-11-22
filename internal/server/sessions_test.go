@@ -29,6 +29,7 @@ func (e *env) listSessions(userID string, header http.Header) *http.Response {
 }
 
 func TestTheSessionsListHasEachLiveSessionNewestUseFirst(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, first := e.signUp() // the cookie session from setup
 	e.clock.advance(time.Hour)
@@ -58,6 +59,7 @@ func TestTheSessionsListHasEachLiveSessionNewestUseFirst(t *testing.T) {
 }
 
 func TestABearerCallerAndACookieCallerGetTheSameSessionsAndCanValues(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, cookieToken := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(cookieToken, id), "bearer", nil)).Token
@@ -78,6 +80,7 @@ func TestABearerCallerAndACookieCallerGetTheSameSessionsAndCanValues(t *testing.
 }
 
 func TestAnExpiredSessionIsNotListed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(token, id), "bearer", nil)).Token
@@ -94,6 +97,7 @@ func TestAnExpiredSessionIsNotListed(t *testing.T) {
 }
 
 func TestAUserSeesOnlyTheirOwnSessionsAndTheAdminSeesEveryones(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	otherID, otherToken := e.otherUser("Grace")
@@ -114,6 +118,7 @@ func TestAUserSeesOnlyTheirOwnSessionsAndTheAdminSeesEveryones(t *testing.T) {
 }
 
 func TestRevokingASessionIs204AndEndsIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(token, id), "bearer", nil)).Token
@@ -137,6 +142,7 @@ func TestRevokingASessionIs204AndEndsIt(t *testing.T) {
 }
 
 func TestTheAdminRevokesAnotherUsersSessionButNotThroughTheWrongUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	otherID, otherToken := e.otherUser("Grace")
@@ -160,6 +166,7 @@ func TestTheAdminRevokesAnotherUsersSessionButNotThroughTheWrongUser(t *testing.
 }
 
 func TestRevokingTheCallersOwnCookieSessionByIDClearsTheCookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	own := decode[sessionList](t, e.listSessions(id, cookie(token))).Data[0].ID
@@ -173,6 +180,7 @@ func TestRevokingTheCallersOwnCookieSessionByIDClearsTheCookie(t *testing.T) {
 }
 
 func TestTheUserHasTheCanFieldsForSignIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	otherID, otherToken := e.otherUser("Grace")
@@ -192,6 +200,7 @@ func TestTheUserHasTheCanFieldsForSignIn(t *testing.T) {
 }
 
 func TestASessionWhoseUserIsGoneIsNoSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")

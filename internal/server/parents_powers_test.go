@@ -11,6 +11,7 @@ import (
 )
 
 func TestOnlyDirectLinksMakeUsersVisible(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	grandmaID, grandma := e.otherUser("Grandma")
@@ -27,6 +28,7 @@ func TestOnlyDirectLinksMakeUsersVisible(t *testing.T) {
 }
 
 func TestAUserSeesTheirChildrenAndParentsByNameWithTheirSummaries(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -47,6 +49,7 @@ func TestAUserSeesTheirChildrenAndParentsByNameWithTheirSummaries(t *testing.T) 
 }
 
 func TestAParentSeesTheTimezoneAndConfirmationOfTheChildAndAGroupMemberDoesNot(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -73,6 +76,7 @@ func TestAParentSeesTheTimezoneAndConfirmationOfTheChildAndAGroupMemberDoesNot(t
 }
 
 func TestAParentMakesLoginLinksForAChildAndSignsInAsThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -88,6 +92,7 @@ func TestAParentMakesLoginLinksForAChildAndSignsInAsThem(t *testing.T) {
 }
 
 func TestAParentSeesAndRevokesTheChildsSessions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -104,6 +109,7 @@ func TestAParentSeesAndRevokesTheChildsSessions(t *testing.T) {
 }
 
 func TestAParentSeesAndDeletesTheChildsPasskeysButCannotAddOrRenameThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -129,6 +135,7 @@ func TestAParentSeesAndDeletesTheChildsPasskeysButCannotAddOrRenameThem(t *testi
 }
 
 func TestAParentEditsTheChildsProfileButCannotChangeTheirParentsOrConfirmIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -156,6 +163,7 @@ func TestAParentEditsTheChildsProfileButCannotChangeTheirParentsOrConfirmIt(t *t
 }
 
 func TestAParentHasNoPowerOverTheirOwnParentOrTheirChildsChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	grandmaID, grandma := e.otherUser("Grandma")
@@ -177,6 +185,7 @@ func TestAParentHasNoPowerOverTheirOwnParentOrTheirChildsChild(t *testing.T) {
 }
 
 func TestUnlinkingTakesTheParentsPowersAtOnceButAnEarlierLoginLinkStillWorks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -196,6 +205,7 @@ func TestUnlinkingTakesTheParentsPowersAtOnceButAnEarlierLoginLinkStillWorks(t *
 }
 
 func TestAnAvatarLoadsForWhoeverGetsTheSummaryThroughALink(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	grandmaID, grandma := e.otherUser("Grandma")

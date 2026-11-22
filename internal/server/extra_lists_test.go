@@ -27,6 +27,7 @@ func (e *env) deleteList(token, id string, header http.Header) *http.Response {
 }
 
 func TestAUserCreatesAnExtraListForThemselvesByDefault(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -53,6 +54,7 @@ func TestAUserCreatesAnExtraListForThemselvesByDefault(t *testing.T) {
 }
 
 func TestAnExtraListNeedsANameAndTakesAnOptionalDescription(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -74,6 +76,7 @@ func TestAnExtraListNeedsANameAndTakesAnOptionalDescription(t *testing.T) {
 }
 
 func TestAParentCreatesAnExtraListForTheirChildAndIsNotItsRecipient(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -95,6 +98,7 @@ func TestAParentCreatesAnExtraListForTheirChildAndIsNotItsRecipient(t *testing.T
 }
 
 func TestAListIsNotCreatedForAUserTheCallerIsNotTheParentOf(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -120,6 +124,7 @@ func TestAListIsNotCreatedForAUserTheCallerIsNotTheParentOf(t *testing.T) {
 }
 
 func TestAListIsNotCreatedForADeactivatedChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -133,6 +138,7 @@ func TestAListIsNotCreatedForADeactivatedChild(t *testing.T) {
 }
 
 func TestARecipientDeletesTheirExtraListAndItsItems(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, primary := e.grace()
@@ -155,6 +161,7 @@ func TestARecipientDeletesTheirExtraListAndItsItems(t *testing.T) {
 }
 
 func TestAParentDeletesTheirChildsExtraList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -169,6 +176,7 @@ func TestAParentDeletesTheirChildsExtraList(t *testing.T) {
 }
 
 func TestAListThatIsNotAnExtraListWithOneRecipientIsNotDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addItem(f.mom, f.house, "Grill")
@@ -186,6 +194,7 @@ func TestAListThatIsNotAnExtraListWithOneRecipientIsNotDeleted(t *testing.T) {
 }
 
 func TestAGiverAndAStrangerCannotDeleteAList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	garden := decode[listView](t, e.postList(f.mom, map[string]any{"name": "Garden"})).ID
@@ -203,6 +212,7 @@ func TestAGiverAndAStrangerCannotDeleteAList(t *testing.T) {
 }
 
 func TestADeleteHonorsIfMatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, _ := e.grace()
@@ -217,6 +227,7 @@ func TestADeleteHonorsIfMatch(t *testing.T) {
 }
 
 func TestAGrandparentCannotEditAGrandchildsList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -252,6 +263,7 @@ func TestAGrandparentCannotEditAGrandchildsList(t *testing.T) {
 // succeeds (docs/routes.md, User fields), for each kind of caller, while the
 // user is active and while they are deactivated.
 func TestCanCreateListSaysWhetherPostListsSucceeds(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")

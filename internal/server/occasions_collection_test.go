@@ -25,6 +25,7 @@ func (e *env) graceWithOccasions() (id, token string) {
 }
 
 func TestOccasionsSortByNextDateWithNoneLastThenByName(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.graceWithOccasions()
@@ -41,6 +42,7 @@ func TestOccasionsSortByNextDateWithNoneLastThenByName(t *testing.T) {
 }
 
 func TestOccasionsFilterByUserKindAndNextDate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addOccasion(f.mom, "Wedding day", annual(5, 4), "")
@@ -68,6 +70,7 @@ func TestOccasionsFilterByUserKindAndNextDate(t *testing.T) {
 }
 
 func TestAnOccasionWithNoNextDateIsNeverBeforeADate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.graceWithOccasions()
@@ -79,6 +82,7 @@ func TestAnOccasionWithNoNextDateIsNeverBeforeADate(t *testing.T) {
 }
 
 func TestOccasionFiltersAndSortsAreChecked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.graceWithOccasions()
@@ -98,6 +102,7 @@ func TestOccasionFiltersAndSortsAreChecked(t *testing.T) {
 }
 
 func TestOccasionsPageByCursorInEachSort(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.graceWithOccasions()
@@ -130,6 +135,7 @@ func TestOccasionsPageByCursorInEachSort(t *testing.T) {
 }
 
 func TestTheOccasionsCollectionNeedsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 

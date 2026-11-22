@@ -44,6 +44,7 @@ func (e *env) gift(token, id string) giftView {
 }
 
 func TestDeletingAClaimedItemFlagsEachOpenGiftRemovedAndTheGiverKeepsOrUnclaimsIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -88,6 +89,7 @@ func TestDeletingAClaimedItemFlagsEachOpenGiftRemovedAndTheGiverKeepsOrUnclaimsI
 }
 
 func TestAcknowledgeClearsEveryFlagByDefaultAndOnlyTheCodesGiven(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 2})
@@ -114,6 +116,7 @@ func TestAcknowledgeClearsEveryFlagByDefaultAndOnlyTheCodesGiven(t *testing.T) {
 }
 
 func TestAcknowledgeRefusesAnUnknownCodeAndAGivenGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle")
