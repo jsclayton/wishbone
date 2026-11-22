@@ -273,12 +273,16 @@ type imageInput struct {
 	ID string `path:"id" example:"31"`
 }
 
-var imageResponses = map[string]*huma.Response{
-	"200": {
-		Description: "The bytes of the image: a JPEG.",
-		Headers:     map[string]*huma.Param{"Cache-Control": {Description: imageCacheControl, Schema: &huma.Schema{Type: "string"}}},
-		Content:     map[string]*huma.MediaType{imagestore.ContentType: {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
-	},
+// imageResponses are the answers of get-image. They are new for each server,
+// because huma adds the error answers to the map when it registers the route.
+func imageResponses() map[string]*huma.Response {
+	return map[string]*huma.Response{
+		"200": {
+			Description: "The bytes of the image: a JPEG.",
+			Headers:     map[string]*huma.Param{"Cache-Control": {Description: imageCacheControl, Schema: &huma.Schema{Type: "string"}}},
+			Content:     map[string]*huma.MediaType{imagestore.ContentType: {Schema: &huma.Schema{Type: "string", Format: "binary"}}},
+		},
+	}
 }
 
 func (s *Server) registerImages(api huma.API) {
@@ -332,7 +336,7 @@ func (s *Server) registerImages(api huma.API) {
 		Summary:     "The bytes of an image",
 		Description: "Before the image is attached, only the user who uploaded it can see it. After that, it follows the visibility of the resource it is attached to, and an avatar is also visible to everyone who gets that user's summary. An image that a resource let go of is a 404 for everyone, its uploader too. Every other caller gets a 404. A `Range` that the image doesn't have, or that can't be read, is a 416 `range_not_satisfiable`.",
 		Tags:        []string{"Images"},
-		Responses:   imageResponses,
+		Responses:   imageResponses(),
 	}, "not_found", "range_not_satisfiable"), func(ctx context.Context, in *imageInput) (*huma.StreamResponse, error) {
 		caller, _ := CallerFrom(ctx)
 		id, ok := parseID(in.ID)
