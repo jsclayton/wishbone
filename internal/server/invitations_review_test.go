@@ -11,6 +11,7 @@ import (
 // These tests close gaps that a review of invitations found.
 
 func TestTwoInvitesOfTheSameUserAtTheSameMomentGiveOne201AndTheRestAlreadyInvited(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -45,6 +46,7 @@ func TestTwoInvitesOfTheSameUserAtTheSameMomentGiveOne201AndTheRestAlreadyInvite
 }
 
 func TestAStrangerAsksForTheInvitationsOfAUserAndGetsNone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.invite(f.mom, f.house, f.sueID)
@@ -63,6 +65,7 @@ func TestAStrangerAsksForTheInvitationsOfAUserAndGetsNone(t *testing.T) {
 }
 
 func TestTheInvitersAvatarStaysHiddenFromStrangers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	img := e.uploaded(f.mom)

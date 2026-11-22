@@ -55,6 +55,7 @@ func (e *env) sweep() int {
 }
 
 func TestAUserWithNoAvatarHasANullAvatar(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -65,6 +66,7 @@ func TestAUserWithNoAvatarHasANullAvatar(t *testing.T) {
 }
 
 func TestAnUploadedImageBecomesTheAvatarAndNullRemovesIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, grace := e.otherUser("Grace")
@@ -87,6 +89,7 @@ func TestAnUploadedImageBecomesTheAvatarAndNullRemovesIt(t *testing.T) {
 }
 
 func TestAnAvatarLoadsForEveryoneWhoSeesTheUserAndForNoOneElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -102,6 +105,7 @@ func TestAnAvatarLoadsForEveryoneWhoSeesTheUserAndForNoOneElse(t *testing.T) {
 }
 
 func TestAnImageThatAnotherResourceHoldsIsA409(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -118,6 +122,7 @@ func TestAnImageThatAnotherResourceHoldsIsA409(t *testing.T) {
 }
 
 func TestSettingTheSameAvatarAgainChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")
@@ -134,6 +139,7 @@ func TestSettingTheSameAvatarAgainChangesNothing(t *testing.T) {
 }
 
 func TestAnImageTheCallerCannotSeeIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -163,6 +169,7 @@ func TestAnImageTheCallerCannotSeeIsA422(t *testing.T) {
 }
 
 func TestAnImageThatWasLetGoCannotBeTakenAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")
@@ -177,6 +184,7 @@ func TestAnImageThatWasLetGoCannotBeTakenAgain(t *testing.T) {
 }
 
 func TestOnlyWhoCanEditAUserSetsTheirAvatar(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -189,6 +197,7 @@ func TestOnlyWhoCanEditAUserSetsTheirAvatar(t *testing.T) {
 }
 
 func TestTheSweepDeletesAnImageThatIsNoLongerAttached(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")
@@ -211,6 +220,7 @@ func TestTheSweepDeletesAnImageThatIsNoLongerAttached(t *testing.T) {
 }
 
 func TestTheSweepKeepsTheFileOfAnImageUntilTheRowIsGone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")
@@ -228,6 +238,7 @@ func TestTheSweepKeepsTheFileOfAnImageUntilTheRowIsGone(t *testing.T) {
 }
 
 func TestTheSweepDeletesAnImageThatWasNotAttachedWithin24Hours(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -247,6 +258,7 @@ func TestTheSweepDeletesAnImageThatWasNotAttachedWithin24Hours(t *testing.T) {
 // The database refuses to delete a row that a resource still holds, whatever
 // the sweep believes.
 func TestTheDatabaseRefusesToDeleteAnImageThatIsHeld(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")

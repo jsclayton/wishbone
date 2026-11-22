@@ -86,6 +86,7 @@ func names(list userList) []string {
 }
 
 func TestTheAdminListsEveryUserByNameInTheCollectionEnvelope(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.addUsers("grace", "Zed", "Barbara")
@@ -100,6 +101,7 @@ func TestTheAdminListsEveryUserByNameInTheCollectionEnvelope(t *testing.T) {
 }
 
 func TestAUserListsOnlyThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, token := e.otherUser("Grace")
@@ -111,6 +113,7 @@ func TestAUserListsOnlyThemselves(t *testing.T) {
 }
 
 func TestTheUsersCollectionNeedsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -120,6 +123,7 @@ func TestTheUsersCollectionNeedsASession(t *testing.T) {
 }
 
 func TestAPageEndsWithACursorThatLeadsToTheNextPage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.addUsers("Bea", "Cy", "Di", "Ed") // five users with Ada
@@ -140,6 +144,7 @@ func TestAPageEndsWithACursorThatLeadsToTheNextPage(t *testing.T) {
 }
 
 func TestTheSortIsReversedWithAMinusAndPagesFollowIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.addUsers("Bea", "Cy")
@@ -151,6 +156,7 @@ func TestTheSortIsReversedWithAMinusAndPagesFollowIt(t *testing.T) {
 }
 
 func TestUsersSortByWhenTheyWereCreated(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.addUsers("Zed", "Bea")
@@ -164,6 +170,7 @@ func TestUsersSortByWhenTheyWereCreated(t *testing.T) {
 }
 
 func TestUsersWithTheSameNameKeepTheirIDOrderAcrossPages(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	ids := e.addUsers("Sam", "Sam", "Sam")
@@ -179,6 +186,7 @@ func TestUsersWithTheSameNameKeepTheirIDOrderAcrossPages(t *testing.T) {
 }
 
 func TestAnUnknownFilterOrSortKeyIsA422WithACode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -198,6 +206,7 @@ func TestAnUnknownFilterOrSortKeyIsA422WithACode(t *testing.T) {
 }
 
 func TestACursorFromAnotherSortIsACursorMismatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	e.addUsers("Bea", "Cy")
@@ -214,6 +223,7 @@ func TestACursorFromAnotherSortIsACursorMismatch(t *testing.T) {
 }
 
 func TestACursorTheServerDidNotMakeAndABadLimitAreInvalidInput(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -226,6 +236,7 @@ func TestACursorTheServerDidNotMakeAndABadLimitAreInvalidInput(t *testing.T) {
 }
 
 func TestAUserHasAnETagAndEachRowOfTheCollectionHasTheSameVersion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -249,6 +260,7 @@ func TestAUserHasAnETagAndEachRowOfTheCollectionHasTheSameVersion(t *testing.T) 
 }
 
 func TestANonVersionedBodyHasNoVersionField(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -258,6 +270,7 @@ func TestANonVersionedBodyHasNoVersionField(t *testing.T) {
 }
 
 func TestTheFullUserHasTheFieldsAndCanFieldsThatExist(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -286,6 +299,7 @@ func TestTheFullUserHasTheFieldsAndCanFieldsThatExist(t *testing.T) {
 // The contract says what the server enforces: the schema of every body that
 // takes a name has the server's limit of 100 characters.
 func TestTheOpenAPINameLimitsAreTheServersLimit(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 	var doc struct {
 		Paths map[string]map[string]struct {

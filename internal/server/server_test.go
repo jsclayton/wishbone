@@ -38,6 +38,7 @@ func get(t *testing.T, url string) *http.Response {
 }
 
 func TestClientRoutesServeIndex(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/some/client/route")
@@ -46,6 +47,7 @@ func TestClientRoutesServeIndex(t *testing.T) {
 }
 
 func TestRequestsAreTracedByRoutePattern(t *testing.T) {
+	t.Parallel()
 	exp := tracetest.NewInMemoryExporter()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
 	opts, _, _ := testOptions(t)
@@ -69,6 +71,7 @@ func TestRequestsAreTracedByRoutePattern(t *testing.T) {
 }
 
 func TestRequestLogMasksLoginTokens(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	opts, _, _ := testOptions(t)
 	opts.Logger = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -90,6 +93,7 @@ func TestRequestLogMasksLoginTokens(t *testing.T) {
 }
 
 func TestContentSecurityPolicy(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/", "/list", "/api/v2/health", "/api/v2/nope", "/metrics"} {
@@ -101,12 +105,14 @@ func TestContentSecurityPolicy(t *testing.T) {
 }
 
 func TestContentSecurityPolicyIsTheExactPolicy(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "default-src 'self'; script-src 'self'; style-src 'self'; "+
 		"img-src 'self' data: blob: http: https:; connect-src 'self'; object-src 'none'; "+
 		"base-uri 'none'; form-action 'self'; frame-ancestors 'none'", contentSecurityPolicy)
 }
 
 func TestDocsPageKeepsHumasPolicy(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/api/v2/docs")
@@ -117,6 +123,7 @@ func TestDocsPageKeepsHumasPolicy(t *testing.T) {
 }
 
 func TestOtherSecurityHeadersAreUnchanged(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	res := get(t, ts.URL+"/")
@@ -126,6 +133,7 @@ func TestOtherSecurityHeadersAreUnchanged(t *testing.T) {
 }
 
 func TestCrossOriginOpenerPolicy(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 
 	for _, path := range []string{"/", "/list", "/api/v2/health", "/api/v2/nope", "/metrics"} {
@@ -137,6 +145,7 @@ func TestCrossOriginOpenerPolicy(t *testing.T) {
 }
 
 func TestAppShellAndAssetsAreNotNoStore(t *testing.T) {
+	t.Parallel()
 	ts := newTestServer(t, fakePinger{})
 	for _, path := range []string{"/", "/assets/missing.js"} {
 		res := get(t, ts.URL+path)
@@ -146,6 +155,7 @@ func TestAppShellAndAssetsAreNotNoStore(t *testing.T) {
 }
 
 func TestAPINoStoreSkipsNonAPIPaths(t *testing.T) {
+	t.Parallel()
 	handler := apiNoStore(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	for _, path := range []string{"/", "/assets/app-abc123.js", "/metrics", "/sw.js", "/apiary"} {
 		rec := httptest.NewRecorder()

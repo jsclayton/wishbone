@@ -63,6 +63,7 @@ func (e *env) postItemWithKey(token, listID, key string, body map[string]any) *h
 }
 
 func TestARepeatedCreateOfAnItemWithTheSameKeyMakesOneItemAndReturnsTheFirstAnswer(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 
@@ -78,6 +79,7 @@ func TestARepeatedCreateOfAnItemWithTheSameKeyMakesOneItemAndReturnsTheFirstAnsw
 }
 
 func TestWithoutTheKeyARepeatedCreateStillMakesASecondItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 
@@ -89,6 +91,7 @@ func TestWithoutTheKeyARepeatedCreateStillMakesASecondItem(t *testing.T) {
 }
 
 func TestARepeatedCreateOfAListWithTheSameKeyMakesOneList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, _ := e.grace()
 	post := func() answer {
@@ -105,6 +108,7 @@ func TestARepeatedCreateOfAListWithTheSameKeyMakesOneList(t *testing.T) {
 }
 
 func TestARepeatedUploadWithTheSameKeyMakesOneImageAndTheUploadIsNotKept(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	png := pngOf(t, 4, 3)
@@ -137,6 +141,7 @@ func TestARepeatedUploadWithTheSameKeyMakesOneImageAndTheUploadIsNotKept(t *test
 }
 
 func TestARepeatedPatchWithTheSameKeyReturnsTheFirstAnswerAndChangesNothingAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	item := e.addItem(grace, listID, "Kettle")
@@ -157,6 +162,7 @@ func TestARepeatedPatchWithTheSameKeyReturnsTheFirstAnswerAndChangesNothingAgain
 }
 
 func TestARepeatedDeleteWithTheSameKeyIs204AgainAndNot404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	item := e.addItem(grace, listID, "Kettle")
@@ -173,6 +179,7 @@ func TestARepeatedDeleteWithTheSameKeyIs204AgainAndNot404(t *testing.T) {
 }
 
 func TestTheSameKeyWithAnotherBodyMethodOrPathIsA422AndChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	other := e.extraListOf(grace, "Camping")
@@ -207,6 +214,7 @@ func (e *env) extraListOf(token, name string) string {
 // A client can build the body again for a repeat. The same JSON with its keys in
 // another order, or a form with another boundary, is the same body.
 func TestTheSameJSONInAnotherOrderIsTheSameBody(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	post := func(raw string) answer {
@@ -222,6 +230,7 @@ func TestTheSameJSONInAnotherOrderIsTheSameBody(t *testing.T) {
 }
 
 func TestTheSameKeyFromAnotherSessionDoesItsOwnWork(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	graceID, grace := e.otherUser("Grace")
 	listID := e.primaryListOf(grace).ID
@@ -337,6 +346,7 @@ func (e *env) giveSessionID(sessionID, goneID int64) {
 // must not keep its answer for the session that has the ID: a key never meets
 // another session.
 func TestARunOfADeletedUserKeepsNothingForTheSessionThatGetsItsID(t *testing.T) {
+	t.Parallel()
 	slow := newSlowSearch()
 	e := newEnv(t, func(o *Options) { o.Search = slow })
 	release := sync.OnceFunc(func() { close(slow.release) })
@@ -382,6 +392,7 @@ func TestARunOfADeletedUserKeepsNothingForTheSessionThatGetsItsID(t *testing.T) 
 // that was running across the delete built its answer before it, so that
 // answer is not kept either, whichever process ran the delete.
 func TestARunThatIsRunningAcrossTheDeleteOfAUserKeepsNothing(t *testing.T) {
+	t.Parallel()
 	slow := newSlowSearch()
 	e := newEnv(t, func(o *Options) { o.Search = slow })
 	release := sync.OnceFunc(func() { close(slow.release) })
@@ -415,6 +426,7 @@ func TestARunThatIsRunningAcrossTheDeleteOfAUserKeepsNothing(t *testing.T) {
 // The repeat is for the client that never got the answer. So the answer is
 // kept when the work is done, also when the client has gone by then.
 func TestAnAnswerThatTheClientNeverGotIsStillKeptForTheRepeat(t *testing.T) {
+	t.Parallel()
 	slow := newSlowSearch()
 	e := newEnv(t, func(o *Options) { o.Search = slow })
 	release := sync.OnceFunc(func() { close(slow.release) })
@@ -455,6 +467,7 @@ func TestAnAnswerThatTheClientNeverGotIsStillKeptForTheRepeat(t *testing.T) {
 }
 
 func TestARepeatWhileTheFirstIsStillRunningIsA409(t *testing.T) {
+	t.Parallel()
 	slow := newSlowSearch()
 	e := newEnv(t, func(o *Options) { o.Search = slow })
 	// A failed test must still let the searches end, or the server never closes.
@@ -515,6 +528,7 @@ func TestARepeatWhileTheFirstIsStillRunningIsA409(t *testing.T) {
 }
 
 func TestAfter24HoursTheKeyIsForgotten(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	post := func() int {
@@ -539,6 +553,7 @@ func TestAfter24HoursTheKeyIsForgotten(t *testing.T) {
 }
 
 func TestRevokingASessionRemovesItsKeys(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, admin := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(admin, id), "bearer", nil)).Token
@@ -570,6 +585,7 @@ func TestRevokingASessionRemovesItsKeys(t *testing.T) {
 // A sign-out with a key keeps nothing: the answer would belong to a session
 // that is over.
 func TestASignOutWithAKeyKeepsNoKeyOfTheSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	listID := e.primaryListOf(admin).ID
@@ -582,6 +598,7 @@ func TestASignOutWithAKeyKeepsNoKeyOfTheSession(t *testing.T) {
 }
 
 func TestDeactivatingAUserRemovesTheKeysOfTheirSessions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -598,6 +615,7 @@ func TestDeactivatingAUserRemovesTheKeysOfTheirSessions(t *testing.T) {
 // a user who is deleted later. So the delete of a user clears every kept answer
 // on the instance, the ones of other people's sessions too.
 func TestDeletingAUserClearsEveryKeptAnswerSoARepeatDoesTheWorkAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -621,6 +639,7 @@ func TestDeletingAUserClearsEveryKeptAnswerSoARepeatDoesTheWorkAgain(t *testing.
 }
 
 func TestAReplayedSearchDoesNotCountAgainstTheHourlyLimit(t *testing.T) {
+	t.Parallel()
 	eyes := &fakeEyes{guess: llm.PhotoGuess{Title: "Kettle"}}
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, eyes))
 	_, admin := e.signUp()
@@ -651,6 +670,7 @@ func TestAReplayedSearchDoesNotCountAgainstTheHourlyLimit(t *testing.T) {
 
 // Only an answer that did the work is kept. A request that failed runs again.
 func TestARequestThatFailedKeepsNothingSoTheKeyRunsAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 
@@ -666,6 +686,7 @@ func TestARequestThatFailedKeepsNothingSoTheKeyRunsAgain(t *testing.T) {
 }
 
 func TestAKeyThatIsTooLongIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 
@@ -679,6 +700,7 @@ func TestAKeyThatIsTooLongIsA422(t *testing.T) {
 
 // A header with no value is no key.
 func TestAnEmptyKeyIsNoKey(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 
@@ -693,6 +715,7 @@ func TestAnEmptyKeyIsNoKey(t *testing.T) {
 // The link is in its first answer and nowhere else: the server keeps only a
 // hash of its token. So the answer is not kept for a repeat either.
 func TestALoginLinkIsNeverKeptSoARepeatMakesANewLink(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, admin := e.signUp()
 	create := func() linkBody {
@@ -712,6 +735,7 @@ func TestALoginLinkIsNeverKeptSoARepeatMakesANewLink(t *testing.T) {
 // A kept copy would be over for most of the 24 hours, so a repeat starts a new
 // registration.
 func TestPasskeyRegistrationOptionsAreNeverKeptSoARepeatStartsANewRegistration(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	begin := func() string {
@@ -737,6 +761,7 @@ func TestPasskeyRegistrationOptionsAreNeverKeptSoARepeatStartsANewRegistration(t
 // A key belongs to a session, so a route that needs no sign-in takes none, and
 // a read takes none.
 func TestARouteWithNoSignInAndAReadIgnoreTheKey(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, admin := e.signUp()
 	link := e.makeLink(admin, id)
@@ -754,6 +779,7 @@ func TestARouteWithNoSignInAndAReadIgnoreTheKey(t *testing.T) {
 
 // A body over the route's limit is refused as before, whether it has a key or not.
 func TestAnUploadOverTheLimitWithAKeyIsStillA413(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -766,6 +792,7 @@ func TestAnUploadOverTheLimitWithAKeyIsStillA413(t *testing.T) {
 
 // The contract says which routes take the key: every write that needs a sign-in.
 func TestEverySignedInWriteDeclaresTheKeyAndItsTwoCodes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	raw, err := io.ReadAll(e.do(request{path: "/openapi.json"}).Body)
 	require.NoError(t, err)
@@ -806,6 +833,7 @@ func TestEverySignedInWriteDeclaresTheKeyAndItsTwoCodes(t *testing.T) {
 
 // `me` is the caller's ID, so the two addresses of the caller are one path.
 func TestMeAndTheCallersOwnIDAreTheSamePath(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, admin := e.signUp()
 	patch := func(path, name string) *http.Response {
@@ -868,6 +896,7 @@ func (e *env) bigDelete(token, itemID string, total int, header http.Header) (st
 // A DELETE takes no body, so the server never read one. A key must not make it
 // read one: the body of a route that declares none is no part of the request.
 func TestAKeyedWriteThatTakesNoBodyDoesNotReadOne(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	grace, listID := e.grace()
 	plain, keyedItem := e.addItem(grace, listID, "Kettle"), e.addItem(grace, listID, "Teapot")
@@ -930,6 +959,7 @@ func (h *held) finish() answer {
 // then, and a new session gets the ID of its session and keeps an answer, the
 // request that waited must not get that answer: it is another session's.
 func TestARequestOfADeletedUserNeverGetsTheAnswerOfTheSessionThatHasItsID(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, _ := e.signUp()
 	graceID, grace := e.otherUser("Grace")

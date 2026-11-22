@@ -20,6 +20,7 @@ func mustID(t *testing.T, s string) int64 {
 }
 
 func TestManyAddsOfTheSameImageAtOnceGiveOneItemAndA409ForTheOthers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -43,6 +44,7 @@ func TestManyAddsOfTheSameImageAtOnceGiveOneItemAndA409ForTheOthers(t *testing.T
 }
 
 func TestAnImageTakenBetweenTheCheckAndTheWriteIsStillAnImageAttachedError(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, grace := e.otherUser("Grace")

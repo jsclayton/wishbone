@@ -71,6 +71,7 @@ func shopWithPrices() *fakeShop {
 }
 
 func TestAddingAStoreLinkReadsThePriceAndTheStoresPicture(t *testing.T) {
+	t.Parallel()
 	shop := shopWithPrices()
 	e := newEnv(t, withSearch(shop, nil))
 	e.signUp()
@@ -95,6 +96,7 @@ func TestAddingAStoreLinkReadsThePriceAndTheStoresPicture(t *testing.T) {
 }
 
 func TestAStoreLinkWhosePageHasNoPriceIsAddedWithoutOne(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -110,6 +112,7 @@ func TestAStoreLinkWhosePageHasNoPriceIsAddedWithoutOne(t *testing.T) {
 }
 
 func TestAStoreLinkIsAddedWithNoPriceWhenNoPipelineIsSetUp(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -123,6 +126,7 @@ func TestAStoreLinkIsAddedWithNoPriceWhenNoPipelineIsSetUp(t *testing.T) {
 }
 
 func TestAddingAStoreLinkCountsAgainstTheHourlyLimitUnlessItIsInTheCache(t *testing.T) {
+	t.Parallel()
 	shop := shopWithPrices()
 	e := newEnv(t, withSearch(shop, nil))
 	adminID, admin := e.signUp()
@@ -146,6 +150,7 @@ func TestAddingAStoreLinkCountsAgainstTheHourlyLimitUnlessItIsInTheCache(t *test
 }
 
 func TestAStoreLinkIsRefusedFromABlockedStoreAndBeyondTen(t *testing.T) {
+	t.Parallel()
 	shop := shopWithPrices()
 	e := newEnv(t, withSearch(shop, nil))
 	_, admin := e.signUp()
@@ -171,6 +176,7 @@ func TestAStoreLinkIsRefusedFromABlockedStoreAndBeyondTen(t *testing.T) {
 }
 
 func TestAStoreLinkThatRedirectsToABlockedStoreIsRefusedAfterTheFetch(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		return product("https://temu.com/p", extract.Product{Title: "Gadget", Price: "5"}), nil
 	}}
@@ -188,6 +194,7 @@ func TestAStoreLinkThatRedirectsToABlockedStoreIsRefusedAfterTheFetch(t *testing
 }
 
 func TestAStoreLinkIsAddedByTheUsersWhoCanEditTheListOnly(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	f := e.family()
 	it := e.addItem(f.mom, f.momList, "Kettle")
@@ -207,6 +214,7 @@ func TestAStoreLinkIsAddedByTheUsersWhoCanEditTheListOnly(t *testing.T) {
 }
 
 func TestStoreLinksAreListedAndReadInTheOrderAddedForAnEditorAndByPriceForOthers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	f := e.family()
 	it := e.addItem(f.mom, f.momList, "Kettle")
@@ -237,6 +245,7 @@ func TestStoreLinksAreListedAndReadInTheOrderAddedForAnEditorAndByPriceForOthers
 }
 
 func TestAnEditorSetsChangesAndClearsAStoreLinksPrice(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -270,6 +279,7 @@ func TestAnEditorSetsChangesAndClearsAStoreLinksPrice(t *testing.T) {
 }
 
 func TestAStoreLinkPriceHasToBeValid(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -291,6 +301,7 @@ func TestAStoreLinkPriceHasToBeValid(t *testing.T) {
 }
 
 func TestOnlyAnEditorChangesOrDeletesAStoreLink(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	f := e.family()
 	it := e.addItem(f.mom, f.momList, "Kettle")
@@ -311,6 +322,7 @@ func TestOnlyAnEditorChangesOrDeletesAStoreLink(t *testing.T) {
 }
 
 func TestACanRefreshPricesFieldFollowsTheEditRightAndTheStoreLinks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(shopWithPrices(), nil))
 	f := e.family()
 	it := e.addItem(f.mom, f.momList, "Kettle")

@@ -9,6 +9,7 @@ import (
 )
 
 func TestSetupIsNeededUntilAUserExists(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 
 	require.True(t, e.isNeeded())
@@ -28,6 +29,7 @@ func (e *env) isNeeded() bool {
 }
 
 func TestSetupCreatesTheAdminAndStartsACookieSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 
 	res := e.do(request{method: http.MethodPost, path: "/setup", body: map[string]any{
@@ -64,6 +66,7 @@ func TestSetupCreatesTheAdminAndStartsACookieSession(t *testing.T) {
 }
 
 func TestSetupKeepsTheLastNameNullWhenThereIsNone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 
 	res := e.do(request{method: http.MethodPost, path: "/setup", body: e.ada()})
@@ -75,6 +78,7 @@ func TestSetupKeepsTheLastNameNullWhenThereIsNone(t *testing.T) {
 }
 
 func TestAWrongSetupCodeIs422AndKeepsTheRealCode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	body := e.ada()
 	body["setup_code"] = "AAAA-AAAA-AAAA"
@@ -90,6 +94,7 @@ func TestAWrongSetupCodeIs422AndKeepsTheRealCode(t *testing.T) {
 }
 
 func TestSetupAfterAUserExistsIs409AndCreatesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -107,6 +112,7 @@ func TestSetupAfterAUserExistsIs409AndCreatesNothing(t *testing.T) {
 }
 
 func TestSetupAttemptsCountAgainstTheRedeemLimit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 3 })
 	wrong := e.ada()
 	wrong["setup_code"] = "AAAA-AAAA-AAAA"
@@ -127,6 +133,7 @@ func TestSetupAttemptsCountAgainstTheRedeemLimit(t *testing.T) {
 }
 
 func TestTheSetupLimitDoesNotCountReadingWhetherSetupIsNeeded(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 1 })
 	for range 5 {
 		require.Equal(t, http.StatusOK, e.do(request{path: "/setup"}).StatusCode)
@@ -134,6 +141,7 @@ func TestTheSetupLimitDoesNotCountReadingWhetherSetupIsNeeded(t *testing.T) {
 }
 
 func TestSetupChecksTheBirthdayAsAPartialDate(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		birthday map[string]any
@@ -166,6 +174,7 @@ func TestSetupChecksTheBirthdayAsAPartialDate(t *testing.T) {
 }
 
 func TestSetupNamesTheFieldThatIsNotValid(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	body := e.ada()
 	body["birthday"] = map[string]any{"month": 4, "day": 31}
@@ -183,6 +192,7 @@ func TestSetupNamesTheFieldThatIsNotValid(t *testing.T) {
 }
 
 func TestSetupNeedsANameAndTheCode(t *testing.T) {
+	t.Parallel()
 	for _, field := range []string{"name", "setup_code", "birthday"} {
 		t.Run(field, func(t *testing.T) {
 			e := newEnv(t)
@@ -198,6 +208,7 @@ func TestSetupNeedsANameAndTheCode(t *testing.T) {
 }
 
 func TestSetupRefusesABlankName(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	body := e.ada()
 	body["name"] = "   "
@@ -209,6 +220,7 @@ func TestSetupRefusesABlankName(t *testing.T) {
 }
 
 func TestSetupIsOpenToACallerWhoIsNotSignedIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	// A cookie that means nothing does not stop setup.
 	res := e.do(request{method: http.MethodPost, path: "/setup", body: e.ada(), header: cookie("stale")})
@@ -216,6 +228,7 @@ func TestSetupIsOpenToACallerWhoIsNotSignedIn(t *testing.T) {
 }
 
 func TestLocationIsTheAddressUnderTheAPIPrefix(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "/api/v2/users/42", location("/users/42"))
 	require.Equal(t, "/api/v2/lists/9/items/3", location("/lists/9/items/3"))
 }

@@ -11,6 +11,7 @@ import (
 // Deactivation and deletion, Deletion; Lists, Leaving and deleting).
 
 func TestDeletingARecipientOfASharedListLeavesItAndFlagsTheOpenGiftsThere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID) // the cousins see Dad too
@@ -42,6 +43,7 @@ func TestDeletingARecipientOfASharedListLeavesItAndFlagsTheOpenGiftsThere(t *tes
 }
 
 func TestDeletingTheOnlyRecipientOfAListDeletesTheListItsItemsAndItsInvitations(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID, f.hedyID)

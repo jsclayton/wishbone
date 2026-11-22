@@ -35,6 +35,7 @@ func (e *env) itemQuantity(itemID string) int {
 }
 
 func TestARecipientRestoresAGivenGiftAndItOpensAgainForItsGiver(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -84,6 +85,7 @@ func TestARecipientRestoresAGivenGiftAndItOpensAgainForItsGiver(t *testing.T) {
 }
 
 func TestARestoreByAUserTheGiverCannotSeeFlagsItWithNoUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -97,6 +99,7 @@ func TestARestoreByAUserTheGiverCannotSeeFlagsItWithNoUser(t *testing.T) {
 }
 
 func TestAParentRestoresAGiftGivenToTheirChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -117,6 +120,7 @@ func TestAParentRestoresAGiftGivenToTheirChild(t *testing.T) {
 }
 
 func TestOnlyTheRecipientsAndTheirParentsRestoreAGivenGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -152,6 +156,7 @@ func TestOnlyTheRecipientsAndTheirParentsRestoreAGivenGift(t *testing.T) {
 }
 
 func TestARestoreLeavesAnItemLookingToItsRecipientsAsIfItWasNeverClaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.addItem(f.mom, f.house, "Kettle")
@@ -180,6 +185,7 @@ func TestARestoreLeavesAnItemLookingToItsRecipientsAsIfItWasNeverClaimed(t *test
 }
 
 func TestARestoreHidesTheCopyOfTheImageAndTheAvatarsTheGiftExposed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	sueAvatar, momAvatar := e.uploaded(f.sue), e.uploaded(f.mom)
@@ -205,6 +211,7 @@ func TestARestoreHidesTheCopyOfTheImageAndTheAvatarsTheGiftExposed(t *testing.T)
 }
 
 func TestARestoreOntoAnItemThatLeftTheListPutsItBackInTheLastPlaceAndClearsRemovedFromOtherGifts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -244,6 +251,7 @@ func TestARestoreOntoAnItemThatLeftTheListPutsItBackInTheLastPlaceAndClearsRemov
 }
 
 func TestARestoreAddsTheQuantityToWhatAnItemOnItsListHasLeft(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 5})
@@ -259,6 +267,7 @@ func TestARestoreAddsTheQuantityToWhatAnItemOnItsListHasLeft(t *testing.T) {
 }
 
 func TestAnUnlimitedItemTakesNoQuantityBack(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	socks := e.addItem(f.mom, f.momList, "Socks", map[string]any{"is_unlimited": true})
@@ -274,6 +283,7 @@ func TestAnUnlimitedItemTakesNoQuantityBack(t *testing.T) {
 }
 
 func TestARestoreOntoADeletedItemKeepsItDeletedAndFlagsTheGiftRemoved(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -307,6 +317,7 @@ func TestARestoreOntoADeletedItemKeepsItDeletedAndFlagsTheGiftRemoved(t *testing
 }
 
 func TestARestoreOntoAFullyGivenItemOfADeletedListKeepsItDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -332,6 +343,7 @@ func TestARestoreOntoAFullyGivenItemOfADeletedListKeepsItDeleted(t *testing.T) {
 }
 
 func TestRestoreDeletesAGiftWhoseGiverIsDeactivatedAndPutsTheQuantityBackUnclaimed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -357,6 +369,7 @@ func TestRestoreDeletesAGiftWhoseGiverIsDeactivatedAndPutsTheQuantityBackUnclaim
 }
 
 func TestRestoreDeletesAGiftWhoseGiverWasDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -372,6 +385,7 @@ func TestRestoreDeletesAGiftWhoseGiverWasDeleted(t *testing.T) {
 }
 
 func TestRestoreOntoADeletedItemWithAGoneGiverPurgesTheItem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -387,6 +401,7 @@ func TestRestoreOntoADeletedItemWithAGoneGiverPurgesTheItem(t *testing.T) {
 }
 
 func TestRestoreReleasesAGiftWhoseGiverIsNowTheOnlyRecipient(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -403,6 +418,7 @@ func TestRestoreReleasesAGiftWhoseGiverIsNowTheOnlyRecipient(t *testing.T) {
 }
 
 func TestARestoredGiftMergesIntoTheGiversOpenGiftForTheSameOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 4})
@@ -425,6 +441,7 @@ func TestARestoredGiftMergesIntoTheGiversOpenGiftForTheSameOccasion(t *testing.T
 }
 
 func TestARestoredGiftIsGivenAgainAtTheNextRevealWithANewCopy(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -454,6 +471,7 @@ func TestARestoredGiftIsGivenAgainAtTheNextRevealWithANewCopy(t *testing.T) {
 }
 
 func TestUnclaimingARestoredGiftPutsTheQuantityBackForAllGiversAndLetsGoOfItsCopy(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -473,6 +491,7 @@ func TestUnclaimingARestoredGiftPutsTheQuantityBackForAllGiversAndLetsGoOfItsCop
 }
 
 func TestARestoredGiftIsFlaggedNoLongerSharedWhenItsGiverCanNotSeeTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")

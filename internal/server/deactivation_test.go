@@ -44,6 +44,7 @@ func (e *env) deactivated(admin, id string) userView {
 }
 
 func TestTheAdminDeactivatesAUserAndTheirSessionsEnd(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -62,6 +63,7 @@ func TestTheAdminDeactivatesAUserAndTheirSessionsEnd(t *testing.T) {
 }
 
 func TestDeactivatingADeactivatedUserChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -75,6 +77,7 @@ func TestDeactivatingADeactivatedUserChangesNothing(t *testing.T) {
 }
 
 func TestNobodyDeactivatesTheAdmin(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 
@@ -89,6 +92,7 @@ func TestNobodyDeactivatesTheAdmin(t *testing.T) {
 }
 
 func TestOnlyTheAdminDeactivatesAndReactivates(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -115,6 +119,7 @@ func TestOnlyTheAdminDeactivatesAndReactivates(t *testing.T) {
 }
 
 func TestReactivatingBringsTheUserBackButTheirSessionsStayRevoked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -131,6 +136,7 @@ func TestReactivatingBringsTheUserBackButTheirSessionsStayRevoked(t *testing.T) 
 }
 
 func TestReactivatingAnActiveUserChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")

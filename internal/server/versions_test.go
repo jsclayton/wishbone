@@ -259,6 +259,7 @@ func (e *env) household() household {
 }
 
 func TestVersionsListsExactlyWhatTheCallersCollectionsAndGetsGive(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	h := e.household()
 
@@ -281,6 +282,7 @@ func TestVersionsListsExactlyWhatTheCallersCollectionsAndGetsGive(t *testing.T) 
 }
 
 func TestVersionsNeedsASignIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -294,6 +296,7 @@ func itemKey(it itemView) versionKey {
 }
 
 func TestAClaimMovesTheGiversVersionsAndNotTheRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -318,6 +321,7 @@ func TestAClaimMovesTheGiversVersionsAndNotTheRecipients(t *testing.T) {
 }
 
 func TestAFullyClaimedItemLeavesTheVersionsOfAGiverWithNoOpenGiftOnIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	gus := e.giver("Gus", f)
@@ -345,6 +349,7 @@ func TestAFullyClaimedItemLeavesTheVersionsOfAGiverWithNoOpenGiftOnIt(t *testing
 }
 
 func TestAGiftEntersTheRecipientsVersionsWhenItIsGiven(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -369,6 +374,7 @@ func TestAGiftEntersTheRecipientsVersionsWhenItIsGiven(t *testing.T) {
 }
 
 func TestADeletedAMovedAndAHiddenResourceAreOnlyAbsentFromVersions(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -412,6 +418,7 @@ func TestADeletedAMovedAndAHiddenResourceAreOnlyAbsentFromVersions(t *testing.T)
 }
 
 func TestVersionsAnswers304WhileNothingTheCallerSeesChanged(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	_, tag := e.versions(f.sue)
@@ -447,6 +454,7 @@ func TestVersionsAnswers304WhileNothingTheCallerSeesChanged(t *testing.T) {
 }
 
 func TestAUserSeenOnlyAsASummaryIsListedAsASummary(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -475,6 +483,7 @@ func TestAUserSeenOnlyAsASummaryIsListedAsASummary(t *testing.T) {
 }
 
 func TestAUserWhoIsOnlyInAFlagOfTheCallersGiftIsListedAsASummary(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	bobID, bob := e.otherUser("Bob")
@@ -512,6 +521,7 @@ func moved(before, after map[versionKey]string) []versionKey {
 func notModified(tag string) http.Header { return http.Header{"If-None-Match": {tag}} }
 
 func TestVersionsRefusesAQuery(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -523,6 +533,7 @@ func TestVersionsRefusesAQuery(t *testing.T) {
 }
 
 func TestAUserWhoMovesToAnotherGroupMovesTheVersionsOfWhoeverReadsEitherGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	gusID, _ := e.cousin("Gus", f)
@@ -559,6 +570,7 @@ func TestAUserWhoMovesToAnotherGroupMovesTheVersionsOfWhoeverReadsEitherGroup(t 
 }
 
 func TestAUserWhoMovesFromAnInnerGroupToTheOuterOneMovesItsDirectUsers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -581,6 +593,7 @@ func TestAUserWhoMovesFromAnInnerGroupToTheOuterOneMovesItsDirectUsers(t *testin
 }
 
 func TestACallerWhoCannotReadAMembershipHasNoEntryForIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	cousins := e.cousins(f)
@@ -622,6 +635,7 @@ func TestACallerWhoCannotReadAMembershipHasNoEntryForIt(t *testing.T) {
 }
 
 func TestAttachingAGroupMovesTheOccasionsMembershipsAndNotTheOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	reunion := e.addShared(f.admin, "Reunion", annual(7, 4), false).ID
@@ -637,6 +651,7 @@ func TestAttachingAGroupMovesTheOccasionsMembershipsAndNotTheOccasion(t *testing
 }
 
 func TestAClaimOnAChildsListMovesTheParentWhoIsAGiverAndNotTheChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -662,6 +677,7 @@ func TestAClaimOnAChildsListMovesTheParentWhoIsAGiverAndNotTheChild(t *testing.T
 }
 
 func TestTheClockAloneMovesAGiverWhoseGiftNowNeedsAttentionAndNoRecipient(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -681,6 +697,7 @@ func TestTheClockAloneMovesAGiverWhoseGiftNowNeedsAttentionAndNoRecipient(t *tes
 }
 
 func TestADeactivationThatReleasesGiftsMovesNoRecipientThroughTheRelease(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	gusID, gus := e.cousin("Gus", f)
@@ -714,6 +731,7 @@ func TestADeactivationThatReleasesGiftsMovesNoRecipientThroughTheRelease(t *test
 // sort first with no error, and one that is missing from the enum would be
 // absent from the contract.
 func TestEveryKindOfVersionHasAPlaceInTheOrderAndInTheEnum(t *testing.T) {
+	t.Parallel()
 	file, err := parser.ParseFile(gotoken.NewFileSet(), "versions.go", nil, 0)
 	require.NoError(t, err)
 	var constants []string
@@ -744,6 +762,7 @@ func TestEveryKindOfVersionHasAPlaceInTheOrderAndInTheEnum(t *testing.T) {
 // 120 of each kind is more than one statement can hold for a caller who is not
 // the admin, and each one must still be what the collection gives.
 func TestTheUsersOfManyGroupsAndOccasionsAreReadInParts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	ctx := t.Context()

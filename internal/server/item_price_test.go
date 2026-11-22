@@ -16,6 +16,7 @@ import (
 var pricedLink = []map[string]any{{"url": "https://a.example/k", "price_minor": 2500, "currency": "EUR"}}
 
 func TestASearchResultSentOnUnchangedGivesTheItemTheStoreLinksPrice(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -38,6 +39,7 @@ func TestASearchResultSentOnUnchangedGivesTheItemTheStoreLinksPrice(t *testing.T
 }
 
 func TestNullAndAbsentPricesAreTheSameOnCreate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	token, listID := e.grace()
@@ -52,6 +54,7 @@ func TestNullAndAbsentPricesAreTheSameOnCreate(t *testing.T) {
 }
 
 func TestAPriceTheUserClearsStaysCleared(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -76,6 +79,7 @@ func TestAPriceTheUserClearsStaysCleared(t *testing.T) {
 }
 
 func TestClearingAPriceTheItemNeverHadClearsNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, withSearch(&fakeShop{pages: anyProduct}, nil))
 	e.signUp()
 	token, listID := e.grace()
@@ -88,6 +92,7 @@ func TestClearingAPriceTheItemNeverHadClearsNothing(t *testing.T) {
 }
 
 func TestAStoreLinkAddedToAnItemWithoutAPriceGivesItItsFirstPriceOnce(t *testing.T) {
+	t.Parallel()
 	shop := &fakeShop{pages: func(url string) (extract.Result, error) {
 		if url == "https://nopr.example/k" {
 			return product(url, extract.Product{Title: "Kettle"}), nil

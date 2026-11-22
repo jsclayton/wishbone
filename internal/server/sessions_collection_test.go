@@ -42,6 +42,7 @@ func (e *env) manySessions() (id string, tokens []string) {
 }
 
 func TestTheSessionsListPagesNewestUseFirst(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 	token := tokens[0]
@@ -63,6 +64,7 @@ func TestTheSessionsListPagesNewestUseFirst(t *testing.T) {
 }
 
 func TestTheSessionsListSortsBackwardsWithAMinus(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 
@@ -76,6 +78,7 @@ func TestTheSessionsListSortsBackwardsWithAMinus(t *testing.T) {
 }
 
 func TestTheSessionsListRefusesUnknownFiltersAndSortKeysAndMixedCursors(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 	token := tokens[0]
@@ -96,6 +99,7 @@ func TestTheSessionsListRefusesUnknownFiltersAndSortKeysAndMixedCursors(t *testi
 }
 
 func TestACursorOfTheSessionsListDoesNotFitTheUsersList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 	token := tokens[0]
@@ -108,6 +112,7 @@ func TestACursorOfTheSessionsListDoesNotFitTheUsersList(t *testing.T) {
 }
 
 func TestEachSessionHasAVersionThatChangesWhenTheSessionIsUsed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 	// The ID of the second token's session. Asking as that session uses it, so
@@ -137,6 +142,7 @@ func TestEachSessionHasAVersionThatChangesWhenTheSessionIsUsed(t *testing.T) {
 }
 
 func TestRevokingASessionChecksIfMatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, tokens := e.manySessions()
 	token := tokens[0]

@@ -33,6 +33,7 @@ func (e *env) emmasLists(f family) emmasLists {
 }
 
 func TestAParentKeepsEveryReadOfADeactivatedChildsListsAndLosesEveryEdit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	em := e.emmasLists(f)
@@ -97,6 +98,7 @@ func TestAParentKeepsEveryReadOfADeactivatedChildsListsAndLosesEveryEdit(t *test
 }
 
 func TestAParentGetsTheirPowersBackWhenTheChildIsReactivated(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	em := e.emmasLists(f)
@@ -112,6 +114,7 @@ func TestAParentGetsTheirPowersBackWhenTheChildIsReactivated(t *testing.T) {
 }
 
 func TestAParentKeepsThePowersThatComeThroughAnotherRecipient(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.linkParents(f.admin, f.dadID, f.momID) // Dad is Mom's child here
@@ -131,6 +134,7 @@ func TestAParentKeepsThePowersThatComeThroughAnotherRecipient(t *testing.T) {
 }
 
 func TestAParentWhoIsAlsoARecipientKeepsTheirOwnPowersOnAChildsList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	em := e.emmasLists(f)

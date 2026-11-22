@@ -86,6 +86,7 @@ func occasionNames(l occasionList) []string {
 // A visible field is always present, and null when it has no value (docs/spec.md,
 // API principles, Values). So a rule has every field, whatever its kind.
 func TestARuleHasEveryFieldAndNullForTheOnesItsKindDoesNotUse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -113,6 +114,7 @@ func TestARuleHasEveryFieldAndNullForTheOnesItsKindDoesNotUse(t *testing.T) {
 }
 
 func TestSetupMakesTheAdminABirthdayOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 

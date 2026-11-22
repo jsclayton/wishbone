@@ -27,6 +27,7 @@ func (e *env) addShared(admin, name string, rule map[string]any, everyone bool) 
 }
 
 func TestTheAdminCreatesASharedOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -48,6 +49,7 @@ func TestTheAdminCreatesASharedOccasion(t *testing.T) {
 }
 
 func TestTheAdminMarksASharedOccasionEveryoneWhenCreatingIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -58,6 +60,7 @@ func TestTheAdminMarksASharedOccasionEveryoneWhenCreatingIt(t *testing.T) {
 }
 
 func TestOnlyTheAdminCreatesASharedOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -69,6 +72,7 @@ func TestOnlyTheAdminCreatesASharedOccasion(t *testing.T) {
 }
 
 func TestOnlyASharedOccasionTakesIsEveryoneAndOnlyACustomOneTakesAUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 
@@ -85,6 +89,7 @@ func TestOnlyASharedOccasionTakesIsEveryoneAndOnlyACustomOneTakesAUser(t *testin
 }
 
 func TestACustomAndABirthdayOccasionHaveNoIsEveryoneAndCannotAttachAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -98,6 +103,7 @@ func TestACustomAndABirthdayOccasionHaveNoIsEveryoneAndCannotAttachAGroup(t *tes
 }
 
 func TestTheAdminChangesASharedOccasionsNameRuleAndEveryoneMark(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Christmas", annual(12, 25), false)
@@ -120,6 +126,7 @@ func TestTheAdminChangesASharedOccasionsNameRuleAndEveryoneMark(t *testing.T) {
 }
 
 func TestASharedOccasionPatchChecksIsEveryoneAndTheVersion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Christmas", annual(12, 25), false)
@@ -136,6 +143,7 @@ func TestASharedOccasionPatchChecksIsEveryoneAndTheVersion(t *testing.T) {
 }
 
 func TestACustomOccasionCannotBeMarkedEveryone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -148,6 +156,7 @@ func TestACustomOccasionCannotBeMarkedEveryone(t *testing.T) {
 }
 
 func TestOnlyTheAdminChangesOrDeletesASharedOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -167,6 +176,7 @@ func TestOnlyTheAdminChangesOrDeletesASharedOccasion(t *testing.T) {
 }
 
 func TestTheAdminDeletesASharedOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Christmas", annual(12, 25), false)

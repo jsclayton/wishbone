@@ -43,6 +43,7 @@ func (e *env) keepFor(listID string, userIDs ...string) {
 }
 
 func TestThePlanCountsTheGiftsOnKeptListsThatTheDeleteWillDelete(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -63,6 +64,7 @@ func TestThePlanCountsTheGiftsOnKeptListsThatTheDeleteWillDelete(t *testing.T) {
 }
 
 func TestDeletingTheLastRecipientOfAKeptListDeletesTheOpenGiftKeptForIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -79,6 +81,7 @@ func TestDeletingTheLastRecipientOfAKeptListDeletesTheOpenGiftKeptForIt(t *testi
 }
 
 func TestDeletingTheOnlyOtherLastRecipientOfAKeptListLeavesTheGiverAloneAndTheGiftIsDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -93,6 +96,7 @@ func TestDeletingTheOnlyOtherLastRecipientOfAKeptListLeavesTheGiverAloneAndTheGi
 }
 
 func TestDeletingALastRecipientOfAKeptListMovesTheGiftForTheirOccasionToTheRemainingOnes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -112,6 +116,7 @@ func TestDeletingALastRecipientOfAKeptListMovesTheGiftForTheirOccasionToTheRemai
 }
 
 func TestDeletingAnotherUserLeavesAGiftOnAListKeptForItsGiverAlone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -127,6 +132,7 @@ func TestDeletingAnotherUserLeavesAGiftOnAListKeptForItsGiverAlone(t *testing.T)
 }
 
 func TestAGivenGiftOnAKeptListForTheDeletedUserAloneIsDeleted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -143,6 +149,7 @@ func TestAGivenGiftOnAKeptListForTheDeletedUserAloneIsDeleted(t *testing.T) {
 }
 
 func TestAGivenGiftOnAKeptListWithAnotherLastRecipientStaysForThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)

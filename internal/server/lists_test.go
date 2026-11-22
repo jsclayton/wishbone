@@ -101,6 +101,7 @@ func listNames(l listList) []string {
 }
 
 func TestSetupMakesTheAdminsPrimaryListAndTheUserSeesItOnTheirProfile(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 
@@ -125,6 +126,7 @@ func TestSetupMakesTheAdminsPrimaryListAndTheUserSeesItOnTheirProfile(t *testing
 }
 
 func TestAUserTheAdminCreatesGetsAPrimaryListToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	made := decode[userView](t, e.createUser(admin, map[string]any{"name": "Grace", "birthday": birthday(1, 1, nil)}))
@@ -137,6 +139,7 @@ func TestAUserTheAdminCreatesGetsAPrimaryListToo(t *testing.T) {
 }
 
 func TestTheAdminDoesNotSeeAnotherUsersPrimaryListOrItsAddressOnTheUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -149,6 +152,7 @@ func TestTheAdminDoesNotSeeAnotherUsersPrimaryListOrItsAddressOnTheUser(t *testi
 }
 
 func TestAListThatDoesNotExistOrIsHiddenIsTheSame404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -162,6 +166,7 @@ func TestAListThatDoesNotExistOrIsHiddenIsTheSame404(t *testing.T) {
 }
 
 func TestAListNeedsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -170,6 +175,7 @@ func TestAListNeedsASession(t *testing.T) {
 }
 
 func TestAPrimaryListsNameFollowsItsUsersNameUntilARecipientRenamesTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -194,6 +200,7 @@ func TestAPrimaryListsNameFollowsItsUsersNameUntilARecipientRenamesTheList(t *te
 }
 
 func TestARecipientEditsTheNameAndTheDescriptionOfTheirList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -215,6 +222,7 @@ func TestARecipientEditsTheNameAndTheDescriptionOfTheirList(t *testing.T) {
 }
 
 func TestAListsEditsAreCheckedAndFieldsTheCallerCannotChangeAreRefused(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -244,6 +252,7 @@ func TestAListsEditsAreCheckedAndFieldsTheCallerCannotChangeAreRefused(t *testin
 }
 
 func TestAListsETagGuardsItsEdits(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -262,6 +271,7 @@ func TestAListsETagGuardsItsEdits(t *testing.T) {
 }
 
 func TestTheListsOfACallerFilterBySortAndPage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -288,6 +298,7 @@ func TestTheListsOfACallerFilterBySortAndPage(t *testing.T) {
 }
 
 func TestAListThatTheCallerCanEditFiltersByCanEdit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -298,6 +309,7 @@ func TestAListThatTheCallerCanEditFiltersByCanEdit(t *testing.T) {
 }
 
 func TestListsPageWithACursorAndRefuseWhatTheyDoNotKnow(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -328,6 +340,7 @@ func TestListsPageWithACursorAndRefuseWhatTheyDoNotKnow(t *testing.T) {
 // The primary list belongs to user.Create, so a path that calls it without the
 // service (setup does) can't skip the list.
 func TestEveryPathThatMakesAUserMakesTheirPrimaryList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, err := user.Create(t.Context(), e.db, e.clock.now(), user.NewUser{Name: "Direct", Birthday: user.PartialDate{Month: 1, Day: 1}})

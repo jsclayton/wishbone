@@ -14,6 +14,7 @@ func (e *env) getUser(token, id string) *http.Response {
 }
 
 func TestUsersWhoShareAGroupSeeEachOtherAndOnlyEachOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -42,6 +43,7 @@ func TestUsersWhoShareAGroupSeeEachOtherAndOnlyEachOther(t *testing.T) {
 }
 
 func TestTheAdminStillSeesEveryUserAndAUserOutsideEveryGroupSeesOnlyThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -55,6 +57,7 @@ func TestTheAdminStillSeesEveryUserAndAUserOutsideEveryGroupSeesOnlyThemselves(t
 }
 
 func TestSharingAGroupThroughNestingIsEnough(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -80,6 +83,7 @@ func TestSharingAGroupThroughNestingIsEnough(t *testing.T) {
 }
 
 func TestUsersInSiblingBranchesNestedDeepSeeEachOtherThroughTheSharedRootOnly(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -121,6 +125,7 @@ func TestUsersInSiblingBranchesNestedDeepSeeEachOtherThroughTheSharedRootOnly(t 
 }
 
 func TestUsersInTwoGroupsThatAreInsideTheSameOuterGroupSeeEachOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -139,6 +144,7 @@ func TestUsersInTwoGroupsThatAreInsideTheSameOuterGroupSeeEachOther(t *testing.T
 }
 
 func TestUsersInGroupsThatNoGroupContainsTogetherDoNotSeeEachOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -153,6 +159,7 @@ func TestUsersInGroupsThatNoGroupContainsTogetherDoNotSeeEachOther(t *testing.T)
 }
 
 func TestTakingAUserOutOfTheGroupTakesAwayTheSight(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -168,6 +175,7 @@ func TestTakingAUserOutOfTheGroupTakesAwayTheSight(t *testing.T) {
 }
 
 func TestUnnestingOrDeletingAGroupTakesAwayTheSightItGave(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -189,6 +197,7 @@ func TestUnnestingOrDeletingAGroupTakesAwayTheSightItGave(t *testing.T) {
 }
 
 func TestTimezoneAndProfileConfirmedAtAreAbsentForAUserWhoSharesAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -219,6 +228,7 @@ func TestTimezoneAndProfileConfirmedAtAreAbsentForAUserWhoSharesAGroup(t *testin
 }
 
 func TestTheHiddenFieldsAreAbsentFromCollectionRowsToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -249,6 +259,7 @@ func TestTheHiddenFieldsAreAbsentFromCollectionRowsToo(t *testing.T) {
 }
 
 func TestTheVersionOfAUserIsTheBodyTheCallerSees(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -265,6 +276,7 @@ func TestTheVersionOfAUserIsTheBodyTheCallerSees(t *testing.T) {
 }
 
 func TestAUserWhoSharesAGroupCannotEditOrSignInForTheOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -281,6 +293,7 @@ func TestAUserWhoSharesAGroupCannotEditOrSignInForTheOther(t *testing.T) {
 }
 
 func TestAnAvatarLoadsForAUserWhoSharesAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -296,6 +309,7 @@ func TestAnAvatarLoadsForAUserWhoSharesAGroup(t *testing.T) {
 }
 
 func TestAnAvatarCanBeAttachedToAUserOnlyByThoseWhoSeeTheImage(t *testing.T) {
+	t.Parallel()
 	// The uploader sees an image before it is attached; being in a group with
 	// the owner of an avatar does not let anyone attach that avatar elsewhere.
 	e := newEnv(t)

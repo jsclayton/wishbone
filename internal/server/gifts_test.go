@@ -125,6 +125,7 @@ func (e *env) birthdayOf(token, userID string) string {
 }
 
 func TestAGiverClaimsAnItemForTheNextOccasionOfTheRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3, "price_minor": 4500})
@@ -177,6 +178,7 @@ func TestAGiverClaimsAnItemForTheNextOccasionOfTheRecipients(t *testing.T) {
 func (f family) birthdayOfMom(e *env) string { return e.birthdayOf(f.sue, f.momID) }
 
 func TestAGiverChoosesTheQuantityOccasionLabelNoteAndBoughtMark(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -196,6 +198,7 @@ func TestAGiverChoosesTheQuantityOccasionLabelNoteAndBoughtMark(t *testing.T) {
 }
 
 func TestTheRevealIsAtTheLatestMidnightOfTheRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	// Mom is in New York and Dad in Los Angeles: the day after Jan 1 starts
@@ -212,6 +215,7 @@ func TestTheRevealIsAtTheLatestMidnightOfTheRecipients(t *testing.T) {
 }
 
 func TestAnItemShowsItsClaimStateToGiversAndNeverToRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 3})
@@ -247,6 +251,7 @@ func TestAnItemShowsItsClaimStateToGiversAndNeverToRecipients(t *testing.T) {
 }
 
 func TestAnUnlimitedItemHasNoLimitToWhatIsStillWanted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	socks := e.addItem(f.mom, f.momList, "Socks", map[string]any{"is_unlimited": true})

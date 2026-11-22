@@ -36,6 +36,7 @@ func (e *env) seen(token, path string) seen {
 }
 
 func TestDeactivatingAGiverReleasesTheirOpenGiftsAndKeepsTheOnesTheyGave(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 3})
@@ -63,6 +64,7 @@ func TestDeactivatingAGiverReleasesTheirOpenGiftsAndKeepsTheOnesTheyGave(t *test
 }
 
 func TestDeactivatingAGiverShowsTheirRecipientsNothingOfClaims(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	photo := e.uploaded(f.mom)
@@ -96,6 +98,7 @@ func TestDeactivatingAGiverShowsTheirRecipientsNothingOfClaims(t *testing.T) {
 }
 
 func TestDeactivatingARecipientShowsTheOtherRecipientsNothingOfClaims(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -133,6 +136,7 @@ func TestDeactivatingARecipientShowsTheOtherRecipientsNothingOfClaims(t *testing
 }
 
 func TestDeactivatingARecipientMovesTheGiftsForTheirOccasionsAndFlagsThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID) // the cousins now see Dad too
@@ -170,6 +174,7 @@ func occasionIDs(t *testing.T, e *env, token, listID string) []string {
 }
 
 func TestAGiverWhoSeesNoActiveRecipientIsFlaggedNoLongerSharedAndCannotClaim(t *testing.T) {
+	t.Parallel()
 	// The example of docs/spec.md, A deactivated recipient: Grandma is Dad's
 	// parent and shares no group with Mom.
 	e := newEnv(t)
@@ -213,6 +218,7 @@ func TestAGiverWhoSeesNoActiveRecipientIsFlaggedNoLongerSharedAndCannotClaim(t *
 }
 
 func TestAGiverWhoIsARecipientIsNotFlaggedWhenTheOtherRecipientIsDeactivated(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID) // Mom sees Dad
@@ -238,6 +244,7 @@ func (failingObserver) VisibilityChanged(context.Context, *sqlx.Tx, []int64) err
 func (failingObserver) Deactivated(context.Context, *sqlx.Tx, int64) error { return nil }
 
 func TestDeactivationAndReactivationSettleInsideTheirOwnTransaction(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	svc := e.srv.opts.Users

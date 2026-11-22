@@ -8,6 +8,7 @@ import (
 )
 
 func TestOnlyTheAdminSetsParentIDsAndAnyoneElseWhoSeesTheUserGetsFieldNotWritable(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -29,6 +30,7 @@ func TestOnlyTheAdminSetsParentIDsAndAnyoneElseWhoSeesTheUserGetsFieldNotWritabl
 }
 
 func TestTheAdminReplacesAUsersParentsAndAnEmptyListRemovesThemAll(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, _ := e.otherUser("Mom")
@@ -48,6 +50,7 @@ func TestTheAdminReplacesAUsersParentsAndAnEmptyListRemovesThemAll(t *testing.T)
 }
 
 func TestLinkingAParentMovesTheUsersVersionAndIfMatchGuardsIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, _ := e.otherUser("Mom")
@@ -64,6 +67,7 @@ func TestLinkingAParentMovesTheUsersVersionAndIfMatchGuardsIt(t *testing.T) {
 }
 
 func TestTheAdminCannotMakeALoopOrAUserTheirOwnParent(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	grandmaID, _ := e.otherUser("Grandma")
@@ -88,6 +92,7 @@ func TestTheAdminCannotMakeALoopOrAUserTheirOwnParent(t *testing.T) {
 }
 
 func TestTheAdminCannotHaveAParentButCanBeOne(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	momID, _ := e.otherUser("Mom")
@@ -107,6 +112,7 @@ func TestTheAdminCannotHaveAParentButCanBeOne(t *testing.T) {
 }
 
 func TestAParentThatTheCallerCannotSeeIsA422ReferenceNotFound(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	emmaID, _ := e.otherUser("Emma")
@@ -120,6 +126,7 @@ func TestAParentThatTheCallerCannotSeeIsA422ReferenceNotFound(t *testing.T) {
 }
 
 func TestParentIDsCannotBeNull(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	emmaID, _ := e.otherUser("Emma")
@@ -131,6 +138,7 @@ func TestParentIDsCannotBeNull(t *testing.T) {
 }
 
 func TestTheAdminCreatesAUserWithParents(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -154,6 +162,7 @@ func TestTheAdminCreatesAUserWithParents(t *testing.T) {
 }
 
 func TestOnlyTheAdminHasCanEditParents(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")

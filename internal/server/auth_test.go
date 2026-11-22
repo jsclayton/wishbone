@@ -16,6 +16,7 @@ import (
 )
 
 func TestASignedInRouteWithNoSessionIs401(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -36,6 +37,7 @@ func TestASignedInRouteWithNoSessionIs401(t *testing.T) {
 }
 
 func TestACookieAndABearerTokenGiveTheSameResponse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, cookieToken := e.signUp()
 	uid, err := strconv.ParseInt(id, 10, 64)
@@ -52,6 +54,7 @@ func TestACookieAndABearerTokenGiveTheSameResponse(t *testing.T) {
 }
 
 func TestTheBearerTokenWinsOverTheCookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, cookieToken := e.signUp()
 	_, otherToken := e.otherUser("Grace")
@@ -78,6 +81,7 @@ func TestTheBearerTokenWinsOverTheCookie(t *testing.T) {
 }
 
 func TestMeStandsForTheCallerInAnyUserPath(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	otherID, _ := e.otherUser("Grace")
@@ -96,6 +100,7 @@ func TestMeStandsForTheCallerInAnyUserPath(t *testing.T) {
 }
 
 func TestMeNeedsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -104,6 +109,7 @@ func TestMeNeedsASession(t *testing.T) {
 }
 
 func TestNoResponseContainsMeOrCurrent(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 
@@ -115,6 +121,7 @@ func TestNoResponseContainsMeOrCurrent(t *testing.T) {
 }
 
 func TestLogOutRevokesTheSessionAndClearsTheCookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 
@@ -130,6 +137,7 @@ func TestLogOutRevokesTheSessionAndClearsTheCookie(t *testing.T) {
 }
 
 func TestLogOutOfABearerSessionSetsNoCookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, _ := e.signUp()
 	uid, err := strconv.ParseInt(id, 10, 64)
@@ -146,6 +154,7 @@ func TestLogOutOfABearerSessionSetsNoCookie(t *testing.T) {
 }
 
 func TestLogOutLeavesTheCallersOtherSessionsAlone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, first := e.signUp()
 	uid, err := strconv.ParseInt(id, 10, 64)
@@ -160,6 +169,7 @@ func TestLogOutLeavesTheCallersOtherSessionsAlone(t *testing.T) {
 }
 
 func TestLogOutWithNoSessionIs401(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 
@@ -169,6 +179,7 @@ func TestLogOutWithNoSessionIs401(t *testing.T) {
 }
 
 func TestASessionOfAnotherUserIsA404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	_, otherToken := e.otherUser("Grace")
@@ -182,6 +193,7 @@ func TestASessionOfAnotherUserIsA404(t *testing.T) {
 }
 
 func TestTheCookieIsRenewedAtMostOnceADay(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 
@@ -202,6 +214,7 @@ func TestTheCookieIsRenewedAtMostOnceADay(t *testing.T) {
 }
 
 func TestABearerSessionIsNeverGivenACookie(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, _ := e.signUp()
 	uid, err := strconv.ParseInt(id, 10, 64)
@@ -217,6 +230,7 @@ func TestABearerSessionIsNeverGivenACookie(t *testing.T) {
 }
 
 func TestASessionLastsAYearAfterItsLastUse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, token := e.signUp()
 
@@ -231,6 +245,7 @@ func TestASessionLastsAYearAfterItsLastUse(t *testing.T) {
 }
 
 func TestTheOpenAPIDocumentHasBothSecuritySchemes(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 
 	res := e.do(request{path: "/openapi.json"})
@@ -261,6 +276,7 @@ func TestTheOpenAPIDocumentHasBothSecuritySchemes(t *testing.T) {
 }
 
 func TestAPanicAnswersAProblemWithACode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.srv.router.Get("/api/v2/boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
 
@@ -273,6 +289,7 @@ func TestAPanicAnswersAProblemWithACode(t *testing.T) {
 }
 
 func TestAnAbortedHandlerStillAborts(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.srv.router.Get("/api/v2/abort", func(http.ResponseWriter, *http.Request) { panic(http.ErrAbortHandler) })
 
@@ -290,6 +307,7 @@ func TestAnAbortedHandlerStillAborts(t *testing.T) {
 // before the group adds the check, so a route that leaves 401 out would answer
 // it with no word of it in the contract.
 func TestEverySignedInRouteDocumentsItsSecurityAnd401(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	public := map[string]bool{
 		"get /api/v2/health": true, "get /api/v2/setup": true, "post /api/v2/setup": true,
@@ -322,6 +340,7 @@ func TestEverySignedInRouteDocumentsItsSecurityAnd401(t *testing.T) {
 }
 
 func TestAPanicInAHumaOperationAnswersAProblemWithACode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	cfg := huma.DefaultConfig("test", "test")
 	cfg.OpenAPIPath, cfg.DocsPath, cfg.SchemasPath = "", "", ""

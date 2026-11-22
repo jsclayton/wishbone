@@ -62,6 +62,7 @@ func blockedStoreNames(list blockedStoreList) []string {
 }
 
 func TestTheAdminBlocksAStore(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -89,6 +90,7 @@ func keysOfMap(m map[string]any) []string {
 }
 
 func TestABlockedStoreIsNamedByItsHost(t *testing.T) {
+	t.Parallel()
 	for in, want := range map[string]string{
 		"TEMU.com":           "temu.com",
 		"www.temu.com":       "temu.com",
@@ -103,6 +105,7 @@ func TestABlockedStoreIsNamedByItsHost(t *testing.T) {
 }
 
 func TestAStoreThatIsNotAHostIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -125,6 +128,7 @@ func TestAStoreThatIsNotAHostIsA422(t *testing.T) {
 }
 
 func TestBlockingABlockedStoreIsAlreadyBlockedAndChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	first := e.blockStore(admin, "temu.com")
@@ -141,6 +145,7 @@ func TestBlockingABlockedStoreIsAlreadyBlockedAndChangesNothing(t *testing.T) {
 }
 
 func TestOnlyTheAdminReachesBlockedStores(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -167,6 +172,7 @@ func TestOnlyTheAdminReachesBlockedStores(t *testing.T) {
 }
 
 func TestTheBlockedStoresAreSortedByStore(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	for _, s := range []string{"temu.com", "aliexpress.com", "shein.com"} {
@@ -186,6 +192,7 @@ func TestTheBlockedStoresAreSortedByStore(t *testing.T) {
 }
 
 func TestTheBlockedStoresCollectionPagesAndRejectsWhatItDoesNotKnow(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	for _, s := range []string{"c.com", "a.com", "b.com"} {
@@ -208,6 +215,7 @@ func TestTheBlockedStoresCollectionPagesAndRejectsWhatItDoesNotKnow(t *testing.T
 }
 
 func TestARowsVersionIsTheETagOfTheCreate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	res := e.postBlockedStore(admin, "temu.com")
@@ -219,6 +227,7 @@ func TestARowsVersionIsTheETagOfTheCreate(t *testing.T) {
 }
 
 func TestTheAdminAllowsAStoreAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	temu := e.blockStore(admin, "temu.com")
@@ -236,6 +245,7 @@ func TestTheAdminAllowsAStoreAgain(t *testing.T) {
 }
 
 func TestDeletingWithAStaleIfMatchIsA412(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	created := e.postBlockedStore(admin, "temu.com")

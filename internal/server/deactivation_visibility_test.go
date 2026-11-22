@@ -8,6 +8,7 @@ import (
 )
 
 func TestADeactivatedUserIsSeenOnlyByTheAdminTheirParentsAndThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -34,6 +35,7 @@ func TestADeactivatedUserIsSeenOnlyByTheAdminTheirParentsAndThemselves(t *testin
 }
 
 func TestADeactivatedUserSeesThemselves(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -48,6 +50,7 @@ func TestADeactivatedUserSeesThemselves(t *testing.T) {
 }
 
 func TestADeactivatedUserIsLeftOutOfAGroupsUsersForEveryoneElse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -67,6 +70,7 @@ func TestADeactivatedUserIsLeftOutOfAGroupsUsersForEveryoneElse(t *testing.T) {
 }
 
 func TestAChildDoesNotSeeADeactivatedParentButStillGetsTheirSummary(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	dadID, _ := e.otherUser("Dad")
@@ -80,6 +84,7 @@ func TestAChildDoesNotSeeADeactivatedParentButStillGetsTheirSummary(t *testing.T
 }
 
 func TestOnlyTheDeactivatedUsersSeeTheirDeactivatedAt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -102,6 +107,7 @@ func TestOnlyTheDeactivatedUsersSeeTheirDeactivatedAt(t *testing.T) {
 }
 
 func TestReactivatingMakesTheUserVisibleAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")

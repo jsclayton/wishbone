@@ -40,6 +40,7 @@ func (e *env) passkeyLogin(credential []byte, header http.Header) *http.Response
 }
 
 func TestSigningInWithAPasskeyStartsACookieSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, _, a := e.passkeyUser()
@@ -61,6 +62,7 @@ func TestSigningInWithAPasskeyStartsACookieSession(t *testing.T) {
 }
 
 func TestAPasskeySessionLastsLikeAnyOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, _, a := e.passkeyUser()
@@ -73,6 +75,7 @@ func TestAPasskeySessionLastsLikeAnyOther(t *testing.T) {
 }
 
 func TestAPasskeySignInRecordsTheDeviceAndTheUse(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token, a := e.passkeyUser()
@@ -91,6 +94,7 @@ func TestAPasskeySignInRecordsTheDeviceAndTheUse(t *testing.T) {
 }
 
 func TestAPasskeySignInReplacesTheBrowsersCookieSessionAndNoOther(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, grace, a := e.passkeyUser()
@@ -105,6 +109,7 @@ func TestAPasskeySignInReplacesTheBrowsersCookieSessionAndNoOther(t *testing.T) 
 }
 
 func TestAPasskeySignInKeepsTheCallersBearerSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	bearerToken := decode[redeemBody](t, e.redeem(e.makeLink(admin, adminID), "bearer", nil)).Token
@@ -135,6 +140,7 @@ func requireLoginFailure(t *testing.T, res *http.Response, names ...string) {
 }
 
 func TestEveryFailedPasskeySignInGetsTheSameAnswer(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, _, a := e.passkeyUser()
@@ -163,6 +169,7 @@ func TestEveryFailedPasskeySignInGetsTheSameAnswer(t *testing.T) {
 }
 
 func TestAFailedPasskeySignInKeepsTheCurrentSession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, _, a := e.passkeyUser()
@@ -173,6 +180,7 @@ func TestAFailedPasskeySignInKeepsTheCurrentSession(t *testing.T) {
 }
 
 func TestAPasskeySignInRefusesASignCountThatGoesBackwards(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, _, a := e.passkeyUser()
@@ -183,6 +191,7 @@ func TestAPasskeySignInRefusesASignCountThatGoesBackwards(t *testing.T) {
 }
 
 func TestADeletedPasskeyNoLongerSignsIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, grace, a := e.passkeyUser()
@@ -195,6 +204,7 @@ func TestADeletedPasskeyNoLongerSignsIn(t *testing.T) {
 }
 
 func TestPasskeySignInOptionsNameNoUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	e.passkeyUser()
@@ -212,6 +222,7 @@ func TestPasskeySignInOptionsNameNoUser(t *testing.T) {
 }
 
 func TestThePasskeySignInRoutesShareTheRedeemLimit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 3 })
 
 	for range 3 {

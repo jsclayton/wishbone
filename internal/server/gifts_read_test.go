@@ -19,6 +19,7 @@ func (e *env) giftIDs(l giftList) []string {
 }
 
 func TestUntilItIsGivenOnlyTheGiverSeesAGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	kettle := e.addItem(f.mom, f.momList, "Kettle", map[string]any{"quantity": 2})
@@ -43,6 +44,7 @@ func TestUntilItIsGivenOnlyTheGiverSeesAGift(t *testing.T) {
 }
 
 func TestTheGiftsOfAGiverFilterAndSort(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	advent := e.addOccasion(f.mom, "Advent", annual(12, 6), "")
@@ -90,6 +92,7 @@ func TestTheGiftsOfAGiverFilterAndSort(t *testing.T) {
 }
 
 func TestGiftsPageWithACursorAndRefuseWhatTheyDoNotKnow(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	var want []string
@@ -120,6 +123,7 @@ func TestGiftsPageWithACursorAndRefuseWhatTheyDoNotKnow(t *testing.T) {
 }
 
 func TestAGiftNeedsAttentionWhenItIsNotBoughtAndTheRevealIsNear(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	soon := e.addOccasion(f.mom, "Soon", once(2026, 11, 20), "")
@@ -137,6 +141,7 @@ func TestAGiftNeedsAttentionWhenItIsNotBoughtAndTheRevealIsNear(t *testing.T) {
 }
 
 func TestTheAvatarOfWhoAddedAnItemOnlyLoadsWhileTheGiverSeesAnItemTheyAdded(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grandmaID, grandma := e.otherUser("Grandma")

@@ -92,6 +92,7 @@ func (e *env) uploaded(token string) imageView {
 }
 
 func TestAnUploadedImageIsStoredAsAShrunkJPEGAndTheUploaderLoadsIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -116,6 +117,7 @@ func TestAnUploadedImageIsStoredAsAShrunkJPEGAndTheUploaderLoadsIt(t *testing.T)
 }
 
 func TestAnImageKeepsNoExifOrGPSMetadata(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	in := jpegWithMetadata(t, 40, 30)
@@ -140,6 +142,7 @@ func webpBytes(t *testing.T) []byte {
 }
 
 func TestJPEGPNGGIFAndWebPAreAccepted(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -168,6 +171,7 @@ func TestJPEGPNGGIFAndWebPAreAccepted(t *testing.T) {
 }
 
 func TestBytesThatAreNotAnImageAreA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -190,6 +194,7 @@ func TestBytesThatAreNotAnImageAreA422(t *testing.T) {
 }
 
 func TestAnImageOverTheLimitIsA413(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -204,6 +209,7 @@ func TestAnImageOverTheLimitIsA413(t *testing.T) {
 }
 
 func TestABodyOverHumasDefaultLimitIsNotAnImageProblem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -215,6 +221,7 @@ func TestABodyOverHumasDefaultLimitIsNotAnImageProblem(t *testing.T) {
 }
 
 func TestImagesNeedASignIn(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	img := e.uploaded(admin)
@@ -227,6 +234,7 @@ func TestImagesNeedASignIn(t *testing.T) {
 }
 
 func TestBeforeItIsAttachedOnlyTheUploaderSeesAnImage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -240,6 +248,7 @@ func TestBeforeItIsAttachedOnlyTheUploaderSeesAnImage(t *testing.T) {
 }
 
 func TestAnImageThatDoesNotExistIsA404(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -254,6 +263,7 @@ func TestAnImageThatDoesNotExistIsA404(t *testing.T) {
 // one that can't be read, is a 416 that is a problem with a code like every
 // other error of the API, and not Go's own plain text.
 func TestARangeThatAnImageDoesNotHaveIsA416WithACode(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	img := e.uploaded(admin)
@@ -286,6 +296,7 @@ func TestARangeThatAnImageDoesNotHaveIsA416WithACode(t *testing.T) {
 // If-Match with when there is no ETag, and not a 304, which only GET /versions
 // gives.
 func TestAConditionOnAVersionDoesNotChangeHowAnImageIsServed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	img := e.uploaded(admin)

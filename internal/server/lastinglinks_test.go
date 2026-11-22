@@ -40,6 +40,7 @@ func (e *env) signedIn(header http.Header) bool {
 }
 
 func TestALastingLinkWorksAnyNumberOfTimesAndEachRedeemStartsASession(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -72,6 +73,7 @@ func TestALastingLinkWorksAnyNumberOfTimesAndEachRedeemStartsASession(t *testing
 }
 
 func TestTheDatabaseKeepsOnlyTheHashOfALastingLinksToken(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, _ := e.signUp()
 	link, _ := e.makeLasting(adminID)
@@ -83,6 +85,7 @@ func TestTheDatabaseKeepsOnlyTheHashOfALastingLinksToken(t *testing.T) {
 }
 
 func TestTheAdminMayHaveALastingLink(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, _ := e.signUp()
 	link, _ := e.makeLasting(adminID)
@@ -95,6 +98,7 @@ func TestTheAdminMayHaveALastingLink(t *testing.T) {
 }
 
 func TestALastingLinkNeverExpires(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, _ := e.signUp()
 	link, _ := e.makeLasting(adminID)
@@ -109,6 +113,7 @@ func TestALastingLinkNeverExpires(t *testing.T) {
 // A lasting link's token is typed from the App Review notes, so it is taken in
 // any case and with or without its hyphens.
 func TestALastingLinkTakesItsTokenInAnyCaseWithOrWithoutHyphens(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 50 })
 	adminID, _ := e.signUp()
 	link, _ := e.makeLasting(adminID)
@@ -131,6 +136,7 @@ func TestALastingLinkTakesItsTokenInAnyCaseWithOrWithoutHyphens(t *testing.T) {
 }
 
 func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	graceID, graceToken := e.otherUser("Grace")
@@ -186,6 +192,7 @@ func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
 }
 
 func TestTheOperatorListsTheLastingLinksThatAreNotRevoked(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, _ := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -209,6 +216,7 @@ func TestTheOperatorListsTheLastingLinksThatAreNotRevoked(t *testing.T) {
 }
 
 func TestALastingLinkOfADeactivatedUserDoesNotWorkUntilTheyAreReactivated(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, adminToken := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -234,6 +242,7 @@ func TestALastingLinkOfADeactivatedUserDoesNotWorkUntilTheyAreReactivated(t *tes
 }
 
 func TestLastingLinkRedeemsCountAgainstTheRedeemLimit(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 2 })
 	adminID, _ := e.signUp() // setup used an attempt of this minute
 	link, _ := e.makeLasting(adminID)
@@ -253,6 +262,7 @@ func TestLastingLinkRedeemsCountAgainstTheRedeemLimit(t *testing.T) {
 type checkFields map[string]json.RawMessage
 
 func TestCheckingALastingLinkSaysItDoesNotExpireAndDoesNotUseIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	link, _ := e.makeLasting(adminID)
@@ -273,6 +283,7 @@ func TestCheckingALastingLinkSaysItDoesNotExpireAndDoesNotUseIt(t *testing.T) {
 // An ordinary login link is as it was: its check has an expiry, and it works
 // once, for seven days. The API route makes only ordinary links.
 func TestAnOrdinaryLinkIsUnchangedByLastingLinks(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, adminToken := e.signUp()
 	once := e.makeLink(adminToken, adminID)

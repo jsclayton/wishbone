@@ -53,6 +53,7 @@ func (e *env) registerPasskey(userID string, header http.Header, a *passkeytest.
 }
 
 func TestAUserAddsAPasskeyAndSeesItInTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	id, token := e.signUp()
 	require.Empty(t, decode[passkeyList](t, e.listPasskeys(id, cookie(token), "")).Data)

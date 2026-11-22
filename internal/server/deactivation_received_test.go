@@ -23,6 +23,7 @@ func (e *env) emmasShared(f family) (emmaID, shared string) {
 }
 
 func TestAGiftKeptOnTheListOfADeactivatedUserIsGivenAtTheirMidnightToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, shared := e.emmasShared(f)
@@ -48,6 +49,7 @@ func TestAGiftKeptOnTheListOfADeactivatedUserIsGivenAtTheirMidnightToo(t *testin
 }
 
 func TestAParentThroughADeactivatedChildSeesTheirGiftsButCannotRestoreOrAddThemAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -92,6 +94,7 @@ func TestAParentThroughADeactivatedChildSeesTheirGiftsButCannotRestoreOrAddThemA
 }
 
 func TestAGiftOnlyADeactivatedUserReceivesIsOneNoParentCanRestore(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")
@@ -116,6 +119,7 @@ func TestAGiftOnlyADeactivatedUserReceivesIsOneNoParentCanRestore(t *testing.T) 
 }
 
 func TestAParentThroughADeactivatedChildCannotTellAnOpenGiftFromNoGift(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")

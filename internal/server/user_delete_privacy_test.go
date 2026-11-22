@@ -13,6 +13,7 @@ import (
 // (docs/spec.md, Lists, Recipients; Deactivation and deletion, Deletion).
 
 func TestDeletingARecipientAndGiverShowsTheOtherRecipientsNothingOfClaims(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.join(f.admin, e.cousins(f), f.dadID)
@@ -71,6 +72,7 @@ func TestDeletingARecipientAndGiverShowsTheOtherRecipientsNothingOfClaims(t *tes
 }
 
 func TestDeletingTheOnlyUserAGiftWasGivenToChangesNothingForTheListsOtherRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	tools := e.extraList("Tools", f.dadID)
@@ -113,6 +115,7 @@ func TestDeletingTheOnlyUserAGiftWasGivenToChangesNothingForTheListsOtherRecipie
 }
 
 func TestDeletingAParentWhoClaimedForTheirChildShowsTheChildNothingOfClaims(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")

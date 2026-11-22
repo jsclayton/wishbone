@@ -38,6 +38,7 @@ func (e *env) deactivatedEmma(admin, momID string) (emmaID, sessionID, passkeyID
 }
 
 func TestAParentOfADeactivatedChildReadsThroughThemButChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -72,6 +73,7 @@ func TestAParentOfADeactivatedChildReadsThroughThemButChangesNothing(t *testing.
 }
 
 func TestTheAdminCanOnlyReactivateAndChangeTheParentsOfADeactivatedUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, _ := e.otherUser("Mom")
@@ -100,6 +102,7 @@ func TestTheAdminCanOnlyReactivateAndChangeTheParentsOfADeactivatedUser(t *testi
 }
 
 func TestAParentStillCannotSetParentIDsOnADeactivatedChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -112,6 +115,7 @@ func TestAParentStillCannotSetParentIDsOnADeactivatedChild(t *testing.T) {
 }
 
 func TestReactivatingGivesTheParentTheirPowersBack(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -127,6 +131,7 @@ func TestReactivatingGivesTheParentTheirPowersBack(t *testing.T) {
 }
 
 func TestAParentKeepsThePowersThatComeThroughAnotherUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -140,6 +145,7 @@ func TestAParentKeepsThePowersThatComeThroughAnotherUser(t *testing.T) {
 }
 
 func TestAUserWhoOnlySharesAGroupWithAUserSeesThemButCannotEditThemOrMakeThemALink(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	grandmaID, grandma := e.otherUser("Grandma")
@@ -175,6 +181,7 @@ func racing(t *testing.T) (*env, *atomic.Pointer[func()]) {
 }
 
 func TestAnEditThatRacesADeactivationIsRefused(t *testing.T) {
+	t.Parallel()
 	e, before := racing(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -190,6 +197,7 @@ func TestAnEditThatRacesADeactivationIsRefused(t *testing.T) {
 }
 
 func TestAnEditThatRacesAnUnlinkIsRefused(t *testing.T) {
+	t.Parallel()
 	e, before := racing(t)
 	_, admin := e.signUp()
 	momID, mom := e.otherUser("Mom")
@@ -205,6 +213,7 @@ func TestAnEditThatRacesAnUnlinkIsRefused(t *testing.T) {
 }
 
 func TestADeactivatedUsersLoginLinksDontWorkAndWorkAgainAfterReactivation(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -223,6 +232,7 @@ func TestADeactivatedUsersLoginLinksDontWorkAndWorkAgainAfterReactivation(t *tes
 }
 
 func TestAnExpiredLoginLinkStaysExpiredAfterReactivation(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -235,6 +245,7 @@ func TestAnExpiredLoginLinkStaysExpiredAfterReactivation(t *testing.T) {
 }
 
 func TestAPasskeySignInRefusesADeactivatedUserAndWorksAfterReactivation(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _, a := e.passkeyUser()
@@ -249,6 +260,7 @@ func TestAPasskeySignInRefusesADeactivatedUserAndWorksAfterReactivation(t *testi
 }
 
 func TestADeactivatedUserCannotBeAddedToOrRemovedFromAGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")
@@ -267,6 +279,7 @@ func TestADeactivatedUserCannotBeAddedToOrRemovedFromAGroup(t *testing.T) {
 }
 
 func TestAGroupNotFoundIsStillA404ForADeactivatedUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, _ := e.otherUser("Grace")

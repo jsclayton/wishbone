@@ -29,6 +29,7 @@ func birthday(month, day int, year any) map[string]any {
 }
 
 func TestTheAdminCreatesAUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -55,6 +56,7 @@ func TestTheAdminCreatesAUser(t *testing.T) {
 }
 
 func TestAUserNeedsOnlyANameAndABirthdayWithoutAYear(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -69,6 +71,7 @@ func TestAUserNeedsOnlyANameAndABirthdayWithoutAYear(t *testing.T) {
 }
 
 func TestOnlyTheAdminCreatesUsers(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")
@@ -84,6 +87,7 @@ func TestOnlyTheAdminCreatesUsers(t *testing.T) {
 }
 
 func TestAUserWithInputThatFailsARuleIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	long := strings.Repeat("é", 101)
@@ -126,6 +130,7 @@ func TestAUserWithInputThatFailsARuleIsA422(t *testing.T) {
 }
 
 func TestAPatchChangesOnlyTheFieldsItHas(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -145,6 +150,7 @@ func TestAPatchChangesOnlyTheFieldsItHas(t *testing.T) {
 }
 
 func TestAPatchTakesMergePatchJSONAndPlainJSON(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -159,6 +165,7 @@ func TestAPatchTakesMergePatchJSONAndPlainJSON(t *testing.T) {
 }
 
 func TestNullClearsAFieldThatCanBeClearedAndIsA422Elsewhere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -178,6 +185,7 @@ func TestNullClearsAFieldThatCanBeClearedAndIsA422Elsewhere(t *testing.T) {
 }
 
 func TestAnEmptyLastNameOrNoteIsCleared(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -190,6 +198,7 @@ func TestAnEmptyLastNameOrNoteIsCleared(t *testing.T) {
 }
 
 func TestABirthdayCannotBeCleared(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -203,6 +212,7 @@ func TestABirthdayCannotBeCleared(t *testing.T) {
 }
 
 func TestAPatchedBirthdayFollowsTheBirthdayRules(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -219,6 +229,7 @@ func TestAPatchedBirthdayFollowsTheBirthdayRules(t *testing.T) {
 }
 
 func TestAFieldTheCallerSeesButCannotChangeIsA403AndNothingChanges(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	id, token := e.otherUser("Grace")
@@ -237,6 +248,7 @@ func TestAFieldTheCallerSeesButCannotChangeIsA403AndNothingChanges(t *testing.T)
 }
 
 func TestAFieldThatIsNotInTheUserIsA422(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -248,6 +260,7 @@ func TestAFieldThatIsNotInTheUserIsA422(t *testing.T) {
 }
 
 func TestAPatchNeedsAnObject(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -260,6 +273,7 @@ func TestAPatchNeedsAnObject(t *testing.T) {
 }
 
 func TestOnlyTheUserAndTheAdminEditAUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	adminID, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -279,6 +293,7 @@ func TestOnlyTheUserAndTheAdminEditAUser(t *testing.T) {
 }
 
 func TestAnEditByAnotherUserDoesNotConfirmTheProfile(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, token := e.otherUser("Grace")
@@ -290,6 +305,7 @@ func TestAnEditByAnotherUserDoesNotConfirmTheProfile(t *testing.T) {
 }
 
 func TestIfMatchWithTheCurrentVersionPasses(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -310,6 +326,7 @@ func TestIfMatchWithTheCurrentVersionPasses(t *testing.T) {
 }
 
 func TestARowsVersionWorksInIfMatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, _ := e.otherUser("Grace")
@@ -328,6 +345,7 @@ func TestARowsVersionWorksInIfMatch(t *testing.T) {
 }
 
 func TestIfMatchWithAStaleVersionIsA412AndChangesNothing(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -343,6 +361,7 @@ func TestIfMatchWithAStaleVersionIsA412AndChangesNothing(t *testing.T) {
 }
 
 func TestTheETagChangesOnlyWhenWhatTheCallerSeesChanges(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	id, token := e.otherUser("Grace")
@@ -358,6 +377,7 @@ func TestTheETagChangesOnlyWhenWhatTheCallerSeesChanges(t *testing.T) {
 }
 
 func TestOnlyTheUserConfirmsTheirProfile(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	id, token := e.otherUser("Grace")
@@ -383,6 +403,7 @@ func TestOnlyTheUserConfirmsTheirProfile(t *testing.T) {
 }
 
 func TestConfirmingAgainKeepsTheFirstTime(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, token := e.otherUser("Grace")

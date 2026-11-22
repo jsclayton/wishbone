@@ -31,6 +31,7 @@ func listNamesOf(t *testing.T, e *env, token string) []string {
 }
 
 func TestDeletingAListKeepsItsOpenGiftsFlaggedRemovedAndNobodySeesTheListAgain(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	garden := decode[listView](t, e.postList(f.mom, map[string]any{"name": "Garden"})).ID
@@ -86,6 +87,7 @@ func TestDeletingAListKeepsItsOpenGiftsFlaggedRemovedAndNobodySeesTheListAgain(t
 }
 
 func TestAKeptGiftIsStillForTheListsLastRecipientsAtReveal(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	_, err := e.db.ExecContext(t.Context(), `UPDATE users SET timezone = 'Pacific/Auckland' WHERE id = ?`, f.momID)
@@ -108,6 +110,7 @@ func TestAKeptGiftIsStillForTheListsLastRecipientsAtReveal(t *testing.T) {
 }
 
 func TestDeletingAListWithNoGiftsRemovesItAndItsInvitationsForGood(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	garden := decode[listView](t, e.postList(f.mom, map[string]any{"name": "Garden"})).ID
@@ -125,6 +128,7 @@ func TestDeletingAListWithNoGiftsRemovesItAndItsInvitationsForGood(t *testing.T)
 }
 
 func TestAKeptGiftsListLosesItsInvitations(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	garden := decode[listView](t, e.postList(f.mom, map[string]any{"name": "Garden"})).ID
@@ -139,6 +143,7 @@ func TestAKeptGiftsListLosesItsInvitations(t *testing.T) {
 }
 
 func TestAParentsDeleteOfTheirChildsListFlagsTheGiftsToo(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, _ := e.otherUser("Emma")

@@ -12,6 +12,7 @@ import (
 // each refuses another caller the same way: a 403 forbidden that starts with
 // "Only the admin".
 func TestEveryAdminOnlyRouteRefusesAnotherCallerWithTheSameForbidden(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")

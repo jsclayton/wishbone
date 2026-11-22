@@ -43,6 +43,7 @@ func nextDates(l occasionList) []string {
 }
 
 func TestPostUsersAndATestUserEachGetABirthdayOccasion(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 
@@ -60,6 +61,7 @@ func TestPostUsersAndATestUserEachGetABirthdayOccasion(t *testing.T) {
 }
 
 func TestABirthdayOccasionFollowsTheUsersBirthday(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -81,6 +83,7 @@ func TestABirthdayOccasionFollowsTheUsersBirthday(t *testing.T) {
 }
 
 func TestANextDateIsTodayWhereTheUserLives(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	// The clock is Nov 8 12:00 UTC. It is already Nov 9 in Auckland.
@@ -96,6 +99,7 @@ func TestANextDateIsTodayWhereTheUserLives(t *testing.T) {
 }
 
 func TestAUserAddsCustomOccasionsWithEachDateRule(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -141,6 +145,7 @@ func TestAUserAddsCustomOccasionsWithEachDateRule(t *testing.T) {
 }
 
 func TestAnOccasionNeedsANameAndAValidRule(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	e.signUp()
 	_, grace := e.otherUser("Grace")

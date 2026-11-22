@@ -86,6 +86,7 @@ func invitationUsers(l invitationList) []string {
 }
 
 func TestARecipientInvitesAUserTheySeeAndNothingChangesForThemUntilTheyAccept(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 
@@ -119,6 +120,7 @@ func TestARecipientInvitesAUserTheySeeAndNothingChangesForThemUntilTheyAccept(t 
 }
 
 func TestAnInvitationIsA404ForEveryoneExceptTheInvitedUserTheirParentsAndTheListsRecipients(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	graceID, grace := e.otherUser("Grace")
@@ -144,6 +146,7 @@ func TestAnInvitationIsA404ForEveryoneExceptTheInvitedUserTheirParentsAndTheList
 }
 
 func TestWhoCanInviteWhomAndWhere(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	deactivatedID, _ := e.otherUser("Gone")
@@ -185,6 +188,7 @@ func TestWhoCanInviteWhomAndWhere(t *testing.T) {
 }
 
 func TestAnInvitationIsMadeOnceForAUser(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	e.invite(f.mom, f.house, f.sueID)
@@ -197,6 +201,7 @@ func TestAnInvitationIsMadeOnceForAUser(t *testing.T) {
 }
 
 func TestAnInvitedUserAcceptsAndBecomesARecipientAndTheAnswerIsTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	inv := e.invite(f.mom, f.house, f.sueID)
@@ -220,6 +225,7 @@ func TestAnInvitedUserAcceptsAndBecomesARecipientAndTheAnswerIsTheList(t *testin
 }
 
 func TestAParentAcceptsAndDeclinesForTheirChild(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -246,6 +252,7 @@ func TestAParentAcceptsAndDeclinesForTheirChild(t *testing.T) {
 }
 
 func TestOnlyTheInvitedUserAndTheirParentAccept(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	inv := e.invite(f.mom, f.house, f.sueID)
@@ -260,6 +267,7 @@ func TestOnlyTheInvitedUserAndTheirParentAccept(t *testing.T) {
 }
 
 func TestADeactivatedUsersInvitationStaysPendingAndOnlyARecipientWithdrawsIt(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	emmaID, emma := e.otherUser("Emma")
@@ -287,6 +295,7 @@ func TestADeactivatedUsersInvitationStaysPendingAndOnlyARecipientWithdrawsIt(t *
 }
 
 func TestARecipientWithdrawsAndTheInvitedUserDeclinesWithoutAConfirmation(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	withdrawn := e.invite(f.mom, f.house, f.sueID)
@@ -302,6 +311,7 @@ func TestARecipientWithdrawsAndTheInvitedUserDeclinesWithoutAConfirmation(t *tes
 }
 
 func TestAnInvitationDeleteHonorsIfMatch(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	res := e.postInvitation(f.mom, f.house, map[string]any{"user_id": f.sueID})
@@ -315,6 +325,7 @@ func TestAnInvitationDeleteHonorsIfMatch(t *testing.T) {
 }
 
 func TestInvitationsFilterBySortAndPage(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	other := e.extraList("Skates", f.momID)
@@ -358,6 +369,7 @@ func TestInvitationsFilterBySortAndPage(t *testing.T) {
 }
 
 func TestTheInvitedUsersAvatarLoadsForTheListsRecipientsWhoCantSeeThem(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	img := e.uploaded(f.sue)
@@ -376,6 +388,7 @@ func TestTheInvitedUsersAvatarLoadsForTheListsRecipientsWhoCantSeeThem(t *testin
 }
 
 func TestInvitableUsersAreTheOnesTheCallerCanInviteToTheList(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	goneID, _ := e.otherUser("Gone")
@@ -410,6 +423,7 @@ func TestInvitableUsersAreTheOnesTheCallerCanInviteToTheList(t *testing.T) {
 }
 
 func TestTheAdminsInvitableUsersLeaveOutWhoOnlyTheAdminSees(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	adminList := decode[listView](t, e.postList(f.admin, map[string]any{"name": "Ada's"})).ID
@@ -422,6 +436,7 @@ func TestTheAdminsInvitableUsersLeaveOutWhoOnlyTheAdminSees(t *testing.T) {
 }
 
 func TestInvitableToCombinesWithTheGroupFilter(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	graceID, _ := e.otherUser("Grace")

@@ -56,6 +56,7 @@ func (e *env) downloadImage(token, url string) *http.Response {
 }
 
 func TestAnImageAddressIsDownloadedAndStoredAsAnUpload(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, privateImages(t))
 	_, admin := e.signUp()
 	shop := pictureShop(t)
@@ -77,6 +78,7 @@ func TestAnImageAddressIsDownloadedAndStoredAsAnUpload(t *testing.T) {
 }
 
 func TestEveryFailureOfADownloadIsAnImageFetchFailed(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, privateImages(t))
 	_, admin := e.signUp()
 	shop := pictureShop(t)
@@ -101,6 +103,7 @@ func TestEveryFailureOfADownloadIsAnImageFetchFailed(t *testing.T) {
 }
 
 func TestADownloadKeepsAwayFromTheInstancesOwnNetwork(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t) // the default store: loopback is out of reach
 	_, admin := e.signUp()
 	shop := pictureShop(t)
@@ -113,6 +116,7 @@ func TestADownloadKeepsAwayFromTheInstancesOwnNetwork(t *testing.T) {
 }
 
 func TestADownloadNeedsASignInAndAUrl(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t, privateImages(t))
 	_, admin := e.signUp()
 	shop := pictureShop(t)

@@ -2,11 +2,13 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -58,6 +60,42 @@ func (c *clock) set(t time.Time) {
 	c.t = t.UTC()
 }
 
+// migrated is the file of a new database with every migration applied. It is
+// built once for the test binary, and each test starts from a copy: running the
+// migrations for each of hundreds of tests took much of the package's time under
+// -race.
+var migrated = sync.OnceValues(func() ([]byte, error) {
+	dir, err := os.MkdirTemp("", "wishbone-template-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	ctx := context.Background()
+	path := filepath.Join(dir, "wishbone.db")
+	st, err := store.Open(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	err = st.Migrate(ctx)
+	// Closing the last connection checkpoints the WAL into the file and removes
+	// it, so the one file holds the whole database.
+	if cerr := st.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
+})
+
+// migratedDatabase returns the bytes of the migrated template database.
+func migratedDatabase(t testing.TB) []byte {
+	t.Helper()
+	raw, err := migrated()
+	require.NoError(t, err, "build the migrated template database")
+	return raw
+}
+
 // testOptions are the options of a server on a new database, with the real
 // services. A test changes what it needs and calls New.
 func testOptions(t testing.TB) (Options, *sqlx.DB, *clock) {
@@ -69,9 +107,12 @@ func testOptions(t testing.TB) (Options, *sqlx.DB, *clock) {
 // no timezone.
 func testOptionsIn(t testing.TB, fallback *time.Location) (Options, *sqlx.DB, *clock) {
 	t.Helper()
-	st, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "wishbone.db"))
+	path := filepath.Join(t.TempDir(), "wishbone.db")
+	require.NoError(t, os.WriteFile(path, migratedDatabase(t), 0o600))
+	st, err := store.Open(t.Context(), path)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
+	// Nothing is pending: the copy is of a database that is migrated already.
 	require.NoError(t, st.Migrate(t.Context()))
 	c := &clock{t: time.Date(2026, time.November, 8, 12, 0, 0, 0, time.UTC)}
 	passkeys, err := passkey.New(st.DB(), c.now, "https://wish.example")

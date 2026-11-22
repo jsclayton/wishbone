@@ -47,6 +47,7 @@ func summaryIDs(v any) []string {
 }
 
 func TestAGiverWhoCannotSeeAnyRecipientCannotPickAnOccasionAndSeesOnlyTheRevealDate(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill")
@@ -69,6 +70,7 @@ func TestAGiverWhoCannotSeeAnyRecipientCannotPickAnOccasionAndSeesOnlyTheRevealD
 }
 
 func TestAGiverWhoBecomesARecipientKeepsTheirGiftForTheOthersAndCanOnlyLowerTheQuantity(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	f := e.family()
 	grill := e.addItem(f.mom, f.house, "Grill", map[string]any{"quantity": 4})

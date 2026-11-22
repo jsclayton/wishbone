@@ -38,6 +38,7 @@ func (e *env) detachGroup(token, occasionID, groupID string) *http.Response {
 }
 
 func TestTheAdminAttachesAndDetachesGroups(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
@@ -64,6 +65,7 @@ func TestTheAdminAttachesAndDetachesGroups(t *testing.T) {
 }
 
 func TestAGroupAttachesToAnOccasionOnce(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
@@ -77,6 +79,7 @@ func TestAGroupAttachesToAnOccasionOnce(t *testing.T) {
 }
 
 func TestNoGroupAttachesToAnOccasionMarkedEveryone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "New Year", annual(1, 1), true)
@@ -90,6 +93,7 @@ func TestNoGroupAttachesToAnOccasionMarkedEveryone(t *testing.T) {
 }
 
 func TestMarkingAnOccasionEveryoneDetachesItsGroupsAndUnmarkingLeavesNone(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
@@ -106,6 +110,7 @@ func TestMarkingAnOccasionEveryoneDetachesItsGroupsAndUnmarkingLeavesNone(t *tes
 }
 
 func TestAttachingNeedsAGroupThatExists(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
@@ -118,6 +123,7 @@ func TestAttachingNeedsAGroupThatExists(t *testing.T) {
 }
 
 func TestDetachingNeedsAnAttachedGroup(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
@@ -128,6 +134,7 @@ func TestDetachingNeedsAnAttachedGroup(t *testing.T) {
 }
 
 func TestOnlyTheAdminManagesAnOccasionsGroups(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	graceID, grace := e.otherUser("Grace")
@@ -159,6 +166,7 @@ func TestOnlyTheAdminManagesAnOccasionsGroups(t *testing.T) {
 }
 
 func TestOnlyASharedOccasionHasGroups(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	cousins := e.newGroup(admin, "Cousins")
@@ -170,6 +178,7 @@ func TestOnlyASharedOccasionHasGroups(t *testing.T) {
 }
 
 func TestDeletingAGroupOrAnOccasionRemovesTheAttachment(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	_, admin := e.signUp()
 	o := e.addShared(admin, "Reunion", annual(7, 4), false)
