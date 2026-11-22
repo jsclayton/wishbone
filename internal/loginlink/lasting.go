@@ -60,17 +60,26 @@ func showLasting(canonical string) string {
 // without hyphens. The hyphens are only shown, so it drops them, wherever they
 // are. ok is false for any other token, such as an ordinary login link's, which
 // is 43 characters of base64url.
+//
+// Only A to Z count as upper case. Unicode case folding would take a letter
+// from outside the alphabet as one inside it, such as the Kelvin sign (U+212A)
+// as k, so it works byte by byte, and any byte that isn't ASCII refuses the
+// token.
 func lastingCanonical(token string) (canonical string, ok bool) {
-	c := strings.ToLower(strings.ReplaceAll(token, "-", ""))
+	c := []byte(strings.ReplaceAll(token, "-", ""))
 	if len(c) != lastingLength {
 		return "", false
 	}
-	for i := range len(c) {
-		if strings.IndexByte(LastingAlphabet, c[i]) < 0 {
+	for i, b := range c {
+		if 'A' <= b && b <= 'Z' {
+			b += 'a' - 'A'
+			c[i] = b
+		}
+		if strings.IndexByte(LastingAlphabet, b) < 0 {
 			return "", false
 		}
 	}
-	return c, true
+	return string(c), true
 }
 
 // usableLasting is the one definition of a lasting link that works, for Check

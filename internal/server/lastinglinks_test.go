@@ -144,6 +144,16 @@ func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
 	fromKept := bearer(decode[redeemBody](t, e.redeem(kept, "bearer", nil)).Token)
 	fromOrdinary := bearer(decode[redeemBody](t, e.redeem(e.makeLink(adminToken, graceID), "bearer", nil)).Token)
 	fromAdminLink := bearer(decode[redeemBody](t, e.redeem(adminLink, "bearer", nil)).Token)
+	// Each of the link's sessions, and one that stays, keeps the answer to a
+	// write with a key.
+	listID := e.primaryListOf(graceToken).ID
+	for _, h := range append([]http.Header{fromKept}, fromLeaked...) {
+		h = h.Clone()
+		h.Set("Idempotency-Key", "key-1")
+		res := e.do(request{method: http.MethodPost, path: "/lists/" + listID + "/items", body: map[string]any{"title": "Kettle"}, header: h})
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+	}
+	require.Equal(t, 3, e.storedKeys())
 
 	link, ended, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), leakedID)
 
@@ -159,6 +169,11 @@ func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
 	} {
 		require.True(t, e.signedIn(h), name)
 	}
+	var ofLeaked int
+	require.NoError(t, e.db.GetContext(t.Context(), &ofLeaked,
+		`SELECT count(*) FROM idempotency_keys k JOIN sessions s ON s.id = k.session_id WHERE s.lasting_link_id = ?`, leakedID))
+	require.Zero(t, ofLeaked, "the kept answers of the sessions that ended are gone")
+	require.Equal(t, 1, e.storedKeys(), "the other session keeps its answer")
 	for _, res := range []*http.Response{e.check(leaked, nil), e.redeem(leaked, "", nil)} {
 		requireCoded(t, res, http.StatusUnauthorized, "login_link_invalid")
 	}

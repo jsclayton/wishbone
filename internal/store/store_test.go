@@ -122,9 +122,8 @@ func TestSchemaLetsAnItemHaveQuantityZeroAndCascades(t *testing.T) {
 }
 
 // A user's delete takes their sessions, login links, lasting links and passkeys
-// with it, and an
-// image they uploaded outlives them with no uploader (docs/spec.md,
-// Deactivation and deletion, Deletion).
+// with it, and an image they uploaded outlives them with no uploader
+// (docs/spec.md, Deactivation and deletion, Deletion).
 func TestSchemaLetsAUserBeDeleted(t *testing.T) {
 	const at = "'2026-11-09 12:00:00'"
 	st := migrated(t)
