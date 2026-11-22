@@ -134,6 +134,9 @@ These run with `docker compose exec wishbone /app/wishbone <command>`:
 |---|---|
 | `users` | Lists the users, with their IDs. |
 | `login-link <user id>` | Prints a login link that works once and expires after 7 days. It is the way back in for a person who lost their sign-in. |
+| `login-link --lasting <user id>` | Prints a lasting login link, for an account such as App Review's. It works any number of times and doesn't expire. It also prints the link's ID, on stderr. |
+| `lasting-links` | Lists the lasting login links that aren't revoked, with their IDs. It can't print the links again. |
+| `revoke-lasting-link <link id>` | Revokes a lasting login link, and signs out every session it started. |
 | `set-admin <user id>` | Makes a user the admin. The old admin becomes a normal user. |
 | `delete-user <user id>` | Deletes a user for good, after it shows what it will do and asks for the user's name. |
 | `backup <path>` | Writes a snapshot (see [Back up](#back-up)). |
