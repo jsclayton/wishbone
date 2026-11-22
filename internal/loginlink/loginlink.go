@@ -1,7 +1,8 @@
-// Package loginlink owns the login_links table: a link that signs a user in
-// once (docs/spec.md, API principles, Sign-in). A link is a random token in
-// a URL, and the database knows it only by its hash. See the layout notes in
-// package user.
+// Package loginlink owns the login_links table, a link that signs a user in
+// once, and the lasting_links table, a link that the operator makes and that
+// signs a user in any number of times (docs/spec.md, Access, Login links). A
+// link is a random token in a URL, and the database knows it only by its hash.
+// See the layout notes in package user.
 package loginlink
 
 import (
@@ -20,8 +21,9 @@ import (
 // Lifetime is how long a login link works.
 const Lifetime = 7 * 24 * time.Hour
 
-// ErrInvalid means the link is unknown, used, or expired. The three look the
-// same, so a caller learns nothing about why.
+// ErrInvalid means the link is unknown, used, expired, or revoked, or that its
+// user is deactivated. These look the same, so a caller learns nothing about
+// why.
 var ErrInvalid = errors.New("invalid or expired login link")
 
 // Service makes, checks, and redeems login links.
@@ -62,7 +64,12 @@ const usable = `redeemed_at IS NULL AND expires_at > ? AND user_id IN (SELECT id
 // Check is what a login link's page may know before the link is redeemed. It
 // must never hold anything that names the link's user.
 type Check struct {
-	ExpiresAt time.Time
+	// ExpiresAt is when the link expires, or nil for a lasting link, which
+	// doesn't.
+	ExpiresAt *time.Time
+	// Lasting is true for a lasting link: it works any number of times until
+	// the operator revokes it.
+	Lasting bool
 	// ForCurrentUser is true when the link is for the user of the caller's
 	// session.
 	ForCurrentUser bool
@@ -74,16 +81,26 @@ type Check struct {
 func (s *Service) Check(ctx context.Context, token string, currentUserID int64) (Check, error) {
 	var userID int64
 	var c Check
-	err := s.db.QueryRowxContext(ctx,
-		`SELECT user_id, expires_at FROM login_links WHERE token_hash = ? AND `+usable,
-		session.Hash(token), s.now()).Scan(&userID, &c.ExpiresAt)
+	var err error
+	if canonical, ok := lastingCanonical(token); ok {
+		c.Lasting = true
+		err = s.db.QueryRowxContext(ctx,
+			`SELECT user_id FROM lasting_links WHERE token_hash = ? AND `+usableLasting,
+			session.Hash(canonical)).Scan(&userID)
+	} else {
+		var expiresAt time.Time
+		err = s.db.QueryRowxContext(ctx,
+			`SELECT user_id, expires_at FROM login_links WHERE token_hash = ? AND `+usable,
+			session.Hash(token), s.now()).Scan(&userID, &expiresAt)
+		expiresAt = expiresAt.UTC()
+		c.ExpiresAt = &expiresAt
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return Check{}, ErrInvalid
 	}
 	if err != nil {
 		return Check{}, fmt.Errorf("check login link: %w", err)
 	}
-	c.ExpiresAt = c.ExpiresAt.UTC()
 	c.ForCurrentUser = currentUserID != 0 && currentUserID == userID
 	return c, nil
 }
@@ -100,10 +117,11 @@ type Result struct {
 	Switched bool
 }
 
-// Redeem uses a link once and starts a session for its user. currentSessionID
-// is the caller's session to replace, or 0 for none: it is revoked, in the same
-// commit. A failed redemption leaves it alone. It returns [ErrInvalid] for a
-// link that does not work.
+// Redeem uses a link and starts a session for its user. An ordinary link works
+// once, and a lasting link any number of times: each redeem starts a new
+// session, which records the link. currentSessionID is the caller's session to
+// replace, or 0 for none: it is revoked, in the same commit. A failed redemption
+// leaves it alone. It returns [ErrInvalid] for a link that does not work.
 func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int64, userAgent string) (Result, error) {
 	now := s.now()
 	tx, err := s.db.BeginTxx(ctx, nil)
@@ -112,10 +130,19 @@ func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	var userID int64
-	err = tx.GetContext(ctx, &userID,
-		`UPDATE login_links SET redeemed_at = ? WHERE token_hash = ? AND `+usable+` RETURNING user_id`,
-		now, session.Hash(token), now)
+	// The first statement writes, so the transaction holds the write lock from
+	// the start: a revoke can't commit between the look and the new session.
+	var userID, lastingID int64
+	canonical, lasting := lastingCanonical(token)
+	if lasting {
+		err = tx.QueryRowxContext(ctx,
+			`UPDATE lasting_links SET last_used_at = ? WHERE token_hash = ? AND `+usableLasting+` RETURNING id, user_id`,
+			now, session.Hash(canonical)).Scan(&lastingID, &userID)
+	} else {
+		err = tx.GetContext(ctx, &userID,
+			`UPDATE login_links SET redeemed_at = ? WHERE token_hash = ? AND `+usable+` RETURNING user_id`,
+			now, session.Hash(token), now)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return Result{}, ErrInvalid
 	}
@@ -132,7 +159,11 @@ func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int
 		res.Replaced = ok
 		res.Switched = ok && previous != userID
 	}
-	res.Token, res.Session, err = session.Create(ctx, tx, now, userID, userAgent)
+	if lasting {
+		res.Token, res.Session, err = session.CreateFromLastingLink(ctx, tx, now, userID, lastingID, userAgent)
+	} else {
+		res.Token, res.Session, err = session.Create(ctx, tx, now, userID, userAgent)
+	}
 	if err != nil {
 		return Result{}, err
 	}

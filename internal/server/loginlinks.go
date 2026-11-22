@@ -14,8 +14,8 @@ import (
 	"jsclayton.dev/wishbone/internal/user"
 )
 
-// invalidLinkDetail is the one answer for every link that doesn't work. It says
-// nothing about why.
+// invalidLinkDetail is the one answer for every link that doesn't work: unknown,
+// used, expired, or revoked, or for a deactivated user. It says nothing about why.
 const invalidLinkDetail = "This login link is invalid or has expired."
 
 func invalidLink() error {
@@ -38,21 +38,22 @@ type checkLoginLinkInput struct {
 	Body struct {
 		// No length rules, so an empty token gets the same answer as any other
 		// bad link.
-		Token string `json:"token" doc:"The token from the login link's URL, after /login/."`
+		Token string `json:"token" doc:"The token from the login link's URL, after /login/. A lasting link's token is accepted in any case, with or without its hyphens."`
 	}
 }
 
 type checkLoginLinkOutput struct {
 	Body struct {
-		ExpiresAt      time.Time `json:"expires_at"`
-		ForCurrentUser bool      `json:"for_current_user" doc:"True when the link is for the user whose session makes this request."`
+		ExpiresAt      *time.Time `json:"expires_at" nullable:"true" doc:"When the link expires. null for a lasting link, which doesn't expire."`
+		Lasting        bool       `json:"lasting" doc:"True for a lasting link, which the operator makes with the CLI. It works any number of times and doesn't expire, until the operator revokes it. An ordinary link works once."`
+		ForCurrentUser bool       `json:"for_current_user" doc:"True when the link is for the user whose session makes this request."`
 	}
 }
 
 type redeemLoginLinkInput struct {
 	UserAgent string `header:"User-Agent"`
 	Body      struct {
-		Token   string `json:"token" minLength:"1" doc:"The token from the login link's URL, after /login/."`
+		Token   string `json:"token" minLength:"1" doc:"The token from the login link's URL, after /login/. A lasting link's token is accepted in any case, with or without its hyphens."`
 		Session string `json:"session,omitempty" required:"false" enum:"cookie,bearer" default:"cookie" doc:"How to start the session. cookie, for the web app, sets the session cookie. bearer, for a native app, puts the token in the body."`
 	}
 }
@@ -102,7 +103,7 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		Method:      http.MethodPost,
 		Path:        "/login-links/check",
 		Summary:     "Check a login link without redeeming it",
-		Description: "Says when the link expires and whether it is for the user signed in on this request. It never names a user or uses up the link. Like any request with a session, it moves that session forward. It has a rate limit of its own.",
+		Description: "Says when the link expires, or that it is a lasting link, which doesn't, and whether it is for the user signed in on this request. It never names a user or uses up the link. Like any request with a session, it moves that session forward. It has a rate limit of its own.",
 		Tags:        []string{"Login links"},
 	}, "login_link_invalid", "rate_limited"), func(ctx context.Context, in *checkLoginLinkInput) (*checkLoginLinkOutput, error) {
 		var currentUser int64
@@ -117,7 +118,11 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 			return nil, err
 		}
 		out := &checkLoginLinkOutput{}
-		out.Body.ExpiresAt = check.ExpiresAt.Truncate(time.Second)
+		if check.ExpiresAt != nil {
+			at := check.ExpiresAt.Truncate(time.Second)
+			out.Body.ExpiresAt = &at
+		}
+		out.Body.Lasting = check.Lasting
 		out.Body.ForCurrentUser = check.ForCurrentUser
 		return out, nil
 	})
@@ -127,7 +132,7 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		Method:      http.MethodPost,
 		Path:        "/login-links/redeem",
 		Summary:     "Redeem a login link and sign in",
-		Description: "Uses the link and starts a session. If the caller's current session is of the same kind as the new one, the server revokes it. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
+		Description: "Uses the link and starts a session. An ordinary link works once. A lasting link works any number of times, and each redeem starts a new session. If the caller's current session is of the same kind as the new one, the server revokes it. Attempts count against `WISHBONE_RATE_LIMIT_REDEEM`.",
 		Tags:        []string{"Login links"},
 	}, "login_link_invalid", "rate_limited"), func(ctx context.Context, in *redeemLoginLinkInput) (*redeemLoginLinkOutput, error) {
 		kind := in.Body.Session

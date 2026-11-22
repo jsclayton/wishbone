@@ -121,7 +121,8 @@ func TestSchemaLetsAnItemHaveQuantityZeroAndCascades(t *testing.T) {
 	require.Equal(t, itemRefs{}, countItemRefs(t, st))
 }
 
-// A user's delete takes their sessions, login links and passkeys with it, and an
+// A user's delete takes their sessions, login links, lasting links and passkeys
+// with it, and an
 // image they uploaded outlives them with no uploader (docs/spec.md,
 // Deactivation and deletion, Deletion).
 func TestSchemaLetsAUserBeDeleted(t *testing.T) {
@@ -133,6 +134,8 @@ func TestSchemaLetsAUserBeDeleted(t *testing.T) {
 		`INSERT INTO items (id, list_id, title, position, created_at) VALUES (1, 1, 'Kettle', 0, `+at+`)`,
 		`INSERT INTO sessions (user_id, token_hash, created_at, last_used_at, expires_at, cookie_sent_at) VALUES (2, 'h', `+at+`, `+at+`, `+at+`, `+at+`)`,
 		`INSERT INTO login_links (user_id, token_hash, created_at, expires_at) VALUES (2, 'l', `+at+`, `+at+`)`,
+		`INSERT INTO lasting_links (id, user_id, token_hash, created_at) VALUES (1, 2, 'r', `+at+`)`,
+		`INSERT INTO sessions (user_id, token_hash, created_at, last_used_at, expires_at, cookie_sent_at, lasting_link_id) VALUES (2, 'h2', `+at+`, `+at+`, `+at+`, `+at+`, 1)`,
 		`INSERT INTO passkeys (user_id, credential_id, public_key, name, created_at) VALUES (2, x'01', x'02', 'Key', `+at+`)`,
 		`INSERT INTO images (id, key, width, height, uploaded_by, created_at) VALUES (1, 'k1', 10, 10, 2, `+at+`), (2, 'k2', 10, 10, 2, `+at+`)`,
 		`INSERT INTO item_images (item_id, image_id, position, is_primary) VALUES (1, 1, 0, 1)`,
@@ -141,11 +144,11 @@ func TestSchemaLetsAUserBeDeleted(t *testing.T) {
 		require.NoError(t, st.db.GetContext(t.Context(), &n, `SELECT count(*) FROM `+table))
 		return n
 	}
-	require.Equal(t, []int{1, 1, 1, 2, 1}, []int{count("sessions"), count("login_links"), count("passkeys"), count("images"), count("item_images")})
+	require.Equal(t, []int{2, 1, 1, 1, 2, 1}, []int{count("sessions"), count("login_links"), count("lasting_links"), count("passkeys"), count("images"), count("item_images")})
 
 	execAll(t, st, `DELETE FROM users WHERE id = 2`)
 
-	require.Equal(t, []int{0, 0, 0, 2, 1}, []int{count("sessions"), count("login_links"), count("passkeys"), count("images"), count("item_images")})
+	require.Equal(t, []int{0, 0, 0, 0, 2, 1}, []int{count("sessions"), count("login_links"), count("lasting_links"), count("passkeys"), count("images"), count("item_images")})
 	var withUploader int
 	require.NoError(t, st.db.GetContext(t.Context(), &withUploader, `SELECT count(*) FROM images WHERE uploaded_by IS NOT NULL`))
 	require.Zero(t, withUploader)
@@ -154,4 +157,6 @@ func TestSchemaLetsAUserBeDeleted(t *testing.T) {
 	require.Error(t, err)
 	_, err = st.db.ExecContext(t.Context(), `INSERT INTO sessions (user_id, token_hash, created_at, last_used_at, expires_at, cookie_sent_at) VALUES (9, 'x', `+at+`, `+at+`, `+at+`, `+at+`)`)
 	require.Error(t, err)
+	_, err = st.db.ExecContext(t.Context(), `INSERT INTO sessions (user_id, token_hash, created_at, last_used_at, expires_at, cookie_sent_at, lasting_link_id) VALUES (1, 'y', `+at+`, `+at+`, `+at+`, `+at+`, 9)`)
+	require.Error(t, err, "and a session's lasting link must be there")
 }
