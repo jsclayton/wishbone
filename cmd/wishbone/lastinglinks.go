@@ -96,7 +96,33 @@ func (c *RevokeLastingLinkCmd) Run() error {
 	if ended == 1 {
 		sessions = "session"
 	}
-	_, err = fmt.Fprintf(orStdout(c.out), "Revoked lasting link %d for %s, and signed out the %d %s it started.\n",
-		link.ID, displayName(u), ended, sessions)
+	out := orStdout(c.out)
+	if _, err := fmt.Fprintf(out, "Revoked lasting link %d for %s, and signed out the %d %s it started.\n",
+		link.ID, displayName(u), ended, sessions); err != nil {
+		return err
+	}
+	_, err = io.WriteString(out, afterRevoke(u))
 	return err
+}
+
+// afterRevoke says what a revoke leaves, and how the operator checks it. A
+// session that the link started can add a passkey, or make a login link, and
+// neither belongs to the link, so both outlive the revoke (docs/spec.md,
+// Access, Lasting login links). The server can't tell which session made a
+// passkey or a login link, and no command lists or removes one, so the
+// operator checks in the app.
+func afterRevoke(u user.User) string {
+	name := u.Name
+	whom, others := fmt.Sprintf("for %s or for one of %s's children", name, name), name+"'s children"
+	if u.IsAdmin {
+		whom, others = "for any user, because "+name+" is the admin", "every other user"
+	}
+	return fmt.Sprintf(`
+The revoke leaves what those sessions made, and it still works:
+  - A passkey that one of them added for %[1]s. It works until it is deleted.
+  - A login link that one of them made %[2]s. It works once, for up to 7 days, and the session it starts stays.
+To check, sign in to Wishbone as the admin and open %[1]s's sign-in screen, /users/%[3]d/sign-in.
+Delete each passkey and revoke each session that you don't know. Do the same for %[4]s.
+No CLI command does this, and nothing lists a login link that isn't used yet, so look again in 7 days.
+`, name, whom, u.ID, others)
 }

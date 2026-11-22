@@ -55,6 +55,11 @@ func TestALastingTokenIsTakenInAnyCaseWithOrWithoutHyphens(t *testing.T) {
 	for _, form := range []string{
 		"", "k7mq-3xtd-p9wh-r2f", "k7mq-3xtd-p9wh-r2fnn", "k7mq 3xtd p9wh r2fn", "k7mq_3xtd_p9wh_r2fn",
 		"o7mq-3xtd-p9wh-r2fn", "07mq-3xtd-p9wh-r2fn", "17mq-3xtd-p9wh-r2fn", "l7mq-3xtd-p9wh-r2fn",
+		// Unicode case folding takes the Kelvin sign (U+212A) as k, so these
+		// would be the first form. Only A to Z are upper case.
+		"\u212a7mq-3xtd-p9wh-r2fn", "\u212a7mq3xtdp9whr2fn",
+		// 16 bytes, but not 16 characters of the alphabet.
+		"\u212a7mq3xtdp9whr2",
 		// An ordinary login link's token: 43 characters of base64url.
 		"Zk3pQ9x-ab_cdEfGhIjKlMnOpQrStUvWxYz0123456",
 	} {

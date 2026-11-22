@@ -144,12 +144,45 @@ func TestRevokeLastingLinkSignsOutTheSessionsItStarted(t *testing.T) {
 	out, err = runRevokeLastingLink(t, dir, "1")
 
 	require.NoError(t, err)
-	require.Equal(t, "Revoked lasting link 1 for Ada, and signed out the 2 sessions it started.\n", out)
+	require.Equal(t, `Revoked lasting link 1 for Ada, and signed out the 2 sessions it started.
+
+The revoke leaves what those sessions made, and it still works:
+  - A passkey that one of them added for Ada. It works until it is deleted.
+  - A login link that one of them made for any user, because Ada is the admin. It works once, for up to 7 days, and the session it starts stays.
+To check, sign in to Wishbone as the admin and open Ada's sign-in screen, /users/1/sign-in.
+Delete each passkey and revoke each session that you don't know. Do the same for every other user.
+No CLI command does this, and nothing lists a login link that isn't used yet, so look again in 7 days.
+`, out)
 	_, err = svc.Redeem(t.Context(), token, 0, "ua")
 	require.ErrorIs(t, err, loginlink.ErrInvalid)
 	var live int
 	require.NoError(t, st.DB().GetContext(t.Context(), &live, `SELECT count(*) FROM sessions WHERE revoked_at IS NULL`))
 	require.Zero(t, live)
+}
+
+// A user who isn't the admin can make a login link only for themselves and
+// their children, so the check after a revoke covers only those.
+func TestRevokeLastingLinkSaysWhatElseToCheck(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	addUser(t, st, "Grace", "Hopper", false)
+	_, _, err := runLastingLink(t, dir, "2")
+	require.NoError(t, err)
+
+	out, err := runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(out, "Revoked lasting link 1 for Grace Hopper, and signed out the 0 sessions it started.\n"), out)
+	for _, want := range []string{
+		"A passkey that one of them added for Grace.",
+		"A login link that one of them made for Grace or for one of Grace's children.",
+		"open Grace's sign-in screen, /users/2/sign-in.",
+		"Do the same for Grace's children.",
+		"look again in 7 days",
+	} {
+		require.Contains(t, out, want)
+	}
+	require.NotContains(t, out, "admin.")
 }
 
 func TestRevokeLastingLinkRefusesAnUnknownOrRevokedLink(t *testing.T) {
