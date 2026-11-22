@@ -110,7 +110,7 @@ Write a test that fails for the behavior you want, then make it pass. Test at th
 | All the e2e specs | `just test-e2e` |
 | One e2e spec | `just build-e2e && pnpm --filter web test:e2e e2e/gifts.spec.ts` |
 
-`internal/server` is the slow package. Its budget is **5 minutes under `-race` on CI**. `go test` runs with `-timeout 10m` (in `just test-backend` and in CI's Go job), and the Go job's `timeout-minutes` is 20, so a package that grows past its budget fails on its own clock with room to spare. Before #43 the package ran one test at a time and took 18 to 25 minutes on CI. To keep under the budget:
+`internal/server` is the slow package. Its budget is **5 minutes under `-race` on CI**. `go test` runs with `-timeout 10m` (in `just test-backend` and in CI's Go job), and the Go job's `timeout-minutes` is 20, so a package that grows past its budget fails on its own clock with room to spare. It took about 4 minutes on CI in November 2026. Before that it ran one test at a time and took 18 to 25 minutes. To keep under the budget:
 
 - Start every test with `t.Parallel()`. `TestEveryTestRunsInParallel` (`internal/server/parallel_test.go`) fails a test that doesn't. A test that can't run in parallel goes in that test's `notParallel`, with the reason.
 - Give a test its own server and database with `newEnv` or `testOptions`, and share nothing that a test changes. Each one starts from a copy of a database that is migrated once for the test binary (`migrated` in `internal/server/env_test.go`), so don't migrate in a test.
