@@ -147,6 +147,7 @@ func TestRevokeLastingLinkSignsOutTheSessionsItStarted(t *testing.T) {
 	require.Equal(t, `Revoked lasting link 1 for Ada.
 It removed what it left that still signed someone in:
   Ada (1): 2 sessions signed out, 0 passkeys deleted, 0 unused login links ended.
+Ada has no passkey. To sign Ada in again, make a login link with 'wishbone login-link 1'.
 `, out, "a link made since Wishbone records what its sessions make has nothing else to check")
 	_, err = svc.Redeem(t.Context(), token, 0, "ua")
 	require.ErrorIs(t, err, loginlink.ErrInvalid)
@@ -184,8 +185,8 @@ func addPasskey(t *testing.T, st *store.Store, userID, linkID int64, name string
 	require.NoError(t, err)
 }
 
-// The revoke says what it removed, user by user, and names each user whose
-// last passkey it deleted.
+// The revoke says what it removed, user by user, and names each user it
+// touched who has no passkey left.
 func TestRevokeLastingLinkSaysWhatItRemovedByUser(t *testing.T) {
 	dir, st := newDB(t)
 	addUser(t, st, "Ada", "", true)
@@ -216,7 +217,40 @@ func TestRevokeLastingLinkSaysWhatItRemovedByUser(t *testing.T) {
 It removed what it left that still signed someone in:
   Mom Smith (2): 1 session signed out, 1 passkey deleted ("Leaked"), 0 unused login links ended.
   Emma (3): 1 session signed out, 1 passkey deleted ("Emma's \x1b[31mphone"), 1 unused login link ended.
-Emma has no passkey left. To sign Emma in again, make a login link with 'wishbone login-link 3'.
+Emma has no passkey. To sign Emma in again, make a login link with 'wishbone login-link 3'.
+`, out)
+}
+
+// A user whom a leaked session signed in with a login link, and who never added
+// a passkey, has no way in once the revoke ends that session. So the revoke
+// names that user too, though it deleted no passkey of theirs. A user it
+// touched who still has a passkey isn't named.
+func TestRevokeLastingLinkNamesAUserItSignedOutWhoHasNoPasskey(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	mom := addUser(t, st, "Mom", "Smith", false)
+	emma := addUser(t, st, "Emma", "", false)
+	out, _, err := runLastingLink(t, dir, "2")
+	require.NoError(t, err)
+	token := strings.TrimPrefix(strings.TrimSpace(out), "https://wish.example/login/")
+	svc := loginlink.NewService(st.DB(), time.Now)
+	fromLink, err := svc.Redeem(t.Context(), token, 0, "ua")
+	require.NoError(t, err)
+	linkID := fromLink.Session.LastingLinkID
+	addPasskey(t, st, mom, 0, "Mom's own")
+	forEmma, _, err := svc.Create(t.Context(), emma, linkID)
+	require.NoError(t, err)
+	_, err = svc.Redeem(t.Context(), forEmma, 0, "ua")
+	require.NoError(t, err)
+
+	out, err = runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.Equal(t, `Revoked lasting link 1 for Mom Smith.
+It removed what it left that still signed someone in:
+  Mom Smith (2): 1 session signed out, 0 passkeys deleted, 0 unused login links ended.
+  Emma (3): 1 session signed out, 0 passkeys deleted, 0 unused login links ended.
+Emma has no passkey. To sign Emma in again, make a login link with 'wishbone login-link 3'.
 `, out)
 }
 

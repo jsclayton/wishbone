@@ -176,8 +176,13 @@ func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int
 		res.Switched = ok && previous != userID
 	}
 	// The UPDATE above holds the write lock, and a revoke ends the login links
-	// that record its lasting link, so the link here is never a revoked one.
+	// that record its lasting link, so the link here is a revoked one only
+	// when the clock stepped back past the end the revoke gave it. That is an
+	// ended link, as any other.
 	res.Token, res.Session, err = session.CreateFromLastingLink(ctx, tx, now, userID, lastingID, userAgent)
+	if errors.Is(err, session.ErrLastingLinkRevoked) {
+		return Result{}, ErrInvalid
+	}
 	if err != nil {
 		return Result{}, err
 	}

@@ -23,6 +23,10 @@ var (
 	// ErrSignCount means the passkey's sign count did not go up, which can mean
 	// a cloned authenticator. It always comes wrapped in ErrLoginFailed.
 	ErrSignCount = errors.New("passkey sign count went backwards")
+	// ErrDeleted means the passkey was deleted during the sign-in, for example
+	// by a revoke of the lasting link that it records. It always comes wrapped
+	// in ErrLoginFailed.
+	ErrDeleted = errors.New("passkey deleted during sign-in")
 )
 
 // BeginLogin starts a sign-in with no username and returns the JSON for
@@ -103,6 +107,14 @@ func (s *Service) FinishLogin(ctx context.Context, response []byte) (userID, las
 		int64(cred.Authenticator.SignCount), s.now(), cred.Flags.BackupState,
 		cred.ID, userID, int64(cred.Authenticator.SignCount), int64(cred.Authenticator.SignCount))
 	if errors.Is(err, sql.ErrNoRows) {
+		var kept bool
+		if err := s.db.GetContext(ctx, &kept,
+			`SELECT EXISTS (SELECT 1 FROM passkeys WHERE credential_id = ? AND user_id = ?)`, cred.ID, userID); err != nil {
+			return 0, 0, fmt.Errorf("look up passkey: %w", err)
+		}
+		if !kept {
+			return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrDeleted)
+		}
 		return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrSignCount)
 	}
 	if err != nil {

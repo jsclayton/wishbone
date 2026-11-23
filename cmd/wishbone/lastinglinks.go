@@ -113,12 +113,15 @@ func (c *RevokeLastingLinkCmd) Run() error {
 			counted(r.SessionsEnded, "session", "signed out"),
 			deletedPasskeys(r.PasskeysDeleted),
 			counted(r.LoginLinksEnded, "unused login link", "ended"))
-		if len(r.PasskeysDeleted) > 0 && r.PasskeysLeft == 0 {
+		// Every user the revoke touched, not only one whose last passkey it
+		// deleted: a user it signed out, or the link's own user, who has no
+		// passkey may have no way in now.
+		if r.PasskeysLeft == 0 {
 			noPasskey = append(noPasskey, u)
 		}
 	}
 	for _, u := range noPasskey {
-		fmt.Fprintf(&b, "%s has no passkey left. To sign %s in again, make a login link with 'wishbone login-link %d'.\n",
+		fmt.Fprintf(&b, "%s has no passkey. To sign %s in again, make a login link with 'wishbone login-link %d'.\n",
 			displayName(u), u.Name, u.ID)
 	}
 	if revoked.Link.PredatesProvenance {

@@ -267,3 +267,25 @@ func TestNothingRecordsALinkAfterItsRevoke(t *testing.T) {
 	require.Zero(t, e.rowCount("sessions", `lasting_link_id = ? AND revoked_at IS NULL`, f.linkID))
 	require.Zero(t, e.rowCount("login_links", `lasting_link_id = ? AND redeemed_at IS NULL AND expires_at > ?`, f.linkID, e.clock.now()))
 }
+
+// A revoke ends an unused login link by giving it the revoke's time as its
+// end. If the clock then steps back past that time, the link looks unused
+// again, but the guard on the new session still refuses it, and the answer is
+// the one for any ended link, not a server error.
+func TestAnEndedLoginLinkStaysEndedWhenTheClockStepsBack(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(o *Options) { o.RateLimitRedeem = 100 })
+	f := e.leakedFamily()
+	before := e.clock.now()
+	e.clock.advance(time.Hour)
+	_, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), f.linkID)
+	require.NoError(t, err)
+	e.clock.set(before)
+
+	res := e.redeem(f.unused, "", nil)
+
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	require.Equal(t, "login_link_invalid", readProblem(t, res).Code)
+	require.Nil(t, e.loginLinkRow(f.unused).RedeemedAt, "the refused redeem leaves the link unused")
+	require.Zero(t, e.rowCount("sessions", `lasting_link_id = ? AND revoked_at IS NULL`, f.linkID))
+}
