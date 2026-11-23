@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"jsclayton.dev/wishbone/internal/passkey"
+	"jsclayton.dev/wishbone/internal/session"
 	"jsclayton.dev/wishbone/internal/user"
 )
 
@@ -84,6 +85,8 @@ func passkeyProblem(err error) error {
 			&huma.ErrorDetail{Location: "body.name", Message: passkeyNameDetail})
 	case errors.Is(err, passkey.ErrNotFound):
 		return notFound()
+	case errors.Is(err, session.ErrLastingLinkRevoked):
+		return sessionEndedProblem()
 	}
 	return err
 }
@@ -223,7 +226,7 @@ func (s *Server) registerPasskeys(api huma.API) {
 			return nil, err
 		}
 		caller, _ := CallerFrom(ctx)
-		p, err := svc.FinishRegistration(ctx, target.ID, in.Body.Name, in.Body.Credential)
+		p, err := svc.FinishRegistration(ctx, target.ID, caller.LastingLinkID, in.Body.Name, in.Body.Credential)
 		if err != nil {
 			return nil, passkeyProblem(err)
 		}

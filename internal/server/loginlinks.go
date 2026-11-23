@@ -11,6 +11,7 @@ import (
 
 	"jsclayton.dev/wishbone/internal/initials"
 	"jsclayton.dev/wishbone/internal/loginlink"
+	"jsclayton.dev/wishbone/internal/session"
 	"jsclayton.dev/wishbone/internal/user"
 )
 
@@ -88,7 +89,11 @@ func (s *Server) registerLoginLinks(public, signedIn huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		token, expires, err := s.opts.LoginLinks.Create(ctx, target.ID)
+		caller, _ := CallerFrom(ctx)
+		token, expires, err := s.opts.LoginLinks.Create(ctx, target.ID, caller.LastingLinkID)
+		if errors.Is(err, session.ErrLastingLinkRevoked) {
+			return nil, sessionEndedProblem()
+		}
 		if err != nil {
 			return nil, err
 		}

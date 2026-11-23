@@ -57,12 +57,13 @@ func (s *Service) BeginLogin(_ context.Context) ([]byte, error) {
 
 // FinishLogin verifies the browser's answer, a JSON credential from
 // navigator.credentials.get, and returns the ID of the user who owns the
-// passkey. It records the use and the new sign count. Every failure wraps
-// [ErrLoginFailed].
-func (s *Service) FinishLogin(ctx context.Context, response []byte) (int64, error) {
+// passkey, and the lasting login link that the passkey records, or 0 for none:
+// the session that the sign-in starts records it too. It records the use and
+// the new sign count. Every failure wraps [ErrLoginFailed].
+func (s *Service) FinishLogin(ctx context.Context, response []byte) (userID, lastingLinkID int64, err error) {
 	parsed, err := protocol.ParseCredentialRequestResponseBytes(response)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrLoginFailed, err)
+		return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, err)
 	}
 	// The challenge in the signed client data picks the pending sign-in.
 	s.mu.Lock()
@@ -70,10 +71,9 @@ func (s *Service) FinishLogin(ctx context.Context, response []byte) (int64, erro
 	delete(s.logins, parsed.Response.CollectedClientData.Challenge)
 	s.mu.Unlock()
 	if !ok || !s.now().Before(p.expires) {
-		return 0, fmt.Errorf("%w: no pending sign-in", ErrLoginFailed)
+		return 0, 0, fmt.Errorf("%w: no pending sign-in", ErrLoginFailed)
 	}
 
-	var userID int64
 	handler := func(_, userHandle []byte) (webauthn.User, error) {
 		id, err := s.userByHandle(ctx, userHandle)
 		if err != nil {
@@ -88,25 +88,27 @@ func (s *Service) FinishLogin(ctx context.Context, response []byte) (int64, erro
 	}
 	cred, err := s.wa.ValidateDiscoverableLogin(handler, p.session, parsed)
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrLoginFailed, err)
+		return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, err)
 	}
 	if cred.Authenticator.CloneWarning {
-		return 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrSignCount)
+		return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrSignCount)
 	}
 
-	// The count check repeats in SQL, so two sign-ins with one count can't both pass.
-	res, err := s.db.ExecContext(ctx,
+	// The count check repeats in SQL, so two sign-ins with one count can't both
+	// pass. A passkey that a revoke deleted since the check matches no row.
+	err = s.db.GetContext(ctx, &lastingLinkID,
 		`UPDATE passkeys SET sign_count = ?, last_used_at = ?, backup_state = ?
-		 WHERE credential_id = ? AND user_id = ? AND (sign_count < ? OR (sign_count = 0 AND ? = 0))`,
+		 WHERE credential_id = ? AND user_id = ? AND (sign_count < ? OR (sign_count = 0 AND ? = 0))
+		 RETURNING COALESCE(lasting_link_id, 0)`,
 		int64(cred.Authenticator.SignCount), s.now(), cred.Flags.BackupState,
 		cred.ID, userID, int64(cred.Authenticator.SignCount), int64(cred.Authenticator.SignCount))
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrSignCount)
+	}
 	if err != nil {
-		return 0, fmt.Errorf("record passkey use: %w", err)
+		return 0, 0, fmt.Errorf("record passkey use: %w", err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return 0, fmt.Errorf("%w: %w", ErrLoginFailed, ErrSignCount)
-	}
-	return userID, nil
+	return userID, lastingLinkID, nil
 }
 
 // loadLoginUser loads a user with the full credentials a sign-in checks. A

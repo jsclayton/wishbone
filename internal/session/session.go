@@ -39,6 +39,38 @@ type Session struct {
 	ID        int64
 	UserID    int64
 	ExpiresAt time.Time
+	// LastingLinkID is the lasting login link that started the session,
+	// directly or through a passkey or login link that one of its sessions
+	// made, or 0 for none. A passkey or login link that the session makes
+	// records it too, so a revoke of the link finds them (docs/spec.md, Access,
+	// Lasting login links).
+	LastingLinkID int64
+}
+
+// ErrLastingLinkRevoked means the lasting login link that a new row would
+// record is revoked. A revoke that commits between a session's sign-in and its
+// write wins: nothing that records a revoked link is made after the revoke.
+var ErrLastingLinkRevoked = errors.New("the lasting login link is revoked")
+
+// The two parts of an INSERT ... SELECT of a row that records a lasting login
+// link: a session, a passkey, or a login link. Each takes the link's ID, or
+// NULL for none ([LastingLinkArg]).
+const (
+	// LastingLinkValue is the value to store: the link's ID while the link
+	// exists, and NULL once it is deleted with its user, as the foreign key
+	// would set it.
+	LastingLinkValue = `(SELECT id FROM lasting_links WHERE id = ?)`
+	// LastingLinkNotRevoked is the WHERE clause. With a revoked link, the INSERT
+	// adds no row, and the caller returns [ErrLastingLinkRevoked].
+	LastingLinkNotRevoked = `NOT EXISTS (SELECT 1 FROM lasting_links WHERE id = ? AND revoked_at IS NOT NULL)`
+)
+
+// LastingLinkArg is the argument for a lasting link's ID: NULL for 0.
+func LastingLinkArg(id int64) any {
+	if id == 0 {
+		return nil
+	}
+	return id
 }
 
 // NewToken returns a new random token and its hash, for a session or a login
@@ -62,33 +94,35 @@ func Hash(token string) string {
 // nowhere else. It takes a transaction or a database, so a caller can start a
 // session in the same commit as the change that earned it.
 func Create(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int64, userAgent string) (token string, s Session, err error) {
-	return create(ctx, q, now, userID, userAgent, sql.NullInt64{})
+	return CreateFromLastingLink(ctx, q, now, userID, 0, userAgent)
 }
 
 // CreateFromLastingLink is [Create] for a session that a lasting login link
-// starts. The session records the link, so revoking the link ends it.
+// starts, directly or through a passkey or a login link that records it. The
+// session records the link, so revoking the link ends it. linkID 0 is no link.
+// It returns [ErrLastingLinkRevoked], and starts nothing, when the link is
+// revoked.
 func CreateFromLastingLink(ctx context.Context, q sqlx.ExtContext, now time.Time, userID, linkID int64, userAgent string) (token string, s Session, err error) {
-	return create(ctx, q, now, userID, userAgent, sql.NullInt64{Int64: linkID, Valid: true})
-}
-
-func create(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int64, userAgent string, lastingLinkID sql.NullInt64) (token string, s Session, err error) {
 	token, hash, err := NewToken()
 	if err != nil {
 		return "", Session{}, err
 	}
 	expires := now.Add(Lifetime)
-	res, err := q.ExecContext(ctx,
+	link := LastingLinkArg(linkID)
+	var id int64
+	var recorded sql.NullInt64
+	err = q.QueryRowxContext(ctx,
 		`INSERT INTO sessions (user_id, token_hash, user_agent, created_at, last_used_at, expires_at, cookie_sent_at, lasting_link_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, hash, userAgent, now, now, expires, now, lastingLinkID)
+		 SELECT ?, ?, ?, ?, ?, ?, ?, `+LastingLinkValue+` WHERE `+LastingLinkNotRevoked+`
+		 RETURNING id, lasting_link_id`,
+		userID, hash, userAgent, now, now, expires, now, link, link).Scan(&id, &recorded)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", Session{}, ErrLastingLinkRevoked
+	}
 	if err != nil {
 		return "", Session{}, fmt.Errorf("insert session: %w", err)
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return "", Session{}, fmt.Errorf("insert session: %w", err)
-	}
-	return token, Session{ID: id, UserID: userID, ExpiresAt: expires}, nil
+	return token, Session{ID: id, UserID: userID, ExpiresAt: expires, LastingLinkID: recorded.Int64}, nil
 }
 
 // Service finds and ends sessions.
@@ -113,7 +147,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 	err := s.db.QueryRowxContext(ctx,
 		`UPDATE sessions SET last_used_at = ?, expires_at = ?
 		 WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?
-		 RETURNING id, user_id`, now, out.ExpiresAt, Hash(token), now).Scan(&out.ID, &out.UserID)
+		 RETURNING id, user_id, COALESCE(lasting_link_id, 0)`, now, out.ExpiresAt, Hash(token), now).Scan(&out.ID, &out.UserID, &out.LastingLinkID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, ErrNone
 	}
@@ -127,12 +161,15 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 var ErrUserDeactivated = errors.New("the user is deactivated")
 
 // SignIn starts a session for a user who has just proved who they are, for
-// example with a passkey. replaceID is the caller's current session to revoke in
-// the same commit, or 0 for none. It returns the raw token, the session, and
-// whether a live session was revoked. It returns [ErrUserDeactivated], and starts
-// nothing, for a user who is deactivated: a deactivation that commits between the
-// proof and the session wins.
-func (s *Service) SignIn(ctx context.Context, userID, replaceID int64, userAgent string) (token string, sess Session, replaced bool, err error) {
+// example with a passkey. lastingLinkID is the lasting link that the proof
+// records, such as a passkey's, or 0 for none: the session records it too.
+// replaceID is the caller's current session to revoke in the same commit, or 0
+// for none. It returns the raw token, the session, and whether a live session
+// was revoked. It returns [ErrUserDeactivated], and starts nothing, for a user
+// who is deactivated: a deactivation that commits between the proof and the
+// session wins. In the same way, it returns [ErrLastingLinkRevoked] when the
+// lasting link is revoked.
+func (s *Service) SignIn(ctx context.Context, userID, lastingLinkID, replaceID int64, userAgent string) (token string, sess Session, replaced bool, err error) {
 	now := s.now()
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -152,7 +189,7 @@ func (s *Service) SignIn(ctx context.Context, userID, replaceID int64, userAgent
 			return "", Session{}, false, err
 		}
 	}
-	token, sess, err = Create(ctx, tx, now, userID, userAgent)
+	token, sess, err = CreateFromLastingLink(ctx, tx, now, userID, lastingLinkID, userAgent)
 	if err != nil {
 		return "", Session{}, false, err
 	}
@@ -209,20 +246,22 @@ func RevokeAll(ctx context.Context, q sqlx.ExtContext, now time.Time, userID int
 	return nil
 }
 
-// RevokeStartedBy revokes every live session that a lasting login link
-// started, in a transaction or on a database. It returns how many it revoked.
-func RevokeStartedBy(ctx context.Context, q sqlx.ExtContext, now time.Time, lastingLinkID int64) (int, error) {
-	res, err := q.ExecContext(ctx,
-		`UPDATE sessions SET revoked_at = ? WHERE lasting_link_id = ? AND revoked_at IS NULL AND expires_at > ?`,
-		now, lastingLinkID, now)
-	if err != nil {
-		return 0, fmt.Errorf("revoke sessions of a lasting link: %w", err)
+// RevokeStartedBy revokes every live session that records a lasting login
+// link, of any user, in a transaction or on a database. It returns how many it
+// revoked of each user.
+func RevokeStartedBy(ctx context.Context, q sqlx.ExtContext, now time.Time, lastingLinkID int64) (map[int64]int, error) {
+	var users []int64
+	if err := sqlx.SelectContext(ctx, q, &users,
+		`UPDATE sessions SET revoked_at = ? WHERE lasting_link_id = ? AND revoked_at IS NULL AND expires_at > ?
+		 RETURNING user_id`,
+		now, lastingLinkID, now); err != nil {
+		return nil, fmt.Errorf("revoke sessions of a lasting link: %w", err)
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("revoke sessions of a lasting link: %w", err)
+	ended := map[int64]int{}
+	for _, u := range users {
+		ended[u]++
 	}
-	return int(n), nil
+	return ended, nil
 }
 
 // Info is a live session as the sessions list shows it.

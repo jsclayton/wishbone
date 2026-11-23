@@ -65,7 +65,7 @@ func (s *Server) registerPasskeyLogin(api huma.API) {
 		Tags:          []string{"Passkeys"},
 		DefaultStatus: http.StatusNoContent,
 	}, "passkey_login_failed", "rate_limited"), func(ctx context.Context, in *passkeyLoginInput) (*passkeyLoginOutput, error) {
-		userID, err := svc.FinishLogin(ctx, in.Body.Credential)
+		userID, lastingLinkID, err := svc.FinishLogin(ctx, in.Body.Credential)
 		if errors.Is(err, passkey.ErrLoginFailed) {
 			return nil, passkeyLoginProblem()
 		}
@@ -77,9 +77,10 @@ func (s *Server) registerPasskeyLogin(api huma.API) {
 		if caller, ok := CallerFrom(ctx); ok && caller.ViaCookie {
 			current = caller.SessionID
 		}
-		token, sess, _, err := s.opts.Sessions.SignIn(ctx, userID, current, in.UserAgent)
-		if errors.Is(err, session.ErrUserDeactivated) {
-			// A deactivation that committed after the passkey was checked.
+		token, sess, _, err := s.opts.Sessions.SignIn(ctx, userID, lastingLinkID, current, in.UserAgent)
+		if errors.Is(err, session.ErrUserDeactivated) || errors.Is(err, session.ErrLastingLinkRevoked) {
+			// A deactivation, or a revoke of the lasting link that the passkey
+			// records, that committed after the passkey was checked.
 			return nil, passkeyLoginProblem()
 		}
 		if err != nil {

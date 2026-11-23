@@ -181,7 +181,7 @@ func (l *LoginLinkCmd) Run() error {
 			"'wishbone revoke-lasting-link %d' revokes it and signs out every session it started.\n",
 			link.ID, displayName(target), link.ID)
 	} else {
-		if token, _, err = links.Create(context.Background(), id); err != nil {
+		if token, _, err = links.Create(context.Background(), id, 0); err != nil {
 			return err
 		}
 		note = fmt.Sprintf("Expires in %d days.\n", int(loginlink.Lifetime/(24*time.Hour)))
