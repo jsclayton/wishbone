@@ -27,6 +27,7 @@ import (
 
 	"jsclayton.dev/wishbone/internal/page"
 	"jsclayton.dev/wishbone/internal/patch"
+	"jsclayton.dev/wishbone/internal/session"
 )
 
 const (
@@ -238,8 +239,14 @@ func CleanName(name string) (string, error) {
 
 // FinishRegistration verifies the browser's answer, a JSON credential from
 // navigator.credentials.create, and stores the passkey. A blank name becomes
-// [DefaultName]. A pending registration works once.
-func (s *Service) FinishRegistration(ctx context.Context, userID int64, name string, response []byte) (Passkey, error) {
+// [DefaultName]. A pending registration works once. lastingLinkID is the lasting
+// login link that the caller's session records
+// ([session.Session.LastingLinkID]), or 0 for none: the passkey records it, so
+// a revoke of the lasting link deletes the passkey, and a sign-in with the
+// passkey starts a session that records it. It returns
+// [session.ErrLastingLinkRevoked], and stores nothing, when that link is
+// revoked.
+func (s *Service) FinishRegistration(ctx context.Context, userID, lastingLinkID int64, name string, response []byte) (Passkey, error) {
 	if strings.TrimSpace(name) == "" {
 		name = DefaultName
 	}
@@ -275,19 +282,22 @@ func (s *Service) FinishRegistration(ctx context.Context, userID int64, name str
 	}
 	tj, _ := json.Marshal(transports)
 	now := s.now()
-	res, err := s.db.ExecContext(ctx,
+	link := session.LastingLinkArg(lastingLinkID)
+	var id int64
+	err = s.db.GetContext(ctx, &id,
 		`INSERT INTO passkeys (user_id, credential_id, public_key, attestation_type, aaguid, sign_count,
-		                       transports, backup_eligible, backup_state, name, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                       transports, backup_eligible, backup_state, name, created_at, lasting_link_id)
+		 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, `+session.LastingLinkValue+` WHERE `+session.LastingLinkNotRevoked+`
+		 RETURNING id`,
 		userID, cred.ID, cred.PublicKey, cred.AttestationType, cred.Authenticator.AAGUID,
-		cred.Authenticator.SignCount, string(tj), cred.Flags.BackupEligible, cred.Flags.BackupState, name, now)
+		cred.Authenticator.SignCount, string(tj), cred.Flags.BackupEligible, cred.Flags.BackupState, name, now,
+		link, link)
 	if isUnique(err) {
 		return Passkey{}, ErrDuplicate
 	}
-	if err != nil {
-		return Passkey{}, fmt.Errorf("store passkey: %w", err)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Passkey{}, session.ErrLastingLinkRevoked
 	}
-	id, err := res.LastInsertId()
 	if err != nil {
 		return Passkey{}, fmt.Errorf("store passkey: %w", err)
 	}

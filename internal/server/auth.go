@@ -28,6 +28,10 @@ const sessionCookieName = "wishbone_session"
 type Caller struct {
 	User      user.User
 	SessionID int64
+	// LastingLinkID is the lasting login link that the session records, or 0
+	// for none. A passkey or login link that the caller makes records it too
+	// (docs/spec.md, Access, Lasting login links).
+	LastingLinkID int64
 	// ViaCookie is true when the session came in the cookie, and false when it
 	// came as a bearer token. Only cookie sessions have a cookie to renew or clear.
 	ViaCookie bool
@@ -128,7 +132,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			writeProblem(w, http.StatusInternalServerError, "internal_error", internalErrorDetail)
 			return
 		}
-		caller := Caller{User: u, SessionID: sess.ID, ViaCookie: viaCookie, tokenHash: session.Hash(token)}
+		caller := Caller{User: u, SessionID: sess.ID, LastingLinkID: sess.LastingLinkID, ViaCookie: viaCookie, tokenHash: session.Hash(token)}
 
 		if viaCookie {
 			// The cookie lasts a year from when it was sent. A session lasts a year
@@ -147,6 +151,14 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		r.URL.RawPath = ""
 		next.ServeHTTP(w, r)
 	})
+}
+
+// sessionEndedProblem is the 401 of a caller whose session ended while the
+// request ran: a revoke of the lasting login link that the session records
+// committed after the sign-in, so the write it asked for records a revoked link
+// and is not made.
+func sessionEndedProblem() error {
+	return Error(http.StatusUnauthorized, "unauthorized", "Sign in to do this.")
 }
 
 // requireSignedIn answers 401 on an operation when the request has no caller.

@@ -144,15 +144,11 @@ func TestRevokeLastingLinkSignsOutTheSessionsItStarted(t *testing.T) {
 	out, err = runRevokeLastingLink(t, dir, "1")
 
 	require.NoError(t, err)
-	require.Equal(t, `Revoked lasting link 1 for Ada, and signed out the 2 sessions it started.
-
-The revoke leaves what those sessions made, and it still works:
-  - A passkey that one of them added for Ada. It works until it is deleted.
-  - A login link that one of them made for any user, because Ada is the admin. It works once, for up to 7 days, and the session it starts stays.
-To check, sign in to Wishbone as the admin and open Ada's sign-in screen, /users/1/sign-in.
-Delete each passkey and revoke each session that you don't know. Do the same for every other user.
-No CLI command does this, and nothing lists a login link that isn't used yet, so look again in 7 days.
-`, out)
+	require.Equal(t, `Revoked lasting link 1 for Ada.
+It removed what it left that still signed someone in:
+  Ada (1): 2 sessions signed out, 0 passkeys deleted, 0 unused login links ended.
+Ada has no passkey. To sign Ada in again, make a login link with 'wishbone login-link 1'.
+`, out, "a link made since Wishbone records what its sessions make has nothing else to check")
 	_, err = svc.Redeem(t.Context(), token, 0, "ua")
 	require.ErrorIs(t, err, loginlink.ErrInvalid)
 	var live int
@@ -160,9 +156,7 @@ No CLI command does this, and nothing lists a login link that isn't used yet, so
 	require.Zero(t, live)
 }
 
-// A user who isn't the admin can make a login link only for themselves and
-// their children, so the check after a revoke covers only those.
-func TestRevokeLastingLinkSaysWhatElseToCheck(t *testing.T) {
+func TestRevokeLastingLinkThatStartedNothingSaysSo(t *testing.T) {
 	dir, st := newDB(t)
 	addUser(t, st, "Ada", "", true)
 	addUser(t, st, "Grace", "Hopper", false)
@@ -172,8 +166,112 @@ func TestRevokeLastingLinkSaysWhatElseToCheck(t *testing.T) {
 	out, err := runRevokeLastingLink(t, dir, "1")
 
 	require.NoError(t, err)
-	require.True(t, strings.HasPrefix(out, "Revoked lasting link 1 for Grace Hopper, and signed out the 0 sessions it started.\n"), out)
+	require.Equal(t, `Revoked lasting link 1 for Grace Hopper.
+No session that it started was live, and its sessions made no passkey or login link that still worked.
+`, out)
+}
+
+// addPasskey adds a passkey for a user, as a session that records the lasting
+// link would, or no link for 0.
+func addPasskey(t *testing.T, st *store.Store, userID, linkID int64, name string) {
+	t.Helper()
+	var link any
+	if linkID != 0 {
+		link = linkID
+	}
+	_, err := st.DB().ExecContext(t.Context(),
+		`INSERT INTO passkeys (user_id, credential_id, public_key, name, created_at, lasting_link_id) VALUES (?, randomblob(16), x'00', ?, ?, ?)`,
+		userID, name, time.Now(), link)
+	require.NoError(t, err)
+}
+
+// The revoke says what it removed, user by user, and names each user it
+// touched who has no passkey left.
+func TestRevokeLastingLinkSaysWhatItRemovedByUser(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	mom := addUser(t, st, "Mom", "Smith", false)
+	emma := addUser(t, st, "Emma", "", false)
+	out, _, err := runLastingLink(t, dir, "2")
+	require.NoError(t, err)
+	token := strings.TrimPrefix(strings.TrimSpace(out), "https://wish.example/login/")
+	svc := loginlink.NewService(st.DB(), time.Now)
+	fromLink, err := svc.Redeem(t.Context(), token, 0, "ua")
+	require.NoError(t, err)
+	linkID := fromLink.Session.LastingLinkID
+	addPasskey(t, st, mom, linkID, "Leaked")
+	addPasskey(t, st, mom, 0, "Mom's own")
+	forEmma, _, err := svc.Create(t.Context(), emma, linkID)
+	require.NoError(t, err)
+	_, _, err = svc.Create(t.Context(), emma, linkID)
+	require.NoError(t, err)
+	emmaSession, err := svc.Redeem(t.Context(), forEmma, 0, "ua")
+	require.NoError(t, err)
+	require.Equal(t, linkID, emmaSession.Session.LastingLinkID)
+	addPasskey(t, st, emma, linkID, "Emma's \x1b[31mphone")
+
+	out, err = runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.Equal(t, `Revoked lasting link 1 for Mom Smith.
+It removed what it left that still signed someone in:
+  Mom Smith (2): 1 session signed out, 1 passkey deleted ("Leaked"), 0 unused login links ended.
+  Emma (3): 1 session signed out, 1 passkey deleted ("Emma's \x1b[31mphone"), 1 unused login link ended.
+Emma has no passkey. To sign Emma in again, make a login link with 'wishbone login-link 3'.
+`, out)
+}
+
+// A user whom a leaked session signed in with a login link, and who never added
+// a passkey, has no way in once the revoke ends that session. So the revoke
+// names that user too, though it deleted no passkey of theirs. A user it
+// touched who still has a passkey isn't named.
+func TestRevokeLastingLinkNamesAUserItSignedOutWhoHasNoPasskey(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	mom := addUser(t, st, "Mom", "Smith", false)
+	emma := addUser(t, st, "Emma", "", false)
+	out, _, err := runLastingLink(t, dir, "2")
+	require.NoError(t, err)
+	token := strings.TrimPrefix(strings.TrimSpace(out), "https://wish.example/login/")
+	svc := loginlink.NewService(st.DB(), time.Now)
+	fromLink, err := svc.Redeem(t.Context(), token, 0, "ua")
+	require.NoError(t, err)
+	linkID := fromLink.Session.LastingLinkID
+	addPasskey(t, st, mom, 0, "Mom's own")
+	forEmma, _, err := svc.Create(t.Context(), emma, linkID)
+	require.NoError(t, err)
+	_, err = svc.Redeem(t.Context(), forEmma, 0, "ua")
+	require.NoError(t, err)
+
+	out, err = runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.Equal(t, `Revoked lasting link 1 for Mom Smith.
+It removed what it left that still signed someone in:
+  Mom Smith (2): 1 session signed out, 0 passkeys deleted, 0 unused login links ended.
+  Emma (3): 1 session signed out, 0 passkeys deleted, 0 unused login links ended.
+Emma has no passkey. To sign Emma in again, make a login link with 'wishbone login-link 3'.
+`, out)
+}
+
+// A link made before Wishbone recorded what its sessions make can have left
+// passkeys and login links that record nothing, so the revoke still says what
+// else to check.
+func TestRevokeLastingLinkSaysWhatElseToCheckForAnOlderLink(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	addUser(t, st, "Grace", "Hopper", false)
+	_, _, err := runLastingLink(t, dir, "2")
+	require.NoError(t, err)
+	_, err = st.DB().ExecContext(t.Context(), `UPDATE lasting_links SET predates_provenance = 1`)
+	require.NoError(t, err)
+
+	out, err := runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(out, "Revoked lasting link 1 for Grace Hopper.\n"), out)
 	for _, want := range []string{
+		"This link is older than Wishbone's record of what a lasting link's sessions make.",
 		"A passkey that one of them added for Grace.",
 		"A login link that one of them made for Grace or for one of Grace's children.",
 		"open Grace's sign-in screen, /users/2/sign-in.",
@@ -183,6 +281,72 @@ func TestRevokeLastingLinkSaysWhatElseToCheck(t *testing.T) {
 		require.Contains(t, out, want)
 	}
 	require.NotContains(t, out, "admin.")
+}
+
+// For the admin's link, the check covers every user, because the admin makes
+// login links for anyone.
+func TestRevokeLastingLinkOfTheAdminSaysToCheckEveryUser(t *testing.T) {
+	dir, st := newDB(t)
+	addUser(t, st, "Ada", "", true)
+	_, _, err := runLastingLink(t, dir, "1")
+	require.NoError(t, err)
+	_, err = st.DB().ExecContext(t.Context(), `UPDATE lasting_links SET predates_provenance = 1`)
+	require.NoError(t, err)
+
+	out, err := runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.Equal(t, `Revoked lasting link 1 for Ada.
+No session that it started was live, and its sessions made no passkey or login link that still worked.
+
+This link is older than Wishbone's record of what a lasting link's sessions make.
+So the revoke leaves what those sessions made before the upgrade, and it still works:
+  - A passkey that one of them added for Ada. It works until it is deleted.
+  - A login link that one of them made for any user, because Ada is the admin. It works once, for up to 7 days, and the session it starts stays.
+To check, sign in to Wishbone as the admin and open Ada's sign-in screen, /users/1/sign-in.
+Delete each passkey and revoke each session that you don't know. Do the same for every other user.
+No CLI command does this, and nothing lists a login link that isn't used yet, so look again in 7 days.
+`, out)
+}
+
+// A database from before the migration: the link and its session are there,
+// and so is a passkey that its session added, which records nothing. The
+// revoke ends the session, leaves the passkey, and says what else to check.
+func TestRevokeLastingLinkLeavesRowsFromBeforeTheMigration(t *testing.T) {
+	dir, st := newPendingDB(t)
+	require.NoError(t, st.MigrateTo(t.Context(), 20261122043018))
+	grace := addUser(t, st, "Grace", "", true)
+	svc := loginlink.NewService(st.DB(), time.Now)
+	token, _, err := svc.CreateLasting(t.Context(), grace)
+	require.NoError(t, err)
+	_, err = svc.Redeem(t.Context(), token, 0, "ua")
+	require.NoError(t, err)
+	_, err = st.DB().ExecContext(t.Context(),
+		`INSERT INTO passkeys (user_id, credential_id, public_key, name, created_at) VALUES (?, x'01', x'00', 'Old', ?)`, grace, time.Now())
+	require.NoError(t, err)
+	_, err = st.DB().ExecContext(t.Context(),
+		`INSERT INTO login_links (user_id, token_hash, created_at, expires_at) VALUES (?, 'old', ?, ?)`, grace, time.Now().UTC(), time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	require.NoError(t, st.Migrate(t.Context()))
+
+	out, err := runRevokeLastingLink(t, dir, "1")
+
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(out, `Revoked lasting link 1 for Grace.
+It removed what it left that still signed someone in:
+  Grace (1): 1 session signed out, 0 passkeys deleted, 0 unused login links ended.
+
+This link is older than Wishbone's record of what a lasting link's sessions make.
+`), out)
+	var left struct {
+		Passkeys   int `db:"passkeys"`
+		LoginLinks int `db:"login_links"`
+	}
+	require.NoError(t, st.DB().GetContext(t.Context(), &left, `SELECT
+		(SELECT count(*) FROM passkeys) AS passkeys,
+		(SELECT count(*) FROM login_links WHERE expires_at > ?) AS login_links`, time.Now().UTC()))
+	require.Equal(t, 1, left.Passkeys, "a passkey from before records no link, so it stays")
+	require.Equal(t, 1, left.LoginLinks, "and so does a login link")
 }
 
 func TestRevokeLastingLinkRefusesAnUnknownOrRevokedLink(t *testing.T) {

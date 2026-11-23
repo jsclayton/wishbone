@@ -1,11 +1,13 @@
 package loginlink
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -94,6 +96,10 @@ type Lasting struct {
 	UserID     int64      `db:"user_id"`
 	CreatedAt  time.Time  `db:"created_at"`
 	LastUsedAt *time.Time `db:"last_used_at"`
+	// PredatesProvenance is true for a link made before passkeys and login
+	// links recorded the lasting link whose session made them. What its
+	// sessions made before then records nothing, so a revoke can't find it.
+	PredatesProvenance bool `db:"predates_provenance"`
 }
 
 // ErrNotFound means there is no lasting link with that ID that isn't revoked.
@@ -127,7 +133,7 @@ func (s *Service) CreateLasting(ctx context.Context, userID int64) (token string
 func (s *Service) ListLasting(ctx context.Context) ([]Lasting, error) {
 	var links []Lasting
 	if err := s.db.SelectContext(ctx, &links,
-		`SELECT id, user_id, created_at, last_used_at FROM lasting_links WHERE revoked_at IS NULL ORDER BY id`); err != nil {
+		`SELECT id, user_id, created_at, last_used_at, predates_provenance FROM lasting_links WHERE revoked_at IS NULL ORDER BY id`); err != nil {
 		return nil, fmt.Errorf("list lasting login links: %w", err)
 	}
 	for i := range links {
@@ -140,32 +146,114 @@ func (s *Service) ListLasting(ctx context.Context) ([]Lasting, error) {
 	return links, nil
 }
 
-// RevokeLasting revokes a lasting link, and ends every session that it
-// started, in one commit. A link that leaked stops working at once. The user's
-// other sessions stay. It returns the link and how many sessions it ended, or
+// Removed is what a revoke removed from one user: the passkeys and login links
+// that the link's sessions made for them, and their sessions that record the
+// link.
+type Removed struct {
+	UserID int64
+	// SessionsEnded is how many of the user's live sessions it ended.
+	SessionsEnded int
+	// PasskeysDeleted are the names of the passkeys it deleted, by ID.
+	PasskeysDeleted []string
+	// LoginLinksEnded is how many unused login links for the user it ended.
+	LoginLinksEnded int
+	// PasskeysLeft is how many passkeys the user has after the revoke.
+	PasskeysLeft int
+}
+
+type deletedPasskey struct {
+	ID     int64  `db:"id"`
+	UserID int64  `db:"user_id"`
+	Name   string `db:"name"`
+}
+
+// Revoked is the outcome of [Service.RevokeLasting].
+type Revoked struct {
+	Link Lasting
+	// Users is what the revoke removed, for each user it removed something
+	// from, by user ID.
+	Users []Removed
+}
+
+// RevokeLasting revokes a lasting link, and in the same commit removes what it
+// left that still signs someone in (docs/spec.md, Access, Lasting login links):
+// it ends every live session that records the link, deletes every passkey that
+// records it, and ends every unused login link that records it. A session, a
+// passkey or a login link records the link when one of the link's sessions
+// made it, at any distance, for any user. A link that leaked stops working at
+// once, and leaves nothing behind. Everything else stays. It returns
 // [ErrNotFound] when there is no such link that isn't revoked.
-func (s *Service) RevokeLasting(ctx context.Context, id int64) (link Lasting, ended int, err error) {
+func (s *Service) RevokeLasting(ctx context.Context, id int64) (Revoked, error) {
 	now := s.now()
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return Lasting{}, 0, fmt.Errorf("begin: %w", err)
+		return Revoked{}, fmt.Errorf("begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	err = tx.GetContext(ctx, &link,
+	var out Revoked
+	err = tx.GetContext(ctx, &out.Link,
 		`UPDATE lasting_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
-		 RETURNING id, user_id, created_at, last_used_at`, now, id)
+		 RETURNING id, user_id, created_at, last_used_at, predates_provenance`, now, id)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Lasting{}, 0, ErrNotFound
+		return Revoked{}, ErrNotFound
 	}
 	if err != nil {
-		return Lasting{}, 0, fmt.Errorf("revoke lasting login link: %w", err)
+		return Revoked{}, fmt.Errorf("revoke lasting login link: %w", err)
 	}
-	if ended, err = session.RevokeStartedBy(ctx, tx, now, id); err != nil {
-		return Lasting{}, 0, err
+	out.Link.CreatedAt = out.Link.CreatedAt.UTC()
+	if at := out.Link.LastUsedAt; at != nil {
+		u := at.UTC()
+		out.Link.LastUsedAt = &u
 	}
+
+	byUser := map[int64]*Removed{}
+	of := func(userID int64) *Removed {
+		if byUser[userID] == nil {
+			byUser[userID] = &Removed{UserID: userID}
+		}
+		return byUser[userID]
+	}
+	ended, err := session.RevokeStartedBy(ctx, tx, now, id)
+	if err != nil {
+		return Revoked{}, err
+	}
+	for userID, n := range ended {
+		of(userID).SessionsEnded = n
+	}
+	var passkeys []deletedPasskey
+	if err := tx.SelectContext(ctx, &passkeys,
+		`DELETE FROM passkeys WHERE lasting_link_id = ? RETURNING id, user_id, name`, id); err != nil {
+		return Revoked{}, fmt.Errorf("delete the passkeys of a lasting link: %w", err)
+	}
+	// RETURNING gives the rows in no set order.
+	slices.SortFunc(passkeys, func(a, b deletedPasskey) int { return cmp.Compare(a.ID, b.ID) })
+	for _, p := range passkeys {
+		r := of(p.UserID)
+		r.PasskeysDeleted = append(r.PasskeysDeleted, p.Name)
+	}
+	// An unused login link ends as an expired one does, so it stays a row that
+	// says when it was made, and a redeemed one keeps its history.
+	var links []int64
+	if err := tx.SelectContext(ctx, &links,
+		`UPDATE login_links SET expires_at = ?
+		 WHERE lasting_link_id = ? AND redeemed_at IS NULL AND expires_at > ?
+		 RETURNING user_id`, now, id, now); err != nil {
+		return Revoked{}, fmt.Errorf("end the login links of a lasting link: %w", err)
+	}
+	for _, userID := range links {
+		of(userID).LoginLinksEnded++
+	}
+
+	for _, r := range byUser {
+		if err := tx.GetContext(ctx, &r.PasskeysLeft, `SELECT count(*) FROM passkeys WHERE user_id = ?`, r.UserID); err != nil {
+			return Revoked{}, fmt.Errorf("count passkeys: %w", err)
+		}
+		out.Users = append(out.Users, *r)
+	}
+	slices.SortFunc(out.Users, func(a, b Removed) int { return cmp.Compare(a.UserID, b.UserID) })
 	if err := tx.Commit(); err != nil {
-		return Lasting{}, 0, fmt.Errorf("commit: %w", err)
+		return Revoked{}, fmt.Errorf("commit: %w", err)
 	}
-	return link, ended, nil
+	return out, nil
 }

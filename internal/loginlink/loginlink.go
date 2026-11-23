@@ -38,19 +38,31 @@ func NewService(db *sqlx.DB, now func() time.Time) *Service {
 }
 
 // Create makes a link for a user and returns the raw token, which exists
-// nowhere else, and when the link expires. It does not check that the user
+// nowhere else, and when the link expires. lastingLinkID is the lasting link
+// that the maker's session records ([session.Session.LastingLinkID]), or 0 for
+// none: the link records it too, and so does the session it starts, so a revoke
+// of the lasting link ends both. It returns [session.ErrLastingLinkRevoked],
+// and makes nothing, when that link is revoked. It does not check that the user
 // exists: the database refuses a link for no user.
-func (s *Service) Create(ctx context.Context, userID int64) (token string, expiresAt time.Time, err error) {
+func (s *Service) Create(ctx context.Context, userID, lastingLinkID int64) (token string, expiresAt time.Time, err error) {
 	token, hash, err := session.NewToken()
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	now := s.now()
 	expiresAt = now.Add(Lifetime)
-	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO login_links (user_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-		userID, hash, now, expiresAt); err != nil {
+	link := session.LastingLinkArg(lastingLinkID)
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO login_links (user_id, token_hash, created_at, expires_at, lasting_link_id)
+		 SELECT ?, ?, ?, ?, `+session.LastingLinkValue+` WHERE `+session.LastingLinkNotRevoked,
+		userID, hash, now, expiresAt, link, link)
+	if err != nil {
 		return "", time.Time{}, fmt.Errorf("insert login link: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return "", time.Time{}, fmt.Errorf("insert login link: %w", err)
+	} else if n == 0 {
+		return "", time.Time{}, session.ErrLastingLinkRevoked
 	}
 	return token, expiresAt, nil
 }
@@ -119,7 +131,8 @@ type Result struct {
 
 // Redeem uses a link and starts a session for its user. An ordinary link works
 // once, and a lasting link any number of times: each redeem starts a new
-// session, which records the link. currentSessionID is the caller's session to
+// session, which records the link. An ordinary link that records a lasting link
+// passes it on to the session. currentSessionID is the caller's session to
 // replace, or 0 for none: it is revoked, in the same commit. A failed redemption
 // leaves it alone. It returns [ErrInvalid] for a link that does not work.
 func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int64, userAgent string) (Result, error) {
@@ -139,9 +152,12 @@ func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int
 			`UPDATE lasting_links SET last_used_at = ? WHERE token_hash = ? AND `+usableLasting+` RETURNING id, user_id`,
 			now, session.Hash(canonical)).Scan(&lastingID, &userID)
 	} else {
-		err = tx.GetContext(ctx, &userID,
-			`UPDATE login_links SET redeemed_at = ? WHERE token_hash = ? AND `+usable+` RETURNING user_id`,
-			now, session.Hash(token), now)
+		// A login link that a lasting link's session made passes the lasting
+		// link on to the session it starts.
+		err = tx.QueryRowxContext(ctx,
+			`UPDATE login_links SET redeemed_at = ? WHERE token_hash = ? AND `+usable+`
+			 RETURNING user_id, COALESCE(lasting_link_id, 0)`,
+			now, session.Hash(token), now).Scan(&userID, &lastingID)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return Result{}, ErrInvalid
@@ -159,10 +175,13 @@ func (s *Service) Redeem(ctx context.Context, token string, currentSessionID int
 		res.Replaced = ok
 		res.Switched = ok && previous != userID
 	}
-	if lasting {
-		res.Token, res.Session, err = session.CreateFromLastingLink(ctx, tx, now, userID, lastingID, userAgent)
-	} else {
-		res.Token, res.Session, err = session.Create(ctx, tx, now, userID, userAgent)
+	// The UPDATE above holds the write lock, and a revoke ends the login links
+	// that record its lasting link, so the link here is a revoked one only
+	// when the clock stepped back past the end the revoke gave it. That is an
+	// ended link, as any other.
+	res.Token, res.Session, err = session.CreateFromLastingLink(ctx, tx, now, userID, lastingID, userAgent)
+	if errors.Is(err, session.ErrLastingLinkRevoked) {
+		return Result{}, ErrInvalid
 	}
 	if err != nil {
 		return Result{}, err

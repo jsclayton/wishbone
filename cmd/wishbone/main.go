@@ -59,7 +59,7 @@ type CLI struct {
 	DeleteUser        DeleteUserCmd        `cmd:"" name:"delete-user" help:"Delete a user for good. It can't be undone. Refuses the admin."`
 	LoginLink         LoginLinkCmd         `cmd:"" name:"login-link" help:"Print a login link for a user. It works once and expires after 7 days. With --lasting, it works until it is revoked."`
 	LastingLinks      LastingLinksCmd      `cmd:"" name:"lasting-links" help:"List the lasting login links: ID, user ID, name, when made, and when last used."`
-	RevokeLastingLink RevokeLastingLinkCmd `cmd:"" name:"revoke-lasting-link" help:"Revoke a lasting login link, and sign out every session it started."`
+	RevokeLastingLink RevokeLastingLinkCmd `cmd:"" name:"revoke-lasting-link" help:"Revoke a lasting login link, sign out its sessions, and remove the passkeys and unused login links they made."`
 	Backup            BackupCmd            `cmd:"" help:"Write a snapshot of the database and images to a new directory."`
 	Healthcheck       HealthcheckCmd       `cmd:"" help:"Exit 0 if the local server is healthy. For container health checks."`
 	Version           VersionCmd           `cmd:"" help:"Show version information."`

@@ -51,7 +51,7 @@ A single-use, expiring URL that signs a browser in as a specific user. Shown as 
 _Avoid_: Magic link (in UI copy), invite, token
 
 **Lasting login link**:
-A login link that the operator makes with the CLI, for an account such as App Review's. It works any number of times and doesn't expire, until the operator revokes it. Revoking it ends the sessions it started.
+A login link that the operator makes with the CLI, for an account such as App Review's. It works any number of times and doesn't expire, until the operator revokes it. Revoking it ends the sessions it started, and removes the passkeys and unused login links that they made.
 _Avoid_: Permanent link, demo link, review link
 
 **Session**:

@@ -161,11 +161,11 @@ func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
 	}
 	require.Equal(t, 3, e.storedKeys())
 
-	link, ended, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), leakedID)
+	revoked, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), leakedID)
 
 	require.NoError(t, err)
-	require.Equal(t, mustParse(t, graceID), link.UserID)
-	require.Equal(t, 2, ended)
+	require.Equal(t, mustParse(t, graceID), revoked.Link.UserID)
+	require.Equal(t, []loginlink.Removed{{UserID: mustParse(t, graceID), SessionsEnded: 2}}, revoked.Users)
 	for _, h := range fromLeaked {
 		require.False(t, e.signedIn(h), "a session the link started ends")
 	}
@@ -185,9 +185,9 @@ func TestRevokingALastingLinkEndsTheSessionsItStartedAndNoOthers(t *testing.T) {
 	}
 	require.Equal(t, http.StatusOK, e.redeem(kept, "", nil).StatusCode)
 
-	_, _, err = e.srv.opts.LoginLinks.RevokeLasting(t.Context(), leakedID)
+	_, err = e.srv.opts.LoginLinks.RevokeLasting(t.Context(), leakedID)
 	require.ErrorIs(t, err, loginlink.ErrNotFound, "a link is revoked once")
-	_, _, err = e.srv.opts.LoginLinks.RevokeLasting(t.Context(), 999)
+	_, err = e.srv.opts.LoginLinks.RevokeLasting(t.Context(), 999)
 	require.ErrorIs(t, err, loginlink.ErrNotFound)
 }
 
@@ -202,7 +202,7 @@ func TestTheOperatorListsTheLastingLinksThatAreNotRevoked(t *testing.T) {
 	_, adminLinkID := e.makeLasting(adminID)
 	e.clock.advance(time.Hour)
 	require.Equal(t, http.StatusOK, e.redeem(used, "", nil).StatusCode)
-	_, _, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), revokedID)
+	_, err := e.srv.opts.LoginLinks.RevokeLasting(t.Context(), revokedID)
 	require.NoError(t, err)
 
 	links, err := e.srv.opts.LoginLinks.ListLasting(t.Context())
