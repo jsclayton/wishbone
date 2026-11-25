@@ -273,7 +273,7 @@ Passkey fields: `id`, `name`, `created_at`, `last_used_at`. Who sees them: self,
 |---|---|---|---|
 | GET | `/users/{id}/passkeys` | self, parent, admin | Sort: `created_at` (the default, oldest first). |
 | POST | `/users/{id}/passkeys/registration` | self | Starts a registration. Returns the options for `navigator.credentials.create`, which the user has 5 minutes to answer. |
-| POST | `/users/{id}/passkeys` | self | Body: `credential`, `name` (optional, 1 to 100 characters, default "Passkey"). Finishes the registration. 201. Codes: 400 `passkey_registration_expired` (no registration is under way, or it ran out), 400 `passkey_not_verified`, 409 `passkey_already_added`. |
+| POST | `/users/{id}/passkeys` | self | Body: `credential`, `name` (optional, 1 to 100 characters with no control character, default "Passkey"). Finishes the registration. 201. Codes: 400 `passkey_registration_expired` (no registration is under way, or it ran out), 400 `passkey_not_verified`, 409 `passkey_already_added`. |
 | PATCH | `/users/{id}/passkeys/{passkey_id}` | self | Body: `name`. |
 | DELETE | `/users/{id}/passkeys/{passkey_id}` | self, parent, admin | 204. |
 

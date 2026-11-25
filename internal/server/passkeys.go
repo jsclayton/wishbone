@@ -69,7 +69,7 @@ func passkeyPath(owner, id int64) string {
 // registration ones are the browser's answer to the options, so they say what
 // to do next, not what the server checked.
 const (
-	passkeyNameDetail = "Enter a name of 1 to 100 characters."
+	passkeyNameDetail = "Enter a name of 1 to 100 characters, with no line break or tab."
 )
 
 func passkeyProblem(err error) error {

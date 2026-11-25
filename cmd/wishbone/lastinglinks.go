@@ -122,7 +122,7 @@ func (c *RevokeLastingLinkCmd) Run() error {
 	}
 	for _, u := range noPasskey {
 		fmt.Fprintf(&b, "%s has no passkey. To sign %s in again, make a login link with 'wishbone login-link %d'.\n",
-			displayName(u), u.Name, u.ID)
+			displayName(u), firstName(u), u.ID)
 	}
 	if revoked.Link.PredatesProvenance {
 		b.WriteString(afterRevoke(owner))
@@ -161,7 +161,7 @@ func deletedPasskeys(names []string) string {
 // (docs/spec.md, Access, Lasting login links). No command lists or removes
 // one, so the operator checks in the app.
 func afterRevoke(u user.User) string {
-	name := u.Name
+	name := firstName(u)
 	whom, others := fmt.Sprintf("for %s or for one of %s's children", name, name), name+"'s children"
 	if u.IsAdmin {
 		whom, others = "for any user, because "+name+" is the admin", "every other user"

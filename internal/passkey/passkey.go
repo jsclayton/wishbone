@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -51,7 +52,8 @@ var (
 	ErrDuplicate = errors.New("passkey already registered")
 	// ErrNotFound means the user has no such passkey.
 	ErrNotFound = errors.New("no such passkey")
-	// ErrInvalidName means a passkey name is empty or too long.
+	// ErrInvalidName means a passkey name is empty or too long, or holds a
+	// control character.
 	ErrInvalidName = errors.New("invalid passkey name")
 )
 
@@ -228,10 +230,12 @@ func (s *Service) BeginRegistration(ctx context.Context, userID int64) ([]byte, 
 	return json.Marshal(creation)
 }
 
-// CleanName trims a passkey name and checks it. A blank name is [ErrInvalidName].
+// CleanName trims a passkey name and checks it. A blank or long name, or one
+// that holds a control character, is [ErrInvalidName]: the CLI prints passkey
+// names to the operator's terminal (docs/spec.md, Users).
 func CleanName(name string) (string, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > MaxNameLength {
+	if name == "" || utf8.RuneCountInString(name) > MaxNameLength || strings.ContainsFunc(name, unicode.IsControl) {
 		return "", ErrInvalidName
 	}
 	return name, nil

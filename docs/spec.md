@@ -22,6 +22,7 @@ This spec says what Wishbone does, and it is the source of truth. Terms in **bol
 - Everyone in the instance is a **user**. The **admin** is also a user. See [Admin and setup](#admin-and-setup).
 - A user can have no sessions and no passkeys. That user never signs in, and nothing else changes. For example, a toddler's parent edits the toddler's lists, and later makes the toddler a login link. There is no special state or flag for a user who can't sign in.
 - A user's profile has a name (required), an optional last name, an optional avatar, a birthday, a timezone, and **good to know**. Every user has a birthday (see [Occasions of a user](#occasions-of-a-user)).
+- A name, a last name, and a passkey's name can't hold a control character, such as a line break, a tab, or the escape that starts a terminal's escape code. Wishbone trims spaces and line breaks at the ends, and refuses one inside with a 422. The CLI prints these names to the operator's terminal (see [CLI](#cli)).
 - The web app shows a user's name followed by their last name where it lists users and on their page. A summary has only the name. Users sort by name, not by last name.
 - A user with no avatar shows initials: the first letter of the name and of the last name, or only the first letter of the name when there is no last name. A summary has no last name, so it gives one letter.
 - A birthday has a month and a day, and it may have a year. When it has a year, Home's band shows the age the user is turning. A February 29 birthday falls on February 28 in a year that isn't a leap year. A user can change their own birthday.
@@ -146,6 +147,7 @@ This spec says what Wishbone does, and it is the source of truth. Terms in **bol
 | `version` | Prints version information. |
 
 - `<user>` is the user's ID. The commands don't accept names. `wishbone users` shows the IDs.
+- The CLI escapes each control character in a name that it prints, as `\x1b` or `\n`, so that no name acts on the operator's terminal. A row from before Wishbone refused them can hold one. `delete-user` asks for the name as it prints it. A passkey's name is also quoted.
 - Only `serve` applies migrations. Every command except `backup` refuses when a migration is pending (see [Start order](#start-order)).
 
 ### Screens

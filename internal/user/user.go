@@ -26,6 +26,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jmoiron/sqlx"
@@ -189,7 +190,10 @@ type NewUser struct {
 	ParentIDs []int64
 }
 
-// cleanName trims a name and checks its length. A required name can't be empty.
+// cleanName trims a name and checks it. A required name can't be empty. A name
+// can't hold a control character, such as a line break or the escape that
+// starts a terminal's escape code: the CLI prints names to the operator's
+// terminal (docs/spec.md, Users).
 func cleanName(name, label string, required bool) (string, error) {
 	name = strings.TrimSpace(name)
 	switch {
@@ -197,6 +201,8 @@ func cleanName(name, label string, required bool) (string, error) {
 		return "", invalid("the %s is required", label)
 	case utf8.RuneCountInString(name) > MaxNameLength:
 		return "", invalid("the %s must be at most %d characters", label, MaxNameLength)
+	case strings.ContainsFunc(name, unicode.IsControl):
+		return "", invalid("the %s can't hold a line break, a tab or another control character", label)
 	}
 	return name, nil
 }
