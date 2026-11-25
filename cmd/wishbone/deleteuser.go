@@ -71,7 +71,7 @@ func (d *DeleteUserCmd) Run() error {
 	printPlan(out, name, plan)
 
 	if !d.Yes {
-		if _, err := fmt.Fprintf(out, "\nType the name %q to delete this user for good: ", name); err != nil {
+		if _, err := fmt.Fprintf(out, "\nType the name \"%s\" to delete this user for good: ", name); err != nil {
 			return err
 		}
 		answer, _ := bufio.NewReader(in).ReadString('\n')
@@ -106,12 +106,12 @@ func (d *DeleteUserCmd) Run() error {
 func printPlan(w io.Writer, name string, p userdelete.Plan) {
 	pf := func(format string, args ...any) { _, _ = fmt.Fprintf(w, format, args...) }
 	pf("Delete %s (user %d). This can't be undone.\n\n", name, p.User.ID)
-	pf("  Lists %s leaves, because another recipient stays: %d\n", p.User.Name, p.ListsLeft)
-	pf("  Lists deleted, because %s is the only recipient (the primary list too): %d\n", p.User.Name, p.ListsDeleted)
-	pf("  Open gifts that %s gives, released: %d\n", p.User.Name, p.GiftsReleased)
+	pf("  Lists %s leaves, because another recipient stays: %d\n", firstName(p.User), p.ListsLeft)
+	pf("  Lists deleted, because %s is the only recipient (the primary list too): %d\n", firstName(p.User), p.ListsDeleted)
+	pf("  Open gifts that %s gives, released: %d\n", firstName(p.User), p.GiftsReleased)
 	pf("  Open gifts of other givers on the deleted lists, deleted: %d\n", p.GiftsDeleted)
-	pf("  Gifts %s gave, kept in Received: %d\n", p.User.Name, p.GivenKept)
-	pf("  Gifts given only to %s, deleted: %d\n", p.User.Name, p.GivenDeleted)
+	pf("  Gifts %s gave, kept in Received: %d\n", firstName(p.User), p.GivenKept)
+	pf("  Gifts given only to %s, deleted: %d\n", firstName(p.User), p.GivenDeleted)
 	pf("  Sessions, login links and passkeys removed: %d, %d, %d\n", p.Sessions, p.LoginLinks, p.Passkeys)
 	if len(p.Orphans) > 0 {
 		pf("  Children left without a parent: %d\n", len(p.Orphans))

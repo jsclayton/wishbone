@@ -96,10 +96,16 @@ func TestAUserWithInputThatFailsARuleIsA422(t *testing.T) {
 		body     map[string]any
 		location string
 	}{
-		"no name":            {map[string]any{"birthday": birthday(1, 1, nil)}, "body"},
-		"a blank name":       {map[string]any{"name": "   ", "birthday": birthday(1, 1, nil)}, "body.name"},
-		"a long name":        {map[string]any{"name": long, "birthday": birthday(1, 1, nil)}, "body.name"},
-		"a long last name":   {map[string]any{"name": "G", "last_name": long, "birthday": birthday(1, 1, nil)}, "body.last_name"},
+		"no name":          {map[string]any{"birthday": birthday(1, 1, nil)}, "body"},
+		"a blank name":     {map[string]any{"name": "   ", "birthday": birthday(1, 1, nil)}, "body.name"},
+		"a long name":      {map[string]any{"name": long, "birthday": birthday(1, 1, nil)}, "body.name"},
+		"a long last name": {map[string]any{"name": "G", "last_name": long, "birthday": birthday(1, 1, nil)}, "body.last_name"},
+		"an escape code in the name": {
+			map[string]any{"name": "G\x1b[2J", "birthday": birthday(1, 1, nil)}, "body.name",
+		},
+		"a line break in the last name": {
+			map[string]any{"name": "G", "last_name": "H\nI", "birthday": birthday(1, 1, nil)}, "body.last_name",
+		},
 		"no birthday":        {map[string]any{"name": "G"}, "body"},
 		"no month":           {map[string]any{"name": "G", "birthday": map[string]any{"day": 1}}, "body.birthday"},
 		"February 30":        {map[string]any{"name": "G", "birthday": birthday(2, 30, nil)}, "body.birthday"},
@@ -147,6 +153,31 @@ func TestAPatchChangesOnlyTheFieldsItHas(t *testing.T) {
 	require.NotEqual(t, before.Name, after.Name)
 	again := e.do(request{path: "/users/" + id, header: cookie(token)})
 	require.Equal(t, again.Header.Get("ETag"), res.Header.Get("ETag"), "the answer is the full resource after the change")
+}
+
+// A user, or someone with their session, can't rename themselves to a name
+// that would act on the operator's terminal when the CLI prints it
+// (docs/spec.md, Users).
+func TestARenameToANameWithAControlCharacterIsA422AndChangesNothing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.signUp()
+	id, token := e.otherUser("Grace")
+
+	for name, body := range map[string]map[string]any{
+		"an escape code in the name":   {"name": "Grace\x1b]0;owned\x07"},
+		"a C1 control in the name":     {"name": "Grace\u009b31m"},
+		"a delete in the last name":    {"last_name": "Hop\x7fper"},
+		"a tab inside the last name":   {"last_name": "Hop\tper"},
+		"a line break inside the name": {"name": "Gra\nce"},
+	} {
+		res := e.patchUser(token, id, body, nil)
+		require.Equal(t, http.StatusUnprocessableEntity, res.StatusCode, name)
+		require.Equal(t, "invalid_input", readProblem(t, res).Code, name)
+	}
+	after := decode[userView](t, e.do(request{path: "/users/" + id, header: cookie(token)}))
+	require.Equal(t, "Grace", after.Name)
+	require.Nil(t, after.LastName)
 }
 
 func TestAPatchTakesMergePatchJSONAndPlainJSON(t *testing.T) {

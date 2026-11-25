@@ -133,6 +133,8 @@ func TestARenameWithABadBodyIsRefused(t *testing.T) {
 		"empty name":       {map[string]any{"name": ""}, http.StatusUnprocessableEntity, "invalid_input"},
 		"null name":        {map[string]any{"name": nil}, http.StatusUnprocessableEntity, "invalid_input"},
 		"long name":        {map[string]any{"name": strings.Repeat("a", 101)}, http.StatusUnprocessableEntity, "invalid_input"},
+		"escape code":      {map[string]any{"name": "Lap\x1b[2Jtop"}, http.StatusUnprocessableEntity, "invalid_input"},
+		"line break":       {map[string]any{"name": "Lap\ntop"}, http.StatusUnprocessableEntity, "invalid_input"},
 		"read-only field":  {map[string]any{"created_at": "2020-01-01T00:00:00Z"}, http.StatusForbidden, "field_not_writable"},
 		"can field":        {map[string]any{"can_edit": false}, http.StatusForbidden, "field_not_writable"},
 		"field that isn't": {map[string]any{"shade": "red"}, http.StatusUnprocessableEntity, "invalid_input"},
@@ -217,6 +219,20 @@ func TestRegistrationProblemsHaveACodeEach(t *testing.T) {
 	require.Equal(t, http.StatusConflict, res.StatusCode)
 	require.Equal(t, "passkey_already_added", readProblem(t, res).Code)
 	require.Len(t, decode[passkeyList](t, e.listPasskeys(id, cookie(token), "")).Data, 1)
+}
+
+// The CLI prints passkey names to the operator's terminal (docs/spec.md,
+// Users), so a new passkey can't have a name with a control character either.
+func TestAPasskeyAddedWithAControlCharacterInItsNameIsRefused(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	id, token := e.signUp()
+
+	res := e.registerPasskey(id, cookie(token), passkeytest.New(t), "Laptop\x1b[2J")
+
+	require.Equal(t, http.StatusUnprocessableEntity, res.StatusCode)
+	require.Equal(t, "invalid_input", readProblem(t, res).Code)
+	require.Empty(t, decode[passkeyList](t, e.listPasskeys(id, cookie(token), "")).Data)
 }
 
 func TestAPasskeyAddedWithNoNameIsCalledPasskey(t *testing.T) {

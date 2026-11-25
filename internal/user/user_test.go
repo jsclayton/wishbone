@@ -99,6 +99,41 @@ func TestNewUserValidateTrimsAndChecksTheNames(t *testing.T) {
 	require.ErrorIs(t, err, user.ErrInvalid)
 }
 
+// A control character in a name would reach the operator's terminal when the
+// CLI prints the name (docs/spec.md, Users). Other characters that aren't
+// letters, such as the joiner inside an emoji, stay.
+func TestTheNamesRefuseAControlCharacter(t *testing.T) {
+	bday := user.PartialDate{Month: 12, Day: 10}
+	set := func(s string) patch.Optional[string] { return patch.Optional[string]{Set: true, Value: &s} }
+	for _, bad := range []string{"Ada\x1b[2J", "Ada\x1b]0;owned\x07", "A\u009bda", "A\x7fda", "A\nda", "A\tda", "A\x00da"} {
+		_, err := user.NewUser{Name: bad, Birthday: bday}.Validate(now)
+		require.ErrorIs(t, err, user.ErrInvalid, "%q", bad)
+		requireField(t, err, "name")
+		_, err = user.NewUser{Name: "Ada", LastName: bad, Birthday: bday}.Validate(now)
+		require.ErrorIs(t, err, user.ErrInvalid, "%q", bad)
+		requireField(t, err, "last_name")
+
+		_, err = user.Changes{Name: set(bad)}.Validate(now)
+		require.ErrorIs(t, err, user.ErrInvalid, "%q", bad)
+		requireField(t, err, "name")
+		_, err = user.Changes{LastName: set(bad)}.Validate(now)
+		require.ErrorIs(t, err, user.ErrInvalid, "%q", bad)
+		requireField(t, err, "last_name")
+	}
+
+	cleaned, err := user.NewUser{Name: "\nJosé 👨\u200d👩\u200d👧 ", LastName: "Ō\u200cnuki\t", Birthday: bday}.Validate(now)
+	require.NoError(t, err)
+	require.Equal(t, "José 👨\u200d👩\u200d👧", cleaned.Name, "a line break at an end is trimmed, as a space is")
+	require.Equal(t, "Ō\u200cnuki", cleaned.LastName)
+}
+
+func requireField(t *testing.T, err error, name string) {
+	t.Helper()
+	var fe *user.FieldError
+	require.ErrorAs(t, err, &fe)
+	require.Equal(t, name, fe.Field)
+}
+
 func TestCreateThenGet(t *testing.T) {
 	st, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "wishbone.db"))
 	require.NoError(t, err)

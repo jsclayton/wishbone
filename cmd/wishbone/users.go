@@ -8,7 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"jsclayton.dev/wishbone/internal/config"
 	"jsclayton.dev/wishbone/internal/loginlink"
@@ -77,12 +80,46 @@ func (u *UsersCmd) Run() error {
 	return nil
 }
 
-// displayName is a user's name as the CLI prints it: the name and the last name.
+// displayName is a user's name as the CLI prints it: the name and the last name,
+// each as [cliText] prints it.
 func displayName(u user.User) string {
 	if u.LastName != nil {
-		return u.Name + " " + *u.LastName
+		return firstName(u) + " " + cliText(*u.LastName)
 	}
-	return u.Name
+	return firstName(u)
+}
+
+// firstName is a user's name without the last name, as [cliText] prints it.
+func firstName(u user.User) string {
+	return cliText(u.Name)
+}
+
+// cliText is text that a user wrote, such as a name, as the CLI prints it. Each
+// control character is escaped as Go writes it in a string (\x1b, \n), and so
+// is each byte that isn't UTF-8 (\x9b), so the text can't move the cursor,
+// change colors, or do anything else a terminal does for an escape code.
+// Wishbone refuses a control character in a name, but a row from before that
+// rule can hold one (docs/spec.md, CLI). A passkey's name is escaped too, and
+// quoted, with [strconv.Quote] (see [deletedPasskeys]).
+func cliText(s string) string {
+	if utf8.ValidString(s) && !strings.ContainsFunc(s, unicode.IsControl) {
+		return s
+	}
+	var b strings.Builder
+	for len(s) > 0 {
+		r, size := utf8.DecodeRuneInString(s)
+		switch {
+		case r == utf8.RuneError && size == 1:
+			fmt.Fprintf(&b, `\x%02x`, s[0])
+		case unicode.IsControl(r):
+			q := strconv.QuoteRune(r) // '\x1b', with the quotes
+			b.WriteString(q[1 : len(q)-1])
+		default:
+			b.WriteString(s[:size])
+		}
+		s = s[size:]
+	}
+	return b.String()
 }
 
 // SetAdminCmd moves the admin role to another user. The API can't: a user's
